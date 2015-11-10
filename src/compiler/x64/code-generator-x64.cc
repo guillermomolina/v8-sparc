@@ -768,6 +768,13 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
     case kX64Ror:
       ASSEMBLE_SHIFT(rorq, 6);
       break;
+    case kX64Lzcnt:
+      if (instr->InputAt(0)->IsRegister()) {
+        __ Lzcntq(i.OutputRegister(), i.InputRegister(0));
+      } else {
+        __ Lzcntq(i.OutputRegister(), i.InputOperand(0));
+      }
+      break;
     case kX64Lzcnt32:
       if (instr->InputAt(0)->IsRegister()) {
         __ Lzcntl(i.OutputRegister(), i.InputRegister(0));
@@ -937,6 +944,13 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
         __ Cvtlsi2sd(i.OutputDoubleRegister(), i.InputRegister(0));
       } else {
         __ Cvtlsi2sd(i.OutputDoubleRegister(), i.InputOperand(0));
+      }
+      break;
+    case kSSEInt64ToFloat64:
+      if (instr->InputAt(0)->IsRegister()) {
+        __ Cvtqsi2sd(i.OutputDoubleRegister(), i.InputRegister(0));
+      } else {
+        __ Cvtqsi2sd(i.OutputDoubleRegister(), i.InputOperand(0));
       }
       break;
     case kSSEUint32ToFloat64:

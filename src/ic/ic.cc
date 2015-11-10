@@ -47,9 +47,6 @@ char IC::TransitionMarkFromState(IC::State state) {
     // these cases fall through to the unreachable code below.
     case DEBUG_STUB:
       break;
-    // Type-vector-based ICs resolve state to one of the above.
-    case DEFAULT:
-      break;
   }
   UNREACHABLE();
   return 0;
@@ -200,6 +197,11 @@ SharedFunctionInfo* IC::GetSharedFunctionInfo() const {
   // corresponding to the frame.
   StackFrameIterator it(isolate());
   while (it.frame()->fp() != this->fp()) it.Advance();
+  if (FLAG_ignition && it.frame()->type() == StackFrame::STUB) {
+    // Advance over bytecode handler frame.
+    // TODO(rmcilroy): Remove this once bytecode handlers don't need a frame.
+    it.Advance();
+  }
   JavaScriptFrame* frame = JavaScriptFrame::cast(it.frame());
   // Find the function on the stack and both the active code for the
   // function and the original code.
@@ -293,8 +295,8 @@ bool IC::TryRemoveInvalidPrototypeDependentStub(Handle<Object> receiver,
     }
   }
 
-  if (receiver->IsGlobalObject()) {
-    Handle<GlobalObject> global = Handle<GlobalObject>::cast(receiver);
+  if (receiver->IsJSGlobalObject()) {
+    Handle<JSGlobalObject> global = Handle<JSGlobalObject>::cast(receiver);
     LookupIterator it(global, name, LookupIterator::OWN_SKIP_INTERCEPTOR);
     if (it.state() == LookupIterator::ACCESS_CHECK) return false;
     if (!it.IsFound()) return false;
@@ -332,14 +334,6 @@ void IC::UpdateState(Handle<Object> receiver, Handle<Object> name) {
     MarkPrototypeFailure(name);
     return;
   }
-
-  // The builtins object is special.  It only changes when JavaScript
-  // builtins are loaded lazily.  It is important to keep inline
-  // caches for the builtins object monomorphic.  Therefore, if we get
-  // an inline cache miss for the builtins object after lazily loading
-  // JavaScript builtins, we return uninitialized as the state to
-  // force the inline cache back to monomorphic state.
-  if (receiver->IsJSBuiltinsObject()) state_ = PREMONOMORPHIC;
 }
 
 
@@ -388,7 +382,6 @@ static void ComputeTypeInfoCountDelta(IC::State old_state, IC::State new_state,
       break;
     case PROTOTYPE_FAILURE:
     case DEBUG_STUB:
-    case DEFAULT:
       UNREACHABLE();
   }
 }
@@ -707,10 +700,10 @@ MaybeHandle<Object> LoadIC::Load(Handle<Object> object, Handle<Name> name) {
 
   bool use_ic = MigrateDeprecated(object) ? false : FLAG_use_ic;
 
-  if (object->IsGlobalObject() && name->IsString()) {
+  if (object->IsJSGlobalObject() && name->IsString()) {
     // Look up in script context table.
     Handle<String> str_name = Handle<String>::cast(name);
-    Handle<GlobalObject> global = Handle<GlobalObject>::cast(object);
+    Handle<JSGlobalObject> global = Handle<JSGlobalObject>::cast(object);
     Handle<ScriptContextTable> script_contexts(
         global->native_context()->script_context_table());
 
@@ -918,7 +911,6 @@ void IC::PatchCache(Handle<Name> name, Handle<Code> code) {
       break;
     case DEBUG_STUB:
       break;
-    case DEFAULT:
     case GENERIC:
       UNREACHABLE();
       break;
@@ -1064,7 +1056,7 @@ void LoadIC::UpdateCaches(LookupIterator* lookup) {
         Handle<Object> receiver = lookup->GetReceiver();
         if (getter->IsJSFunction() && holder->HasFastProperties()) {
           Handle<JSFunction> function = Handle<JSFunction>::cast(getter);
-          if (receiver->IsJSObject() || function->IsBuiltin() ||
+          if (receiver->IsJSObject() || function->shared()->IsBuiltin() ||
               !is_sloppy(function->shared()->language_mode())) {
             CallOptimization call_optimization(function);
             if (call_optimization.is_simple_api_call() &&
@@ -1223,7 +1215,7 @@ Handle<Code> LoadIC::CompileHandler(LookupIterator* lookup,
         // When debugging we need to go the slow path to flood the accessor.
         if (GetSharedFunctionInfo()->HasDebugInfo()) break;
         Handle<JSFunction> function = Handle<JSFunction>::cast(getter);
-        if (!receiver->IsJSObject() && !function->IsBuiltin() &&
+        if (!receiver->IsJSObject() && !function->shared()->IsBuiltin() &&
             is_sloppy(function->shared()->language_mode())) {
           // Calling sloppy non-builtins with a value as the receiver
           // requires boxing.
@@ -1251,7 +1243,7 @@ Handle<Code> LoadIC::CompileHandler(LookupIterator* lookup,
     case LookupIterator::DATA: {
       if (lookup->is_dictionary_holder()) {
         if (kind() != Code::LOAD_IC) break;
-        if (holder->IsGlobalObject()) {
+        if (holder->IsJSGlobalObject()) {
           NamedLoadHandlerCompiler compiler(isolate(), map, holder,
                                             cache_holder);
           Handle<PropertyCell> cell = lookup->GetPropertyCell();
@@ -1526,10 +1518,10 @@ MaybeHandle<Object> StoreIC::Store(Handle<Object> object, Handle<Name> name,
     return result;
   }
 
-  if (object->IsGlobalObject() && name->IsString()) {
+  if (object->IsJSGlobalObject() && name->IsString()) {
     // Look up in script context table.
     Handle<String> str_name = Handle<String>::cast(name);
-    Handle<GlobalObject> global = Handle<GlobalObject>::cast(object);
+    Handle<JSGlobalObject> global = Handle<JSGlobalObject>::cast(object);
     Handle<ScriptContextTable> script_contexts(
         global->native_context()->script_context_table());
 
@@ -1591,26 +1583,23 @@ MaybeHandle<Object> StoreIC::Store(Handle<Object> object, Handle<Name> name,
   LookupIterator it(object, name);
   if (FLAG_use_ic) UpdateCaches(&it, value, store_mode);
 
-  // Set the property.
-  Handle<Object> result;
-  ASSIGN_RETURN_ON_EXCEPTION(
-      isolate(), result,
-      Object::SetProperty(&it, value, language_mode(), store_mode), Object);
-  return result;
+  MAYBE_RETURN_NULL(
+      Object::SetProperty(&it, value, language_mode(), store_mode));
+  return value;
 }
 
 
 Handle<Code> CallIC::initialize_stub(Isolate* isolate, int argc,
-                                     CallICState::CallType call_type) {
-  CallICTrampolineStub stub(isolate, CallICState(argc, call_type));
+                                     ConvertReceiverMode mode) {
+  CallICTrampolineStub stub(isolate, CallICState(argc, mode));
   Handle<Code> code = stub.GetCode();
   return code;
 }
 
 
 Handle<Code> CallIC::initialize_stub_in_optimized_code(
-    Isolate* isolate, int argc, CallICState::CallType call_type) {
-  CallICStub stub(isolate, CallICState(argc, call_type));
+    Isolate* isolate, int argc, ConvertReceiverMode mode) {
+  CallICStub stub(isolate, CallICState(argc, mode));
   Handle<Code> code = stub.GetCode();
   return code;
 }
@@ -1714,7 +1703,7 @@ void StoreIC::UpdateCaches(LookupIterator* lookup, Handle<Object> value,
 
 
 static Handle<Code> PropertyCellStoreHandler(
-    Isolate* isolate, Handle<JSObject> receiver, Handle<GlobalObject> holder,
+    Isolate* isolate, Handle<JSObject> receiver, Handle<JSGlobalObject> holder,
     Handle<Name> name, Handle<PropertyCell> cell, PropertyCellType type) {
   auto constant_type = Nothing<PropertyCellConstantType>();
   if (type == PropertyCellType::kConstantType) {
@@ -1743,12 +1732,12 @@ Handle<Code> StoreIC::CompileHandler(LookupIterator* lookup,
   switch (lookup->state()) {
     case LookupIterator::TRANSITION: {
       auto store_target = lookup->GetStoreTarget();
-      if (store_target->IsGlobalObject()) {
+      if (store_target->IsJSGlobalObject()) {
         // TODO(dcarney): this currently just deopts. Use the transition cell.
         auto cell = isolate()->factory()->NewPropertyCell();
         cell->set_value(*value);
         auto code = PropertyCellStoreHandler(
-            isolate(), store_target, Handle<GlobalObject>::cast(store_target),
+            isolate(), store_target, Handle<JSGlobalObject>::cast(store_target),
             lookup->name(), cell, PropertyCellType::kConstant);
         cell->set_value(isolate()->heap()->the_hole_value());
         return code;
@@ -1826,14 +1815,14 @@ Handle<Code> StoreIC::CompileHandler(LookupIterator* lookup,
 
     case LookupIterator::DATA: {
       if (lookup->is_dictionary_holder()) {
-        if (holder->IsGlobalObject()) {
+        if (holder->IsJSGlobalObject()) {
           DCHECK(holder.is_identical_to(receiver) ||
                  receiver->map()->prototype() == *holder);
           auto cell = lookup->GetPropertyCell();
           auto updated_type = PropertyCell::UpdatedType(
               cell, value, lookup->property_details());
           auto code = PropertyCellStoreHandler(
-              isolate(), receiver, Handle<GlobalObject>::cast(holder),
+              isolate(), receiver, Handle<JSGlobalObject>::cast(holder),
               lookup->name(), cell, updated_type);
           return code;
         }
@@ -2260,7 +2249,8 @@ MaybeHandle<Object> KeyedStoreIC::Store(Handle<Object> object,
           // from peeking in the code bits of the handlers.
           if (!FLAG_vector_stores) ValidateStoreMode(stub);
         } else {
-          TRACE_GENERIC_IC(isolate(), "KeyedStoreIC", "dictionary prototype");
+          TRACE_GENERIC_IC(isolate(), "KeyedStoreIC",
+                           "dictionary or proxy prototype");
         }
       } else {
         TRACE_GENERIC_IC(isolate(), "KeyedStoreIC", "non-smi-like key");

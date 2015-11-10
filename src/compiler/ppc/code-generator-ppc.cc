@@ -944,6 +944,12 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       __ cntlzw_(i.OutputRegister(), i.InputRegister(0));
       DCHECK_EQ(LeaveRC, i.OutputRCBit());
       break;
+#if V8_TARGET_ARCH_PPC64
+    case kPPC_Cntlz64:
+      __ cntlzd_(i.OutputRegister(), i.InputRegister(0));
+      DCHECK_EQ(LeaveRC, i.OutputRCBit());
+      break;
+#endif
     case kPPC_Popcnt32:
       __ popcntw(i.OutputRegister(), i.InputRegister(0));
       DCHECK_EQ(LeaveRC, i.OutputRCBit());
@@ -1029,6 +1035,10 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
     case kPPC_Int64ToInt32:
       // TODO(mbrandy): sign extend?
       __ Move(i.OutputRegister(), i.InputRegister(0));
+      DCHECK_EQ(LeaveRC, i.OutputRCBit());
+      break;
+    case kPPC_Int64ToDouble:
+      __ ConvertInt64ToDouble(i.InputRegister(0), i.OutputDoubleRegister());
       DCHECK_EQ(LeaveRC, i.OutputRCBit());
       break;
 #endif

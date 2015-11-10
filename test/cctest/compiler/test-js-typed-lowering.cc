@@ -15,8 +15,9 @@
 #include "src/compiler/typer.h"
 #include "test/cctest/cctest.h"
 
-using namespace v8::internal;
-using namespace v8::internal::compiler;
+namespace v8 {
+namespace internal {
+namespace compiler {
 
 #ifndef TEST_WITH_STRONG
 #define TEST_WITH_STRONG(Name)                                                 \
@@ -543,8 +544,7 @@ TEST(JSToString1) {
 
   {  // ToString(boolean)
     Node* r = R.ReduceUnop(op, Type::Boolean());
-    // TODO(titzer): could be a branch
-    CHECK_EQ(IrOpcode::kJSToString, r->opcode());
+    CHECK_EQ(IrOpcode::kSelect, r->opcode());
   }
 
   {  // ToString(number)
@@ -572,8 +572,9 @@ TEST(JSToString_replacement) {
 
   for (size_t i = 0; i < arraysize(types); i++) {
     Node* n = R.Parameter(types[i]);
-    Node* c = R.graph.NewNode(R.javascript.ToString(), n, R.context(),
-                              R.start(), R.start());
+    Node* c =
+        R.graph.NewNode(R.javascript.ToString(), n, R.context(),
+                        R.EmptyFrameState(R.context()), R.start(), R.start());
     Node* effect_use = R.UseForEffect(c);
     Node* add = R.graph.NewNode(R.simplified.ReferenceEqual(Type::Any()), n, c);
 
@@ -1262,3 +1263,7 @@ TEST_WITH_STRONG(Int32Comparisons) {
     }
   }
 }
+
+}  // namespace compiler
+}  // namespace internal
+}  // namespace v8

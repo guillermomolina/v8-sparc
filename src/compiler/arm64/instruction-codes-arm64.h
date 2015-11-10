@@ -18,6 +18,7 @@ namespace compiler {
   V(Arm64And32)                    \
   V(Arm64Bic)                      \
   V(Arm64Bic32)                    \
+  V(Arm64Clz)                      \
   V(Arm64Clz32)                    \
   V(Arm64Cmp)                      \
   V(Arm64Cmp32)                    \
@@ -107,6 +108,7 @@ namespace compiler {
   V(Arm64Float64ToInt32)           \
   V(Arm64Float64ToUint32)          \
   V(Arm64Int32ToFloat64)           \
+  V(Arm64Int64ToFloat64)           \
   V(Arm64Uint32ToFloat64)          \
   V(Arm64Float64ExtractLowWord32)  \
   V(Arm64Float64ExtractHighWord32) \

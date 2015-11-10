@@ -17,9 +17,9 @@
 #include "test/cctest/compiler/graph-builder-tester.h"
 #include "test/cctest/compiler/value-helper.h"
 
-using namespace v8::base;
-using namespace v8::internal;
-using namespace v8::internal::compiler;
+namespace v8 {
+namespace internal {
+namespace compiler {
 
 typedef RawMachineAssembler::Label MLabel;
 
@@ -364,8 +364,8 @@ class ArgsBuffer {
   Node* StoreOutput(RawMachineAssembler& raw, Node* value) {
     Node* base = raw.PointerConstant(&output);
     Node* offset = raw.Int32Constant(0);
-    return raw.Store(StoreRepresentationForC<CType>(kNoWriteBarrier), base,
-                     offset, value);
+    return raw.Store(MachineTypeForC<CType>(), base, offset, value,
+                     kNoWriteBarrier);
   }
 
   // Computes the next set of inputs by updating the {input} array.
@@ -577,8 +577,7 @@ static void CopyTwentyInt32(CallDescriptor* desc) {
     Node* base = raw.PointerConstant(output);
     for (int i = 0; i < kNumParams; i++) {
       Node* offset = raw.Int32Constant(i * sizeof(int32_t));
-      raw.Store(StoreRepresentation(kMachInt32, kNoWriteBarrier), base, offset,
-                raw.Parameter(i));
+      raw.Store(kMachInt32, base, offset, raw.Parameter(i), kNoWriteBarrier);
     }
     raw.Return(raw.Int32Constant(42));
     inner = CompileGraph("CopyTwentyInt32", desc, &graph, raw.Export());
@@ -1146,8 +1145,7 @@ void MixedParamTest(int start) {
         }
 
         Node* call = raw.CallN(desc, target, args);
-        StoreRepresentation store_rep(sig->GetReturn(), kNoWriteBarrier);
-        Node* store = raw.StoreToPointer(output, store_rep, call);
+        Node* store = raw.StoreToPointer(output, sig->GetReturn(), call);
         USE(store);
         expected_ret = static_cast<int32_t>(constant);
         raw.Return(raw.Int32Constant(expected_ret));
@@ -1169,3 +1167,7 @@ TEST(MixedParams_0) { MixedParamTest(0); }
 TEST(MixedParams_1) { MixedParamTest(1); }
 TEST(MixedParams_2) { MixedParamTest(2); }
 TEST(MixedParams_3) { MixedParamTest(3); }
+
+}  // namespace compiler
+}  // namespace internal
+}  // namespace v8

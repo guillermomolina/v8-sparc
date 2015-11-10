@@ -12,6 +12,7 @@
 #include "src/compiler/ast-graph-builder.h"
 #include "src/compiler/ast-loop-assignment-analyzer.h"
 #include "src/compiler/basic-block-instrumentor.h"
+#include "src/compiler/binary-operator-reducer.h"
 #include "src/compiler/branch-elimination.h"
 #include "src/compiler/bytecode-graph-builder.h"
 #include "src/compiler/change-lowering.h"
@@ -31,6 +32,7 @@
 #include "src/compiler/js-context-specialization.h"
 #include "src/compiler/js-frame-specialization.h"
 #include "src/compiler/js-generic-lowering.h"
+#include "src/compiler/js-global-object-specialization.h"
 #include "src/compiler/js-inlining-heuristic.h"
 #include "src/compiler/js-intrinsic-lowering.h"
 #include "src/compiler/js-native-context-specialization.h"
@@ -392,6 +394,8 @@ class SourcePositionWrapper final : public Reducer {
     return reducer_->Reduce(node);
   }
 
+  void Finalize() final { reducer_->Finalize(); }
+
  private:
   Reducer* const reducer_;
   SourcePositionTable* const table_;
@@ -500,15 +504,24 @@ struct NativeContextSpecializationPhase {
                                               data->common());
     CommonOperatorReducer common_reducer(&graph_reducer, data->graph(),
                                          data->common(), data->machine());
+    JSGlobalObjectSpecialization global_object_specialization(
+        &graph_reducer, data->jsgraph(),
+        data->info()->is_deoptimization_enabled()
+            ? JSGlobalObjectSpecialization::kDeoptimizationEnabled
+            : JSGlobalObjectSpecialization::kNoFlags,
+        handle(data->info()->global_object(), data->isolate()),
+        data->info()->dependencies());
     JSNativeContextSpecialization native_context_specialization(
         &graph_reducer, data->jsgraph(),
         data->info()->is_deoptimization_enabled()
             ? JSNativeContextSpecialization::kDeoptimizationEnabled
             : JSNativeContextSpecialization::kNoFlags,
-        handle(data->info()->global_object(), data->isolate()),
+        handle(data->info()->global_object()->native_context(),
+               data->isolate()),
         data->info()->dependencies(), temp_zone);
     AddReducer(data, &graph_reducer, &dead_code_elimination);
     AddReducer(data, &graph_reducer, &common_reducer);
+    AddReducer(data, &graph_reducer, &global_object_specialization);
     AddReducer(data, &graph_reducer, &native_context_specialization);
     graph_reducer.ReduceGraph();
   }
@@ -544,7 +557,6 @@ struct InliningPhase {
     AddReducer(data, &graph_reducer, &context_specialization);
     AddReducer(data, &graph_reducer, &inlining);
     graph_reducer.ReduceGraph();
-    inlining.ProcessCandidates();
   }
 };
 
@@ -629,11 +641,14 @@ struct SimplifiedLoweringPhase {
     MachineOperatorReducer machine_reducer(data->jsgraph());
     CommonOperatorReducer common_reducer(&graph_reducer, data->graph(),
                                          data->common(), data->machine());
+    BinaryOperatorReducer binary_reducer(&graph_reducer, data->graph(),
+                                         data->common(), data->machine());
     AddReducer(data, &graph_reducer, &dead_code_elimination);
     AddReducer(data, &graph_reducer, &simple_reducer);
     AddReducer(data, &graph_reducer, &value_numbering);
     AddReducer(data, &graph_reducer, &machine_reducer);
     AddReducer(data, &graph_reducer, &common_reducer);
+    AddReducer(data, &graph_reducer, &binary_reducer);
     graph_reducer.ReduceGraph();
   }
 };

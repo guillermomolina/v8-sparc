@@ -240,6 +240,7 @@ namespace internal {
   V(enumerable_string, "enumerable")                       \
   V(Error_string, "Error")                                 \
   V(eval_string, "eval")                                   \
+  V(false_string, "false")                                 \
   V(float32x4_string, "float32x4")                         \
   V(Float32x4_string, "Float32x4")                         \
   V(for_api_string, "for_api")                             \
@@ -249,7 +250,6 @@ namespace internal {
   V(Generator_string, "Generator")                         \
   V(get_string, "get")                                     \
   V(global_string, "global")                               \
-  V(ignore_case_string, "ignoreCase")                      \
   V(illegal_access_string, "illegal access")               \
   V(illegal_argument_string, "illegal argument")           \
   V(index_string, "index")                                 \
@@ -268,7 +268,6 @@ namespace internal {
   V(Map_string, "Map")                                     \
   V(minus_infinity_string, "-Infinity")                    \
   V(minus_zero_string, "-0")                               \
-  V(multiline_string, "multiline")                         \
   V(name_string, "name")                                   \
   V(nan_string, "NaN")                                     \
   V(next_string, "next")                                   \
@@ -277,6 +276,7 @@ namespace internal {
   V(Number_string, "Number")                               \
   V(object_string, "object")                               \
   V(Object_string, "Object")                               \
+  V(private_api_string, "private_api")                     \
   V(proto_string, "__proto__")                             \
   V(prototype_string, "prototype")                         \
   V(query_colon_string, "(?:)")                            \
@@ -287,7 +287,6 @@ namespace internal {
   V(source_string, "source")                               \
   V(source_url_string, "source_url")                       \
   V(stack_string, "stack")                                 \
-  V(sticky_string, "sticky")                               \
   V(strict_compare_ic_string, "===")                       \
   V(string_string, "string")                               \
   V(String_string, "String")                               \
@@ -297,6 +296,7 @@ namespace internal {
   V(throw_string, "throw")                                 \
   V(toJSON_string, "toJSON")                               \
   V(toString_string, "toString")                           \
+  V(true_string, "true")                                   \
   V(uint16x8_string, "uint16x8")                           \
   V(Uint16x8_string, "Uint16x8")                           \
   V(uint32x4_string, "uint32x4")                           \
@@ -304,7 +304,6 @@ namespace internal {
   V(uint8x16_string, "uint8x16")                           \
   V(Uint8x16_string, "Uint8x16")                           \
   V(undefined_string, "undefined")                         \
-  V(unicode_string, "unicode")                             \
   V(valueOf_string, "valueOf")                             \
   V(value_string, "value")                                 \
   V(WeakMap_string, "WeakMap")                             \
@@ -356,22 +355,21 @@ namespace internal {
 
 #define PUBLIC_SYMBOL_LIST(V)                 \
   V(has_instance_symbol, Symbol.hasInstance)  \
-  V(is_regexp_symbol, Symbol.isRegExp)        \
   V(iterator_symbol, Symbol.iterator)         \
   V(match_symbol, Symbol.match)               \
   V(replace_symbol, Symbol.replace)           \
   V(search_symbol, Symbol.search)             \
   V(split_symbol, Symbol.split)               \
   V(to_primitive_symbol, Symbol.toPrimitive)  \
-  V(to_string_tag_symbol, Symbol.toStringTag) \
   V(unscopables_symbol, Symbol.unscopables)
 
 // Well-Known Symbols are "Public" symbols, which have a bit set which causes
 // them to produce an undefined value when a load results in a failed access
 // check. Because this behaviour is not specified properly as of yet, it only
 // applies to a subset of spec-defined Well-Known Symbols.
-#define WELL_KNOWN_SYMBOL_LIST(V) \
-  V(is_concat_spreadable_symbol, Symbol.isConcatSpreadable)
+#define WELL_KNOWN_SYMBOL_LIST(V)                           \
+  V(is_concat_spreadable_symbol, Symbol.isConcatSpreadable) \
+  V(to_string_tag_symbol, Symbol.toStringTag)
 
 // Heap roots that are known to be immortal immovable, for which we can safely
 // skip write barriers. This list is not complete and has omissions.
@@ -1800,7 +1798,6 @@ class Heap {
   void IdleNotificationEpilogue(GCIdleTimeAction action,
                                 GCIdleTimeHeapState heap_state, double start_ms,
                                 double deadline_in_ms);
-  void CheckBackgroundIdleNotification(double idle_time_in_ms, double now_ms);
 
   inline void UpdateAllocationsHash(HeapObject* object);
   inline void UpdateAllocationsHash(uint32_t value);
@@ -1897,13 +1894,6 @@ class Heap {
   // Sets the allocation limit to trigger the next full garbage collection.
   void SetOldGenerationAllocationLimit(intptr_t old_gen_size, double gc_speed,
                                        double mutator_speed);
-
-  // ===========================================================================
-  // Inline allocation. ========================================================
-  // ===========================================================================
-
-  void LowerInlineAllocationLimit(intptr_t step);
-  void ResetInlineAllocationLimit();
 
   // ===========================================================================
   // Idle notification. ========================================================
@@ -2292,6 +2282,8 @@ class Heap {
 
   ScavengeJob* scavenge_job_;
 
+  InlineAllocationObserver* idle_scavenge_observer_;
+
   // These two counters are monotomically increasing and never reset.
   size_t full_codegen_bytes_generated_;
   size_t crankshaft_codegen_bytes_generated_;
@@ -2362,6 +2354,7 @@ class Heap {
   friend class GCCallbacksScope;
   friend class GCTracer;
   friend class HeapIterator;
+  friend class IdleScavengeObserver;
   friend class IncrementalMarking;
   friend class MarkCompactCollector;
   friend class MarkCompactMarkingVisitor;
@@ -2432,14 +2425,14 @@ class AlwaysAllocateScope {
 // objects in a heap space but above the allocation pointer.
 class VerifyPointersVisitor : public ObjectVisitor {
  public:
-  inline void VisitPointers(Object** start, Object** end);
+  inline void VisitPointers(Object** start, Object** end) override;
 };
 
 
 // Verify that all objects are Smis.
 class VerifySmisVisitor : public ObjectVisitor {
  public:
-  inline void VisitPointers(Object** start, Object** end);
+  inline void VisitPointers(Object** start, Object** end) override;
 };
 
 
@@ -2700,7 +2693,7 @@ class PathTracer : public ObjectVisitor {
         object_stack_(20),
         no_allocation() {}
 
-  virtual void VisitPointers(Object** start, Object** end);
+  void VisitPointers(Object** start, Object** end) override;
 
   void Reset();
   void TracePathFrom(Object** root);

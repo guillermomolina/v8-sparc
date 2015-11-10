@@ -923,7 +923,7 @@ void Debug::PrepareStep(StepAction step_action,
     }
     // Skip native and extension functions on the stack.
     while (!frames_it.done() &&
-           !frames_it.frame()->function()->IsSubjectToDebugging()) {
+           !frames_it.frame()->function()->shared()->IsSubjectToDebugging()) {
       frames_it.Advance();
     }
     // Step out: If there is a JavaScript caller frame, we need to
@@ -1305,8 +1305,16 @@ bool Debug::PrepareFunctionForBreakPoints(Handle<SharedFunctionInfo> shared) {
   List<Handle<JSFunction> > functions;
   List<Handle<JSGeneratorObject> > suspended_generators;
 
-  if (!shared->optimized_code_map()->IsSmi()) {
-    shared->ClearOptimizedCodeMap();
+  // Flush all optimized code maps. Note that the below heap iteration does not
+  // cover this, because the given function might have been inlined into code
+  // for which no JSFunction exists.
+  {
+    SharedFunctionInfo::Iterator iterator(isolate_);
+    while (SharedFunctionInfo* shared = iterator.Next()) {
+      if (!shared->optimized_code_map()->IsSmi()) {
+        shared->ClearOptimizedCodeMap();
+      }
+    }
   }
 
   // Make sure we abort incremental marking.
@@ -1596,7 +1604,7 @@ void Debug::FramesHaveBeenDropped(StackFrame::Id new_break_frame_id,
 }
 
 
-bool Debug::IsDebugGlobal(GlobalObject* global) {
+bool Debug::IsDebugGlobal(JSGlobalObject* global) {
   return is_loaded() && global == debug_context()->global_object();
 }
 
@@ -2244,8 +2252,9 @@ void Debug::HandleDebugBreak() {
     Object* fun = it.frame()->function();
     if (fun && fun->IsJSFunction()) {
       // Don't stop in builtin functions.
-      if (!JSFunction::cast(fun)->IsSubjectToDebugging()) return;
-      GlobalObject* global = JSFunction::cast(fun)->context()->global_object();
+      if (!JSFunction::cast(fun)->shared()->IsSubjectToDebugging()) return;
+      JSGlobalObject* global =
+          JSFunction::cast(fun)->context()->global_object();
       // Don't stop in debugger functions.
       if (IsDebugGlobal(global)) return;
     }

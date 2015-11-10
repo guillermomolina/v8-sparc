@@ -4652,9 +4652,11 @@ TEST(NoHiddenProperties) {
   v8::Local<v8::Object> obj = v8::Local<v8::Object>::Cast(
       env->Global()->Get(v8::String::NewFromUtf8(isolate, "obj")));
   // Set a hidden property on the object.
-  obj->SetHiddenValue(
-      v8::String::NewFromUtf8(isolate, "v8::test-debug::a"),
-      v8::Int32::New(isolate, 11));
+  obj->SetPrivate(env.context(),
+                  v8::Private::New(isolate, v8::String::NewFromUtf8(
+                                                isolate, "v8::test-debug::a")),
+                  v8::Int32::New(isolate, 11))
+      .FromJust();
 
   // Get mirror for the object with property getter.
   CompileRun("var obj_mirror = debug.MakeMirror(obj);");
@@ -4681,18 +4683,23 @@ TEST(NoHiddenProperties) {
   // Create proto objects, add hidden properties to them and set them on
   // the global object.
   v8::Handle<v8::Object> protoObj = t0->GetFunction()->NewInstance();
-  protoObj->SetHiddenValue(
-      v8::String::NewFromUtf8(isolate, "v8::test-debug::b"),
-      v8::Int32::New(isolate, 12));
+  protoObj->SetPrivate(
+              env.context(),
+              v8::Private::New(isolate, v8::String::NewFromUtf8(
+                                            isolate, "v8::test-debug::b")),
+              v8::Int32::New(isolate, 12))
+      .FromJust();
   env->Global()->Set(v8::String::NewFromUtf8(isolate, "protoObj"),
                      protoObj);
   v8::Handle<v8::Object> grandProtoObj = t1->GetFunction()->NewInstance();
-  grandProtoObj->SetHiddenValue(
-      v8::String::NewFromUtf8(isolate, "v8::test-debug::c"),
-      v8::Int32::New(isolate, 13));
-  env->Global()->Set(
-      v8::String::NewFromUtf8(isolate, "grandProtoObj"),
-      grandProtoObj);
+  grandProtoObj->SetPrivate(
+                   env.context(),
+                   v8::Private::New(isolate, v8::String::NewFromUtf8(
+                                                 isolate, "v8::test-debug::c")),
+                   v8::Int32::New(isolate, 13))
+      .FromJust();
+  env->Global()->Set(v8::String::NewFromUtf8(isolate, "grandProtoObj"),
+                     grandProtoObj);
 
   // Setting prototypes: obj->protoObj->grandProtoObj
   protoObj->Set(v8::String::NewFromUtf8(isolate, "__proto__"),
@@ -6699,10 +6706,6 @@ TEST(Backtrace) {
 
   v8::Debug::SetMessageHandler(BacktraceData::MessageHandler);
 
-  // TODO(mstarzinger): This doesn't work with --always-opt because we don't
-  // have correct source positions in optimized code. Enable once we have.
-  i::FLAG_always_opt = false;
-
   const int kBufferSize = 1000;
   uint16_t buffer[kBufferSize];
   const char* scripts_command =
@@ -6807,9 +6810,6 @@ static void NamedGetterWithCallingContextCheck(
   v8::Handle<v8::Context> current = info.GetIsolate()->GetCurrentContext();
   CHECK(current == debugee_context);
   CHECK(current != debugger_context);
-  v8::Handle<v8::Context> calling = info.GetIsolate()->GetCallingContext();
-  CHECK(calling == debugee_context);
-  CHECK(calling != debugger_context);
   info.GetReturnValue().Set(1);
 }
 

@@ -2156,8 +2156,8 @@ TEST_P(InstructionSelectorMemoryAccessTest, LoadWithImmediateIndex) {
 TEST_P(InstructionSelectorMemoryAccessTest, StoreWithParameters) {
   const MemoryAccess memacc = GetParam();
   StreamBuilder m(this, kMachInt32, kMachPtr, kMachInt32, memacc.type);
-  StoreRepresentation store_rep(memacc.type, kNoWriteBarrier);
-  m.Store(store_rep, m.Parameter(0), m.Parameter(1), m.Parameter(2));
+  m.Store(memacc.type, m.Parameter(0), m.Parameter(1), m.Parameter(2),
+          kNoWriteBarrier);
   m.Return(m.Int32Constant(0));
   Stream s = m.Build();
   ASSERT_EQ(1U, s.size());
@@ -2172,8 +2172,8 @@ TEST_P(InstructionSelectorMemoryAccessTest, StoreWithImmediateIndex) {
   const MemoryAccess memacc = GetParam();
   TRACED_FOREACH(int32_t, index, memacc.immediates) {
     StreamBuilder m(this, kMachInt32, kMachPtr, memacc.type);
-    StoreRepresentation store_rep(memacc.type, kNoWriteBarrier);
-    m.Store(store_rep, m.Parameter(0), m.Int32Constant(index), m.Parameter(1));
+    m.Store(memacc.type, m.Parameter(0), m.Int32Constant(index), m.Parameter(1),
+            kNoWriteBarrier);
     m.Return(m.Int32Constant(0));
     Stream s = m.Build();
     ASSERT_EQ(1U, s.size());
@@ -2530,6 +2530,71 @@ TEST_F(InstructionSelectorTest, Word32EqualZeroWithWord32Equal) {
     EXPECT_EQ(1U, s[0]->OutputCount());
     EXPECT_EQ(kFlags_set, s[0]->flags_mode());
     EXPECT_EQ(kNotEqual, s[0]->flags_condition());
+  }
+}
+
+namespace {
+
+struct IntegerCmp {
+  MachInst2 mi;
+  FlagsCondition cond;
+};
+
+
+std::ostream& operator<<(std::ostream& os, const IntegerCmp& cmp) {
+  return os << cmp.mi;
+}
+
+
+// ARM64 32-bit integer comparison instructions.
+const IntegerCmp kIntegerCmpInstructions[] = {
+    {{&RawMachineAssembler::Word32Equal, "Word32Equal", kArm64Cmp32,
+      kMachInt32},
+     kEqual},
+    {{&RawMachineAssembler::Int32LessThan, "Int32LessThan", kArm64Cmp32,
+      kMachInt32},
+     kSignedLessThan},
+    {{&RawMachineAssembler::Int32LessThanOrEqual, "Int32LessThanOrEqual",
+      kArm64Cmp32, kMachInt32},
+     kSignedLessThanOrEqual},
+    {{&RawMachineAssembler::Uint32LessThan, "Uint32LessThan", kArm64Cmp32,
+      kMachUint32},
+     kUnsignedLessThan},
+    {{&RawMachineAssembler::Uint32LessThanOrEqual, "Uint32LessThanOrEqual",
+      kArm64Cmp32, kMachUint32},
+     kUnsignedLessThanOrEqual}};
+
+}  // namespace
+
+
+TEST_F(InstructionSelectorTest, Word32CompareNegateWithWord32Shift) {
+  TRACED_FOREACH(IntegerCmp, cmp, kIntegerCmpInstructions) {
+    TRACED_FOREACH(Shift, shift, kShiftInstructions) {
+      // Test 32-bit operations. Ignore ROR shifts, as compare-negate does not
+      // support them.
+      if (shift.mi.machine_type != kMachInt32 ||
+          shift.mi.arch_opcode == kArm64Ror32) {
+        continue;
+      }
+
+      TRACED_FORRANGE(int32_t, imm, -32, 63) {
+        StreamBuilder m(this, kMachInt32, kMachInt32, kMachInt32);
+        Node* const p0 = m.Parameter(0);
+        Node* const p1 = m.Parameter(1);
+        Node* r = (m.*shift.mi.constructor)(p1, m.Int32Constant(imm));
+        m.Return(
+            (m.*cmp.mi.constructor)(p0, m.Int32Sub(m.Int32Constant(0), r)));
+        Stream s = m.Build();
+        ASSERT_EQ(1U, s.size());
+        EXPECT_EQ(kArm64Cmn32, s[0]->arch_opcode());
+        EXPECT_EQ(3U, s[0]->InputCount());
+        EXPECT_EQ(shift.mode, s[0]->addressing_mode());
+        EXPECT_EQ(imm, s.ToInt32(s[0]->InputAt(2)));
+        EXPECT_EQ(1U, s[0]->OutputCount());
+        EXPECT_EQ(kFlags_set, s[0]->flags_mode());
+        EXPECT_EQ(cmp.cond, s[0]->flags_condition());
+      }
+    }
   }
 }
 

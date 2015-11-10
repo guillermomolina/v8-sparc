@@ -109,6 +109,7 @@ class GCTracer {
       MC_MARK_WEAK_REFERENCES,
       MC_MARK_GLOBAL_HANDLES,
       MC_MARK_CODE_FLUSH,
+      MC_MARK_OPTIMIZED_CODE_MAPS,
       MC_STORE_BUFFER_CLEAR,
       MC_SLOTS_BUFFER_CLEAR,
       MC_SWEEP,
@@ -175,6 +176,18 @@ class GCTracer {
     // Memory allocated in the new space during the end of the last sample
     // to the beginning of the next sample
     size_t allocation_in_bytes_;
+  };
+
+
+  class CompactionEvent {
+   public:
+    CompactionEvent() : duration(0), live_bytes_compacted(0) {}
+
+    CompactionEvent(double duration, intptr_t live_bytes_compacted)
+        : duration(duration), live_bytes_compacted(live_bytes_compacted) {}
+
+    double duration;
+    intptr_t live_bytes_compacted;
   };
 
 
@@ -314,6 +327,8 @@ class GCTracer {
   typedef RingBuffer<ContextDisposalEvent, kRingBufferMaxSize>
       ContextDisposalEventBuffer;
 
+  typedef RingBuffer<CompactionEvent, kRingBufferMaxSize> CompactionEventBuffer;
+
   typedef RingBuffer<SurvivalEvent, kRingBufferMaxSize> SurvivalEventBuffer;
 
   static const int kThroughputTimeFrameMs = 5000;
@@ -335,6 +350,8 @@ class GCTracer {
   void AddAllocation(double current_ms);
 
   void AddContextDisposalTime(double time);
+
+  void AddCompactionEvent(double duration, intptr_t live_bytes_compacted);
 
   void AddSurvivalRatio(double survival_ratio);
 
@@ -405,6 +422,10 @@ class GCTracer {
   // Returns 0 if no events have been recorded.
   intptr_t ScavengeSpeedInBytesPerMillisecond(
       ScavengeSpeedMode mode = kForAllObjects) const;
+
+  // Compute the average compaction speed in bytes/millisecond.
+  // Returns 0 if not enough events have been recorded.
+  intptr_t CompactionSpeedInBytesPerMillisecond() const;
 
   // Compute the average mark-sweep speed in bytes/millisecond.
   // Returns 0 if no events have been recorded.
@@ -519,6 +540,9 @@ class GCTracer {
 
   // RingBuffer for context disposal events.
   ContextDisposalEventBuffer context_disposal_events_;
+
+  // RingBuffer for compaction events.
+  CompactionEventBuffer compaction_events_;
 
   // RingBuffer for survival events.
   SurvivalEventBuffer survival_events_;

@@ -664,7 +664,7 @@ void ArgumentsAccessStub::GenerateNewSloppyFast(MacroAssembler* masm) {
   // Get the arguments map from the current native context into r9.
   Label has_mapped_parameters, instantiate;
   __ movp(r9, Operand(rsi, Context::SlotOffset(Context::GLOBAL_OBJECT_INDEX)));
-  __ movp(r9, FieldOperand(r9, GlobalObject::kNativeContextOffset));
+  __ movp(r9, FieldOperand(r9, JSGlobalObject::kNativeContextOffset));
   __ testp(rbx, rbx);
   __ j(not_zero, &has_mapped_parameters, Label::kNear);
 
@@ -946,7 +946,7 @@ void ArgumentsAccessStub::GenerateNewStrict(MacroAssembler* masm) {
 
   // Get the arguments map from the current native context.
   __ movp(rdi, Operand(rsi, Context::SlotOffset(Context::GLOBAL_OBJECT_INDEX)));
-  __ movp(rdi, FieldOperand(rdi, GlobalObject::kNativeContextOffset));
+  __ movp(rdi, FieldOperand(rdi, JSGlobalObject::kNativeContextOffset));
   const int offset = Context::SlotOffset(Context::STRICT_ARGUMENTS_MAP_INDEX);
   __ movp(rdi, Operand(rdi, offset));
 
@@ -1875,104 +1875,6 @@ static void GenerateRecordCallTarget(MacroAssembler* masm, bool is_super) {
 }
 
 
-static void EmitContinueIfStrictOrNative(MacroAssembler* masm, Label* cont) {
-  // Do not transform the receiver for strict mode functions.
-  __ movp(rcx, FieldOperand(rdi, JSFunction::kSharedFunctionInfoOffset));
-  __ testb(FieldOperand(rcx, SharedFunctionInfo::kStrictModeByteOffset),
-           Immediate(1 << SharedFunctionInfo::kStrictModeBitWithinByte));
-  __ j(not_equal, cont);
-
-  // Do not transform the receiver for natives.
-  // SharedFunctionInfo is already loaded into rcx.
-  __ testb(FieldOperand(rcx, SharedFunctionInfo::kNativeByteOffset),
-           Immediate(1 << SharedFunctionInfo::kNativeBitWithinByte));
-  __ j(not_equal, cont);
-}
-
-
-static void EmitSlowCase(MacroAssembler* masm, StackArgumentsAccessor* args,
-                         int argc) {
-  __ Set(rax, argc);
-  __ Jump(masm->isolate()->builtins()->Call(), RelocInfo::CODE_TARGET);
-}
-
-
-static void EmitWrapCase(MacroAssembler* masm,
-                         StackArgumentsAccessor* args,
-                         Label* cont) {
-  // Wrap the receiver and patch it back onto the stack.
-  { FrameScope frame_scope(masm, StackFrame::INTERNAL);
-    __ Push(rdi);
-    ToObjectStub stub(masm->isolate());
-    __ CallStub(&stub);
-    __ Pop(rdi);
-  }
-  __ movp(args->GetReceiverOperand(), rax);
-  __ jmp(cont);
-}
-
-
-static void CallFunctionNoFeedback(MacroAssembler* masm,
-                                   int argc, bool needs_checks,
-                                   bool call_as_method) {
-  // rdi : the function to call
-
-  // wrap_and_call can only be true if we are compiling a monomorphic method.
-  Label slow, wrap, cont;
-  StackArgumentsAccessor args(rsp, argc);
-
-  if (needs_checks) {
-    // Check that the function really is a JavaScript function.
-    __ JumpIfSmi(rdi, &slow);
-
-    // Goto slow case if we do not have a function.
-    __ CmpObjectType(rdi, JS_FUNCTION_TYPE, rcx);
-    __ j(not_equal, &slow);
-  }
-
-  // Fast-case: Just invoke the function.
-  ParameterCount actual(argc);
-
-  if (call_as_method) {
-    if (needs_checks) {
-      EmitContinueIfStrictOrNative(masm, &cont);
-    }
-
-    // Load the receiver from the stack.
-    __ movp(rax, args.GetReceiverOperand());
-
-    if (needs_checks) {
-      __ JumpIfSmi(rax, &wrap);
-
-      __ CmpObjectType(rax, FIRST_SPEC_OBJECT_TYPE, rcx);
-      __ j(below, &wrap);
-    } else {
-      __ jmp(&wrap);
-    }
-
-    __ bind(&cont);
-  }
-
-  __ InvokeFunction(rdi, actual, JUMP_FUNCTION, NullCallWrapper());
-
-  if (needs_checks) {
-    // Slow-case: Non-function called.
-    __ bind(&slow);
-    EmitSlowCase(masm, &args, argc);
-  }
-
-  if (call_as_method) {
-    __ bind(&wrap);
-    EmitWrapCase(masm, &args, &cont);
-  }
-}
-
-
-void CallFunctionStub::Generate(MacroAssembler* masm) {
-  CallFunctionNoFeedback(masm, argc(), NeedsChecks(), CallAsMethod());
-}
-
-
 void CallConstructStub::Generate(MacroAssembler* masm) {
   // rax : number of arguments
   // rbx : feedback vector
@@ -2047,17 +1949,17 @@ void CallICStub::HandleArrayCase(MacroAssembler* masm, Label* miss) {
 
 
 void CallICStub::Generate(MacroAssembler* masm) {
-  // rdi - function
-  // rdx - slot id
-  // rbx - vector
+  // ----------- S t a t e -------------
+  // -- rdi - function
+  // -- rdx - slot id
+  // -- rbx - vector
+  // -----------------------------------
   Isolate* isolate = masm->isolate();
   const int with_types_offset =
       FixedArray::OffsetOfElementAt(TypeFeedbackVector::kWithTypesIndex);
   const int generic_offset =
       FixedArray::OffsetOfElementAt(TypeFeedbackVector::kGenericCountIndex);
-  Label extra_checks_or_miss, slow_start;
-  Label slow, wrap, cont;
-  Label have_js_function;
+  Label extra_checks_or_miss, call;
   int argc = arg_count();
   StackArgumentsAccessor args(rsp, argc);
   ParameterCount actual(argc);
@@ -2093,36 +1995,15 @@ void CallICStub::Generate(MacroAssembler* masm) {
                                  FixedArray::kHeaderSize + kPointerSize),
                     Smi::FromInt(CallICNexus::kCallCountIncrement));
 
-  __ bind(&have_js_function);
-  if (CallAsMethod()) {
-    EmitContinueIfStrictOrNative(masm, &cont);
-
-    // Load the receiver from the stack.
-    __ movp(rax, args.GetReceiverOperand());
-
-    __ JumpIfSmi(rax, &wrap);
-
-    __ CmpObjectType(rax, FIRST_SPEC_OBJECT_TYPE, rcx);
-    __ j(below, &wrap);
-
-    __ bind(&cont);
-  }
-
-  __ InvokeFunction(rdi, actual, JUMP_FUNCTION, NullCallWrapper());
-
-  __ bind(&slow);
-  EmitSlowCase(masm, &args, argc);
-
-  if (CallAsMethod()) {
-    __ bind(&wrap);
-    EmitWrapCase(masm, &args, &cont);
-  }
+  __ bind(&call);
+  __ Set(rax, argc);
+  __ Jump(masm->isolate()->builtins()->Call(), RelocInfo::CODE_TARGET);
 
   __ bind(&extra_checks_or_miss);
   Label uninitialized, miss, not_allocation_site;
 
   __ Cmp(rcx, TypeFeedbackVector::MegamorphicSentinel(isolate));
-  __ j(equal, &slow_start);
+  __ j(equal, &call);
 
   // Check if we have an allocation site.
   __ CompareRoot(FieldOperand(rcx, HeapObject::kMapOffset),
@@ -2153,7 +2034,7 @@ void CallICStub::Generate(MacroAssembler* masm) {
   // We have to update statistics for runtime profiling.
   __ SmiAddConstant(FieldOperand(rbx, with_types_offset), Smi::FromInt(-1));
   __ SmiAddConstant(FieldOperand(rbx, generic_offset), Smi::FromInt(1));
-  __ jmp(&slow_start);
+  __ jmp(&call);
 
   __ bind(&uninitialized);
 
@@ -2192,21 +2073,14 @@ void CallICStub::Generate(MacroAssembler* masm) {
     __ Pop(rdi);
   }
 
-  __ jmp(&have_js_function);
+  __ jmp(&call);
 
   // We are here because tracing is on or we encountered a MISS case we can't
   // handle here.
   __ bind(&miss);
   GenerateMiss(masm);
 
-  // the slow case
-  __ bind(&slow_start);
-  // Check that function is not a smi.
-  __ JumpIfSmi(rdi, &slow);
-  // Check that function is a JSFunction.
-  __ CmpObjectType(rdi, JS_FUNCTION_TYPE, rcx);
-  __ j(not_equal, &slow);
-  __ jmp(&have_js_function);
+  __ jmp(&call);
 
   // Unreachable
   __ int3();
@@ -2812,7 +2686,7 @@ void StringCharFromCodeGenerator::GenerateSlow(
   __ bind(&slow_case_);
   call_helper.BeforeCall(masm);
   __ Push(code_);
-  __ CallRuntime(Runtime::kCharFromCode, 1);
+  __ CallRuntime(Runtime::kStringCharFromCode, 1);
   if (!result_.is(rax)) {
     __ movp(result_, rax);
   }

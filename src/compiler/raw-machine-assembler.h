@@ -75,6 +75,10 @@ class RawMachineAssembler {
   // place them into the current basic block. They don't perform control flow,
   // hence will not switch the current basic block.
 
+  Node* NullConstant() {
+    return HeapConstant(isolate()->factory()->null_value());
+  }
+
   Node* UndefinedConstant() {
     return HeapConstant(isolate()->factory()->undefined_value());
   }
@@ -126,12 +130,14 @@ class RawMachineAssembler {
     return AddNode(machine()->Load(rep), base, index, graph()->start(),
                    graph()->start());
   }
-  Node* Store(StoreRepresentation rep, Node* base, Node* value) {
-    return Store(rep, base, IntPtrConstant(0), value);
+  Node* Store(MachineType rep, Node* base, Node* value,
+              WriteBarrierKind write_barrier) {
+    return Store(rep, base, IntPtrConstant(0), value, write_barrier);
   }
-  Node* Store(StoreRepresentation rep, Node* base, Node* index, Node* value) {
-    return AddNode(machine()->Store(rep), base, index, value, graph()->start(),
-                   graph()->start());
+  Node* Store(MachineType rep, Node* base, Node* index, Node* value,
+              WriteBarrierKind write_barrier) {
+    return AddNode(machine()->Store(StoreRepresentation(rep, write_barrier)),
+                   base, index, value, graph()->start(), graph()->start());
   }
 
   // Arithmetic Operations.
@@ -227,6 +233,7 @@ class RawMachineAssembler {
   Node* Word64Ror(Node* a, Node* b) {
     return AddNode(machine()->Word64Ror(), a, b);
   }
+  Node* Word64Clz(Node* a) { return AddNode(machine()->Word64Clz(), a); }
   Node* Word64Equal(Node* a, Node* b) {
     return AddNode(machine()->Word64Equal(), a, b);
   }
@@ -451,6 +458,9 @@ class RawMachineAssembler {
   Node* TruncateInt64ToInt32(Node* a) {
     return AddNode(machine()->TruncateInt64ToInt32(), a);
   }
+  Node* RoundInt64ToFloat64(Node* a) {
+    return AddNode(machine()->RoundInt64ToFloat64(), a);
+  }
   Node* BitcastFloat32ToInt32(Node* a) {
     return AddNode(machine()->BitcastFloat32ToInt32(), a);
   }
@@ -498,8 +508,8 @@ class RawMachineAssembler {
   Node* LoadFromPointer(void* address, MachineType rep, int32_t offset = 0) {
     return Load(rep, PointerConstant(address), Int32Constant(offset));
   }
-  Node* StoreToPointer(void* address, StoreRepresentation rep, Node* node) {
-    return Store(rep, PointerConstant(address), node);
+  Node* StoreToPointer(void* address, MachineType rep, Node* node) {
+    return Store(rep, PointerConstant(address), node, kNoWriteBarrier);
   }
   Node* StringConstant(const char* string) {
     return HeapConstant(isolate()->factory()->InternalizeUtf8String(string));
@@ -512,9 +522,6 @@ class RawMachineAssembler {
                             Node* frame_state);
   // Tail call the given call descriptor and the given arguments.
   Node* TailCallN(CallDescriptor* call_descriptor, Node* function, Node** args);
-  // Call through CallFunctionStub with lazy deopt and frame-state.
-  Node* CallFunctionStub0(Node* function, Node* receiver, Node* context,
-                          Node* frame_state, CallFunctionFlags flags);
   // Call to a runtime function with one arguments.
   Node* CallRuntime1(Runtime::FunctionId function, Node* arg0, Node* context);
   // Call to a runtime function with two arguments.
@@ -596,7 +603,7 @@ class RawMachineAssembler {
   MachineOperatorBuilder machine_;
   CommonOperatorBuilder common_;
   CallDescriptor* call_descriptor_;
-  Node** parameters_;
+  NodeVector parameters_;
   BasicBlock* current_block_;
 
   DISALLOW_COPY_AND_ASSIGN(RawMachineAssembler);

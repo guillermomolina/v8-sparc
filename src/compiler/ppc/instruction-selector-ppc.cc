@@ -737,6 +737,14 @@ void InstructionSelector::VisitWord32Clz(Node* node) {
 }
 
 
+#if V8_TARGET_ARCH_PPC64
+void InstructionSelector::VisitWord64Clz(Node* node) {
+  PPCOperandGenerator g(this);
+  Emit(kPPC_Cntlz64, g.DefineAsRegister(node), g.UseRegister(node->InputAt(0)));
+}
+#endif
+
+
 void InstructionSelector::VisitWord32Popcnt(Node* node) {
   PPCOperandGenerator g(this);
   Emit(kPPC_Popcnt32, g.DefineAsRegister(node),
@@ -916,6 +924,11 @@ void InstructionSelector::VisitTruncateFloat64ToInt32(Node* node) {
 void InstructionSelector::VisitTruncateInt64ToInt32(Node* node) {
   // TODO(mbrandy): inspect input to see if nop is appropriate.
   VisitRR(this, kPPC_Int64ToInt32, node);
+}
+
+
+void InstructionSelector::VisitRoundInt64ToFloat64(Node* node) {
+  VisitRR(this, kPPC_Int64ToDouble, node);
 }
 #endif
 

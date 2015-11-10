@@ -46,6 +46,7 @@ namespace compiler {
   V(X64Sar32)                      \
   V(X64Ror)                        \
   V(X64Ror32)                      \
+  V(X64Lzcnt)                      \
   V(X64Lzcnt32)                    \
   V(X64Tzcnt32)                    \
   V(X64Popcnt32)                   \
@@ -76,6 +77,7 @@ namespace compiler {
   V(SSEFloat64ToInt32)             \
   V(SSEFloat64ToUint32)            \
   V(SSEInt32ToFloat64)             \
+  V(SSEInt64ToFloat64)             \
   V(SSEUint32ToFloat64)            \
   V(SSEFloat64ExtractLowWord32)    \
   V(SSEFloat64ExtractHighWord32)   \

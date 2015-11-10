@@ -186,6 +186,7 @@ enum BindingFlags {
   V(DATA_VIEW_FUN_INDEX, JSFunction, data_view_fun)                            \
   V(ERROR_MESSAGE_FOR_CODE_GEN_FROM_STRINGS_INDEX, Object,                     \
     error_message_for_code_gen_from_strings)                                   \
+  V(ERRORS_THROWN_INDEX, Smi, errors_thrown)                                   \
   V(EXTRAS_EXPORTS_OBJECT_INDEX, JSObject, extras_binding_object)              \
   V(EXTRAS_UTILS_OBJECT_INDEX, JSObject, extras_utils_object)                  \
   V(FAST_ALIASED_ARGUMENTS_MAP_INDEX, Map, fast_aliased_arguments_map)         \
@@ -396,6 +397,9 @@ class Context: public FixedArray {
     THROWN_OBJECT_INDEX = MIN_CONTEXT_SLOTS,
   };
 
+  void IncrementErrorsThrown();
+  int GetErrorsThrown();
+
   // Direct slot access.
   inline JSFunction* closure();
   inline void set_closure(JSFunction* closure);
@@ -419,15 +423,12 @@ class Context: public FixedArray {
   Context* declaration_context();
   bool is_declaration_context();
 
-  inline GlobalObject* global_object();
-  inline void set_global_object(GlobalObject* object);
+  inline JSGlobalObject* global_object();
+  inline void set_global_object(JSGlobalObject* object);
 
   // Returns a JSGlobalProxy object or null.
   JSObject* global_proxy();
   void set_global_proxy(JSObject* global);
-
-  // The builtins object.
-  JSBuiltinsObject* builtins();
 
   // Get the script context by traversing the context chain.
   Context* script_context();

@@ -1509,7 +1509,7 @@ void NewSpace::UpdateInlineAllocationLimit(int size_in_bytes) {
     Address high = to_space_.page_high();
     Address new_top = allocation_info_.top() + size_in_bytes;
     allocation_info_.set_limit(Min(new_top, high));
-  } else if (inline_allocation_limit_step_ == 0) {
+  } else if (top_on_previous_step_ == 0) {
     // Normal limit is the end of the current page.
     allocation_info_.set_limit(to_space_.page_high());
   } else {
@@ -1601,12 +1601,40 @@ bool NewSpace::EnsureAllocation(int size_in_bytes,
 }
 
 
+void NewSpace::UpdateInlineAllocationLimitStep() {
+  intptr_t step = 0;
+  for (int i = 0; i < inline_allocation_observers_.length(); ++i) {
+    InlineAllocationObserver* observer = inline_allocation_observers_[i];
+    step = step ? Min(step, observer->step_size()) : observer->step_size();
+  }
+  inline_allocation_limit_step_ = step;
+  top_on_previous_step_ = step ? allocation_info_.top() : 0;
+  UpdateInlineAllocationLimit(0);
+}
+
+
+void NewSpace::AddInlineAllocationObserver(InlineAllocationObserver* observer) {
+  inline_allocation_observers_.Add(observer);
+  UpdateInlineAllocationLimitStep();
+}
+
+
+void NewSpace::RemoveInlineAllocationObserver(
+    InlineAllocationObserver* observer) {
+  bool removed = inline_allocation_observers_.RemoveElement(observer);
+  // Only used in assertion. Suppress unused variable warning.
+  static_cast<void>(removed);
+  DCHECK(removed);
+  UpdateInlineAllocationLimitStep();
+}
+
+
 void NewSpace::InlineAllocationStep(Address top, Address new_top) {
   if (top_on_previous_step_) {
     int bytes_allocated = static_cast<int>(top - top_on_previous_step_);
-    heap()->ScheduleIdleScavengeIfNeeded(bytes_allocated);
-    heap()->incremental_marking()->Step(bytes_allocated,
-                                        IncrementalMarking::GC_VIA_STACK_GUARD);
+    for (int i = 0; i < inline_allocation_observers_.length(); ++i) {
+      inline_allocation_observers_[i]->InlineAllocationStep(bytes_allocated);
+    }
     top_on_previous_step_ = new_top;
   }
 }
@@ -2752,15 +2780,10 @@ HeapObject* PagedSpace::SlowAllocateRaw(int size_in_bytes) {
     if (object != NULL) return object;
 
     // If sweeping is still in progress try to sweep pages on the main thread.
-    int free_chunk = collector->SweepInParallel(this, size_in_bytes);
+    collector->SweepInParallel(heap()->paged_space(identity()), size_in_bytes);
     RefillFreeList();
-    if (free_chunk >= size_in_bytes) {
-      HeapObject* object = free_list_.Allocate(size_in_bytes);
-      // We should be able to allocate an object here since we just freed that
-      // much memory.
-      DCHECK(object != NULL);
-      if (object != NULL) return object;
-    }
+    object = free_list_.Allocate(size_in_bytes);
+    if (object != nullptr) return object;
   }
 
   // Free list allocation failed and there is no next page.  Fail if we have
@@ -2937,11 +2960,10 @@ void PagedSpace::ReportStatistics() {
 
 // -----------------------------------------------------------------------------
 // MapSpace implementation
-// TODO(mvstanton): this is weird...the compiler can't make a vtable unless
-// there is at least one non-inlined virtual function. I would prefer to hide
-// the VerifyObject definition behind VERIFY_HEAP.
 
+#ifdef VERIFY_HEAP
 void MapSpace::VerifyObject(HeapObject* object) { CHECK(object->IsMap()); }
+#endif
 
 
 // -----------------------------------------------------------------------------

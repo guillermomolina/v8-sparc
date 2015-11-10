@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// TODO(rmcilroy): Remove this define after this flag is turned on globally
+#define V8_IMMINENT_DEPRECATION_WARNINGS
+
 #include "src/v8.h"
 
 #include "src/execution.h"
@@ -126,8 +129,12 @@ class InterpreterTester {
     Handle<JSFunction> function;
     if (source_) {
       CompileRun(source_);
+      v8::Local<v8::Context> context =
+          v8::Isolate::GetCurrent()->GetCurrentContext();
       Local<Function> api_function =
-          Local<Function>::Cast(CcTest::global()->Get(v8_str(kFunctionName)));
+          Local<Function>::Cast(CcTest::global()
+                                    ->Get(context, v8_str(kFunctionName))
+                                    .ToLocalChecked());
       function = Handle<JSFunction>::cast(v8::Utils::OpenHandle(*api_function));
     } else {
       int arg_count = sizeof...(A);
@@ -137,7 +144,7 @@ class InterpreterTester {
       }
       source += "){})";
       function = Handle<JSFunction>::cast(v8::Utils::OpenHandle(
-          *v8::Handle<v8::Function>::Cast(CompileRun(source.c_str()))));
+          *v8::Local<v8::Function>::Cast(CompileRun(source.c_str()))));
       function->ReplaceCode(
           *isolate_->builtins()->InterpreterEntryTrampoline());
     }
@@ -155,19 +162,6 @@ class InterpreterTester {
   DISALLOW_COPY_AND_ASSIGN(InterpreterTester);
 };
 
-}  // namespace interpreter
-}  // namespace internal
-}  // namespace v8
-
-using v8::internal::BytecodeArray;
-using v8::internal::Handle;
-using v8::internal::LanguageMode;
-using v8::internal::Object;
-using v8::internal::Runtime;
-using v8::internal::Smi;
-using v8::internal::Strength;
-using v8::internal::Token;
-using namespace v8::internal::interpreter;
 
 TEST(InterpreterReturn) {
   HandleAndZoneScope handles;
@@ -1214,6 +1208,42 @@ TEST(InterpreterConditionalJumps) {
 }
 
 
+TEST(InterpreterConditionalJumps2) {
+  // TODO(oth): Add tests for all conditional jumps near and far.
+  HandleAndZoneScope handles;
+  BytecodeArrayBuilder builder(handles.main_isolate(), handles.main_zone());
+  builder.set_locals_count(2);
+  builder.set_context_count(0);
+  builder.set_parameter_count(0);
+  Register reg(0), scratch(1);
+  BytecodeLabel label[2];
+  BytecodeLabel done, done1;
+
+  builder.LoadLiteral(Smi::FromInt(0))
+      .StoreAccumulatorInRegister(reg)
+      .LoadFalse()
+      .JumpIfFalse(&label[0]);
+  IncrementRegister(builder, reg, 1024, scratch)
+      .Bind(&label[0])
+      .LoadTrue()
+      .JumpIfFalse(&done);
+  IncrementRegister(builder, reg, 1, scratch).LoadTrue().JumpIfTrue(&label[1]);
+  IncrementRegister(builder, reg, 2048, scratch).Bind(&label[1]);
+  IncrementRegister(builder, reg, 2, scratch).LoadFalse().JumpIfTrue(&done1);
+  IncrementRegister(builder, reg, 4, scratch)
+      .LoadAccumulatorWithRegister(reg)
+      .Bind(&done)
+      .Bind(&done1)
+      .Return();
+
+  Handle<BytecodeArray> bytecode_array = builder.ToBytecodeArray();
+  InterpreterTester tester(handles.main_isolate(), bytecode_array);
+  auto callable = tester.GetCallable<>();
+  Handle<Object> return_value = callable().ToHandleChecked();
+  CHECK_EQ(Smi::cast(*return_value)->value(), 7);
+}
+
+
 static const Token::Value kComparisonTypes[] = {
     Token::Value::EQ,        Token::Value::NE,  Token::Value::EQ_STRICT,
     Token::Value::NE_STRICT, Token::Value::LTE, Token::Value::LTE,
@@ -1497,12 +1527,11 @@ TEST(InterpreterUnaryNot) {
     builder.set_locals_count(0);
     builder.set_context_count(0);
     builder.set_parameter_count(0);
-    builder.EnterBlock();
     builder.LoadFalse();
     for (size_t j = 0; j < i; j++) {
       builder.LogicalNot();
     }
-    builder.LeaveBlock().Return();
+    builder.Return();
     Handle<BytecodeArray> bytecode_array = builder.ToBytecodeArray();
     InterpreterTester tester(handles.main_isolate(), bytecode_array);
     auto callable = tester.GetCallable<>();
@@ -1561,10 +1590,9 @@ TEST(InterpreterToBoolean) {
     builder.set_locals_count(0);
     builder.set_context_count(0);
     builder.set_parameter_count(0);
-    builder.EnterBlock();
     LoadAny(&builder, factory, object_type_tuples[i].first);
     builder.CastAccumulatorToBoolean();
-    builder.LeaveBlock().Return();
+    builder.Return();
     Handle<BytecodeArray> bytecode_array = builder.ToBytecodeArray();
     InterpreterTester tester(handles.main_isolate(), bytecode_array);
     auto callable = tester.GetCallable<>();
@@ -1599,10 +1627,9 @@ TEST(InterpreterUnaryNotNonBoolean) {
     builder.set_locals_count(0);
     builder.set_context_count(0);
     builder.set_parameter_count(0);
-    builder.EnterBlock();
     LoadAny(&builder, factory, object_type_tuples[i].first);
     builder.LogicalNot();
-    builder.LeaveBlock().Return();
+    builder.Return();
     Handle<BytecodeArray> bytecode_array = builder.ToBytecodeArray();
     InterpreterTester tester(handles.main_isolate(), bytecode_array);
     auto callable = tester.GetCallable<>();
@@ -1613,39 +1640,29 @@ TEST(InterpreterUnaryNotNonBoolean) {
 }
 
 
-TEST(InterpreterTypeOf) {
+TEST(InterpreterTypeof) {
   HandleAndZoneScope handles;
-  i::Factory* factory = handles.main_isolate()->factory();
 
-  std::pair<Handle<Object>, const char*> object_type_tuples[] = {
-      std::make_pair(factory->undefined_value(), "undefined"),
-      std::make_pair(factory->null_value(), "object"),
-      std::make_pair(factory->true_value(), "boolean"),
-      std::make_pair(factory->false_value(), "boolean"),
-      std::make_pair(factory->NewNumber(9.1), "number"),
-      std::make_pair(factory->NewNumberFromInt(7771), "number"),
-      std::make_pair(
-          Handle<Object>::cast(factory->NewStringFromStaticChars("hello")),
-          "string"),
+  std::pair<const char*, const char*> typeof_vals[] = {
+      std::make_pair("return typeof undefined;", "undefined"),
+      std::make_pair("return typeof null;", "object"),
+      std::make_pair("return typeof true;", "boolean"),
+      std::make_pair("return typeof false;", "boolean"),
+      std::make_pair("return typeof 9.1;", "number"),
+      std::make_pair("return typeof 7771;", "number"),
+      std::make_pair("return typeof 'hello';", "string"),
+      std::make_pair("return typeof global_unallocated;", "undefined"),
   };
 
-  for (size_t i = 0; i < arraysize(object_type_tuples); i++) {
-    BytecodeArrayBuilder builder(handles.main_isolate(), handles.main_zone());
-    Register r0(0);
-    builder.set_locals_count(0);
-    builder.set_context_count(0);
-    builder.set_parameter_count(0);
-    builder.EnterBlock();
-    LoadAny(&builder, factory, object_type_tuples[i].first);
-    builder.TypeOf();
-    builder.LeaveBlock().Return();
-    Handle<BytecodeArray> bytecode_array = builder.ToBytecodeArray();
-    InterpreterTester tester(handles.main_isolate(), bytecode_array);
+  for (size_t i = 0; i < arraysize(typeof_vals); i++) {
+    std::string source(InterpreterTester::SourceForBody(typeof_vals[i].first));
+    InterpreterTester tester(handles.main_isolate(), source.c_str());
+
     auto callable = tester.GetCallable<>();
     Handle<v8::internal::String> return_value =
         Handle<v8::internal::String>::cast(callable().ToHandleChecked());
     auto actual = return_value->ToCString();
-    CHECK_EQ(strcmp(&actual[0], object_type_tuples[i].second), 0);
+    CHECK_EQ(strcmp(&actual[0], typeof_vals[i].second), 0);
   }
 }
 
@@ -1695,7 +1712,7 @@ TEST(InterpreterRegExpLiterals) {
   i::Isolate* isolate = handles.main_isolate();
   i::Factory* factory = isolate->factory();
 
-  std::pair<const char*, Handle<Object>> literals[5] = {
+  std::pair<const char*, Handle<Object>> literals[] = {
       std::make_pair("return /abd/.exec('cccabbdd');\n",
                      factory->null_value()),
       std::make_pair("return /ab+d/.exec('cccabbdd')[0];\n",
@@ -1724,7 +1741,7 @@ TEST(InterpreterArrayLiterals) {
   i::Isolate* isolate = handles.main_isolate();
   i::Factory* factory = isolate->factory();
 
-  std::pair<const char*, Handle<Object>> literals[6] = {
+  std::pair<const char*, Handle<Object>> literals[] = {
       std::make_pair("return [][0];\n",
                      factory->undefined_value()),
       std::make_pair("return [1, 3, 2][1];\n",
@@ -1755,7 +1772,7 @@ TEST(InterpreterObjectLiterals) {
   i::Isolate* isolate = handles.main_isolate();
   i::Factory* factory = isolate->factory();
 
-  std::pair<const char*, Handle<Object>> literals[14] = {
+  std::pair<const char*, Handle<Object>> literals[] = {
       std::make_pair("return { }.name;",
                      factory->undefined_value()),
       std::make_pair("return { name: 'string', val: 9.2 }.name;",
@@ -1866,7 +1883,7 @@ TEST(InterpreterContextVariables) {
   HandleAndZoneScope handles;
   i::Isolate* isolate = handles.main_isolate();
 
-  std::pair<const char*, Handle<Object>> context_vars[5] = {
+  std::pair<const char*, Handle<Object>> context_vars[] = {
       std::make_pair("var a; (function() { a = 1; })(); return a;",
                      handle(Smi::FromInt(1), isolate)),
       std::make_pair("var a = 10; (function() { a; })(); return a;",
@@ -1898,7 +1915,7 @@ TEST(InterpreterContextParameters) {
   HandleAndZoneScope handles;
   i::Isolate* isolate = handles.main_isolate();
 
-  std::pair<const char*, Handle<Object>> context_params[3] = {
+  std::pair<const char*, Handle<Object>> context_params[] = {
       std::make_pair("return (function() { return arg1; })();",
                      handle(Smi::FromInt(1), isolate)),
       std::make_pair("(function() { arg1 = 4; })(); return arg1;",
@@ -1927,7 +1944,7 @@ TEST(InterpreterOuterContextVariables) {
   HandleAndZoneScope handles;
   i::Isolate* isolate = handles.main_isolate();
 
-  std::pair<const char*, Handle<Object>> context_vars[2] = {
+  std::pair<const char*, Handle<Object>> context_vars[] = {
       std::make_pair("return outerVar * innerArg;",
                      handle(Smi::FromInt(200), isolate)),
       std::make_pair("outerVar = innerArg; return outerVar",
@@ -1961,7 +1978,7 @@ TEST(InterpreterComma) {
   i::Isolate* isolate = handles.main_isolate();
   i::Factory* factory = isolate->factory();
 
-  std::pair<const char*, Handle<Object>> literals[6] = {
+  std::pair<const char*, Handle<Object>> literals[] = {
       std::make_pair("var a; return 0, a;\n", factory->undefined_value()),
       std::make_pair("return 'a', 2.2, 3;\n",
                      handle(Smi::FromInt(3), isolate)),
@@ -1989,7 +2006,7 @@ TEST(InterpreterLogicalOr) {
   i::Isolate* isolate = handles.main_isolate();
   i::Factory* factory = isolate->factory();
 
-  std::pair<const char*, Handle<Object>> literals[5] = {
+  std::pair<const char*, Handle<Object>> literals[] = {
       std::make_pair("var a, b; return a || b;\n", factory->undefined_value()),
       std::make_pair("var a, b = 10; return a || b;\n",
                      handle(Smi::FromInt(10), isolate)),
@@ -1997,7 +2014,9 @@ TEST(InterpreterLogicalOr) {
                      factory->NewStringFromStaticChars("0")),
       std::make_pair("return 0 || 3.2;\n", factory->NewNumber(3.2)),
       std::make_pair("return 'a' || 0;\n",
-                     factory->NewStringFromStaticChars("a"))};
+                     factory->NewStringFromStaticChars("a")),
+      std::make_pair("var a = '0', b = 10; return (a == 0) || b;\n",
+                     factory->true_value())};
 
   for (size_t i = 0; i < arraysize(literals); i++) {
     std::string source(InterpreterTester::SourceForBody(literals[i].first));
@@ -2015,21 +2034,22 @@ TEST(InterpreterLogicalAnd) {
   i::Isolate* isolate = handles.main_isolate();
   i::Factory* factory = isolate->factory();
 
-  std::pair<const char*, Handle<Object>> literals[7] = {
+  std::pair<const char*, Handle<Object>> literals[] = {
       std::make_pair("var a, b = 10; return a && b;\n",
                      factory->undefined_value()),
       std::make_pair("var a = 0, b = 10; return a && b / a;\n",
                      handle(Smi::FromInt(0), isolate)),
       std::make_pair("var a = '0', b = 10; return a && b;\n",
                      handle(Smi::FromInt(10), isolate)),
-      std::make_pair("return 0.0 && 3.2;\n",
-                     handle(Smi::FromInt(0), isolate)),
+      std::make_pair("return 0.0 && 3.2;\n", handle(Smi::FromInt(0), isolate)),
       std::make_pair("return 'a' && 'b';\n",
                      factory->NewStringFromStaticChars("b")),
       std::make_pair("return 'a' && 0 || 'b', 'c';\n",
                      factory->NewStringFromStaticChars("c")),
       std::make_pair("var x = 1, y = 3; return x && 0 + 1 || y;\n",
-                     handle(Smi::FromInt(1), isolate))};
+                     handle(Smi::FromInt(1), isolate)),
+      std::make_pair("var x = 1, y = 3; return (x == 1) && (3 == 3) || y;\n",
+                     factory->true_value())};
 
   for (size_t i = 0; i < arraysize(literals); i++) {
     std::string source(InterpreterTester::SourceForBody(literals[i].first));
@@ -2076,7 +2096,7 @@ TEST(InterpreterThrow) {
   i::Factory* factory = isolate->factory();
 
   // TODO(rmcilroy): modify tests when we have real try catch support.
-  std::pair<const char*, Handle<Object>> throws[6] = {
+  std::pair<const char*, Handle<Object>> throws[] = {
       std::make_pair("throw undefined;\n",
                      factory->undefined_value()),
       std::make_pair("throw 1;\n",
@@ -2109,7 +2129,7 @@ TEST(InterpreterCountOperators) {
   i::Isolate* isolate = handles.main_isolate();
   i::Factory* factory = isolate->factory();
 
-  std::pair<const char*, Handle<Object>> count_ops[16] = {
+  std::pair<const char*, Handle<Object>> count_ops[] = {
       std::make_pair("var a = 1; return ++a;",
                      handle(Smi::FromInt(2), isolate)),
       std::make_pair("var a = 1; return a++;",
@@ -2159,7 +2179,7 @@ TEST(InterpreterGlobalCountOperators) {
   HandleAndZoneScope handles;
   i::Isolate* isolate = handles.main_isolate();
 
-  std::pair<const char*, Handle<Object>> count_ops[6] = {
+  std::pair<const char*, Handle<Object>> count_ops[] = {
       std::make_pair("var global = 100;function f(){ return ++global; }",
                      handle(Smi::FromInt(101), isolate)),
       std::make_pair("var global = 100; function f(){ return --global; }",
@@ -2189,7 +2209,7 @@ TEST(InterpreterCompoundExpressions) {
   i::Isolate* isolate = handles.main_isolate();
   i::Factory* factory = isolate->factory();
 
-  std::pair<const char*, Handle<Object>> compound_expr[5] = {
+  std::pair<const char*, Handle<Object>> compound_expr[] = {
       std::make_pair("var a = 1; a += 2; return a;",
                      Handle<Object>(Smi::FromInt(3), isolate)),
       std::make_pair("var a = 10; a /= 2; return a;",
@@ -2243,7 +2263,7 @@ TEST(InterpreterCreateArguments) {
   i::Isolate* isolate = handles.main_isolate();
   i::Factory* factory = isolate->factory();
 
-  std::pair<const char*, int> create_args[9] = {
+  std::pair<const char*, int> create_args[] = {
       std::make_pair("function f() { return arguments[0]; }", 0),
       std::make_pair("function f(a) { return arguments[0]; }", 0),
       std::make_pair("function f() { return arguments[2]; }", 2),
@@ -2307,7 +2327,7 @@ TEST(InterpreterConditional) {
   HandleAndZoneScope handles;
   i::Isolate* isolate = handles.main_isolate();
 
-  std::pair<const char*, Handle<Object>> conditional[8] = {
+  std::pair<const char*, Handle<Object>> conditional[] = {
       std::make_pair("return true ? 2 : 3;",
                      handle(Smi::FromInt(2), isolate)),
       std::make_pair("return false ? 2 : 3;",
@@ -2401,26 +2421,25 @@ TEST(InterpreterDeleteSloppyUnqualifiedIdentifier) {
   // These tests generate a syntax error for strict mode. We don't
   // test for it here.
   std::pair<const char*, Handle<Object>> test_delete[] = {
-      std::make_pair("var a = { x:10, y:'abc'};\n"
-                     "var b = delete a;\n"
-                     "if (delete a) {\n"
+      std::make_pair("var sloppy_a = { x:10, y:'abc'};\n"
+                     "var sloppy_b = delete sloppy_a;\n"
+                     "if (delete sloppy_a) {\n"
                      "  return undefined;\n"
                      "} else {\n"
-                     "  return a.x;\n"
+                     "  return sloppy_a.x;\n"
                      "}\n",
                      Handle<Object>(Smi::FromInt(10), isolate)),
       // TODO(mythria) When try-catch is implemented change the tests to check
       // if delete actually deletes
-      std::make_pair("a = { x:10, y:'abc'};\n"
-                     "var b = delete a;\n"
+      std::make_pair("sloppy_a = { x:10, y:'abc'};\n"
+                     "var sloppy_b = delete sloppy_a;\n"
                      // "try{return a.x;} catch(e) {return b;}\n"
-                     "return b;",
+                     "return sloppy_b;",
                      factory->ToBoolean(true)),
-      std::make_pair("a = { x:10, y:'abc'};\n"
-                     "var b = delete c;\n"
-                     "return b;",
+      std::make_pair("sloppy_a = { x:10, y:'abc'};\n"
+                     "var sloppy_b = delete sloppy_c;\n"
+                     "return sloppy_b;",
                      factory->ToBoolean(true))};
-
 
   for (size_t i = 0; i < arraysize(test_delete); i++) {
     std::string source(InterpreterTester::SourceForBody(test_delete[i].first));
@@ -2498,3 +2517,440 @@ TEST(InterpreterGlobalDelete) {
     CHECK(return_value->SameValue(*test_global_delete[i].second));
   }
 }
+
+
+TEST(InterpreterBasicLoops) {
+  HandleAndZoneScope handles;
+  i::Isolate* isolate = handles.main_isolate();
+  i::Factory* factory = isolate->factory();
+
+  std::pair<const char*, Handle<Object>> loops[] = {
+      std::make_pair("var a = 10; var b = 1;\n"
+                     "while (a) {\n"
+                     "  b = b * 2;\n"
+                     "  a = a - 1;\n"
+                     "};\n"
+                     "return b;\n",
+                     factory->NewHeapNumber(1024)),
+      std::make_pair("var a = 1; var b = 1;\n"
+                     "do {\n"
+                     "  b = b * 2;\n"
+                     "  --a;\n"
+                     "} while(a);\n"
+                     "return b;\n",
+                     handle(Smi::FromInt(2), isolate)),
+      std::make_pair("var b = 1;\n"
+                     "for ( var a = 10; a; a--) {\n"
+                     "  b *= 2;\n"
+                     "}\n"
+                     "return b;",
+                     factory->NewHeapNumber(1024)),
+      std::make_pair("var a = 10; var b = 1;\n"
+                     "while (a > 0) {\n"
+                     "  b = b * 2;\n"
+                     "  a = a - 1;\n"
+                     "};\n"
+                     "return b;\n",
+                     factory->NewHeapNumber(1024)),
+      std::make_pair("var a = 1; var b = 1;\n"
+                     "do {\n"
+                     "  b = b * 2;\n"
+                     "  --a;\n"
+                     "} while(a);\n"
+                     "return b;\n",
+                     handle(Smi::FromInt(2), isolate)),
+      std::make_pair("var b = 1;\n"
+                     "for ( var a = 10; a > 0; a--) {\n"
+                     "  b *= 2;\n"
+                     "}\n"
+                     "return b;",
+                     factory->NewHeapNumber(1024)),
+      std::make_pair("var a = 10; var b = 1;\n"
+                     "while (false) {\n"
+                     "  b = b * 2;\n"
+                     "  a = a - 1;\n"
+                     "}\n"
+                     "return b;\n",
+                     Handle<Object>(Smi::FromInt(1), isolate)),
+      std::make_pair("var a = 10; var b = 1;\n"
+                     "while (true) {\n"
+                     "  b = b * 2;\n"
+                     "  a = a - 1;\n"
+                     "  if (a == 0) break;"
+                     "  continue;"
+                     "}\n"
+                     "return b;\n",
+                     factory->NewHeapNumber(1024)),
+      std::make_pair("var a = 10; var b = 1;\n"
+                     "do {\n"
+                     "  b = b * 2;\n"
+                     "  a = a - 1;\n"
+                     "  if (a == 0) break;"
+                     "} while(true);\n"
+                     "return b;\n",
+                     factory->NewHeapNumber(1024)),
+      std::make_pair("var a = 10; var b = 1;\n"
+                     "do {\n"
+                     "  b = b * 2;\n"
+                     "  a = a - 1;\n"
+                     "  if (a == 0) break;"
+                     "} while(false);\n"
+                     "return b;\n",
+                     Handle<Object>(Smi::FromInt(2), isolate)),
+      std::make_pair("var a = 10; var b = 1;\n"
+                     "for ( a = 1, b = 30; false; ) {\n"
+                     "  b = b * 2;\n"
+                     "}\n"
+                     "return b;\n",
+                     Handle<Object>(Smi::FromInt(30), isolate))};
+
+  for (size_t i = 0; i < arraysize(loops); i++) {
+    std::string source(InterpreterTester::SourceForBody(loops[i].first));
+    InterpreterTester tester(handles.main_isolate(), source.c_str());
+    auto callable = tester.GetCallable<>();
+
+    Handle<i::Object> return_value = callable().ToHandleChecked();
+    CHECK(return_value->SameValue(*loops[i].second));
+  }
+}
+
+
+TEST(InterpreterForIn) {
+  HandleAndZoneScope handles;
+
+  // TODO(oth): Add a test here for delete mid-loop when delete is ready.
+  std::pair<const char*, int> for_in_samples[] = {
+      {"function f() {\n"
+       "  var r = -1;\n"
+       "  for (var a in null) { r = a; }\n"
+       "  return r;\n"
+       "}",
+       -1},
+      {"function f() {\n"
+       "  var r = -1;\n"
+       "  for (var a in undefined) { r = a; }\n"
+       "  return r;\n"
+       "}",
+       -1},
+      {"function f() {\n"
+       "  var r = 0;\n"
+       "  for (var a in [0,6,7,9]) { r = r + (1 << a); }\n"
+       "  return r;\n"
+       "}",
+       0xf},
+      {"function f() {\n"
+       "  var r = 0;\n"
+       "  for (var a in [0,6,7,9]) { r = r + (1 << a); }\n"
+       "  var r = 0;\n"
+       "  for (var a in [0,6,7,9]) { r = r + (1 << a); }\n"
+       "  return r;\n"
+       "}",
+       0xf},
+      {"function f() {\n"
+       "  var r = 0;\n"
+       "  for (var a in 'foobar') { r = r + (1 << a); }\n"
+       "  return r;\n"
+       "}",
+       0x3f},
+      {"function f() {\n"
+       "  var r = 0;\n"
+       "  for (var a in {1:0, 10:1, 100:2, 1000:3}) {\n"
+       "    r = r + Number(a);\n"
+       "   }\n"
+       "   return r;\n"
+       "}",
+       1111},
+      {"function f() {\n"
+       "  var r = 0;\n"
+       "  var data = {1:0, 10:1, 100:2, 1000:3};\n"
+       "  for (var a in data) {\n"
+       "    if (a == 1) delete data[1];\n"
+       "    r = r + Number(a);\n"
+       "   }\n"
+       "   return r;\n"
+       "}",
+       1111},
+      {"function f() {\n"
+       "  var r = 0;\n"
+       "  var data = {1:0, 10:1, 100:2, 1000:3};\n"
+       "  for (var a in data) {\n"
+       "    if (a == 10) delete data[100];\n"
+       "    r = r + Number(a);\n"
+       "   }\n"
+       "   return r;\n"
+       "}",
+       1011},
+      {"function f() {\n"
+       "  var r = 0;\n"
+       "  var data = {1:0, 10:1, 100:2, 1000:3};\n"
+       "  for (var a in data) {\n"
+       "    if (a == 10) data[10000] = 4;\n"
+       "    r = r + Number(a);\n"
+       "   }\n"
+       "   return r;\n"
+       "}",
+       1111},
+      {"function f() {\n"
+       "  var r = 0;\n"
+       "  var input = 'foobar';\n"
+       "  for (var a in input) {\n"
+       "    if (input[a] == 'b') break;\n"
+       "    r = r + (1 << a);\n"
+       "  }\n"
+       "  return r;\n"
+       "}",
+       0x7},
+      {"function f() {\n"
+       "var r = 0;\n"
+       "var input = 'foobar';\n"
+       "for (var a in input) {\n"
+       "   if (input[a] == 'b') continue;\n"
+       "   r = r + (1 << a);\n"
+       "}\n"
+       "return r;\n"
+       "}",
+       0x37},
+      {"function f() {\n"
+       "  var r = 0;\n"
+       "  var data = {1:0, 10:1, 100:2, 1000:3};\n"
+       "  for (var a in data) {\n"
+       "    if (a == 10) {\n"
+       "       data[10000] = 4;\n"
+       "    }\n"
+       "    r = r + Number(a);\n"
+       "  }\n"
+       "  return r;\n"
+       "}",
+       1111},
+      {"function f() {\n"
+       "  var r = [ 3 ];\n"
+       "  var data = {1:0, 10:1, 100:2, 1000:3};\n"
+       "  for (r[10] in data) {\n"
+       "  }\n"
+       "  return Number(r[10]);\n"
+       "}",
+       1000},
+      {"function f() {\n"
+       "  var r = [ 3 ];\n"
+       "  var data = {1:0, 10:1, 100:2, 1000:3};\n"
+       "  for (r['100'] in data) {\n"
+       "  }\n"
+       "  return Number(r['100']);\n"
+       "}",
+       1000},
+      {"function f() {\n"
+       "  var obj = {}\n"
+       "  var descObj = new Boolean(false);\n"
+       "  var accessed = 0;\n"
+       "  descObj.enumerable = true;\n"
+       "  Object.defineProperties(obj, { prop:descObj });\n"
+       "  for (var p in obj) {\n"
+       "    if (p === 'prop') { accessed = 1; }\n"
+       "  }\n"
+       "  return accessed;"
+       "}",
+       1},
+      {"function f() {\n"
+       "  var appointment = {};\n"
+       "  Object.defineProperty(appointment, 'startTime', {\n"
+       "      value: 1001,\n"
+       "      writable: false,\n"
+       "      enumerable: false,\n"
+       "      configurable: true\n"
+       "  });\n"
+       "  Object.defineProperty(appointment, 'name', {\n"
+       "      value: 'NAME',\n"
+       "      writable: false,\n"
+       "      enumerable: false,\n"
+       "      configurable: true\n"
+       "  });\n"
+       "  var meeting = Object.create(appointment);\n"
+       "  Object.defineProperty(meeting, 'conferenceCall', {\n"
+       "      value: 'In-person meeting',\n"
+       "      writable: false,\n"
+       "      enumerable: false,\n"
+       "      configurable: true\n"
+       "  });\n"
+       "\n"
+       "  var teamMeeting = Object.create(meeting);\n"
+       "\n"
+       "  var flags = 0;\n"
+       "  for (var p in teamMeeting) {\n"
+       "      if (p === 'startTime') {\n"
+       "          flags |= 1;\n"
+       "      }\n"
+       "      if (p === 'name') {\n"
+       "          flags |= 2;\n"
+       "      }\n"
+       "      if (p === 'conferenceCall') {\n"
+       "          flags |= 4;\n"
+       "      }\n"
+       "  }\n"
+       "\n"
+       "  var hasOwnProperty = !teamMeeting.hasOwnProperty('name') &&\n"
+       "      !teamMeeting.hasOwnProperty('startTime') &&\n"
+       "      !teamMeeting.hasOwnProperty('conferenceCall');\n"
+       "  if (!hasOwnProperty) {\n"
+       "      flags |= 8;\n"
+       "  }\n"
+       "  return flags;\n"
+       "  }",
+       0}};
+
+  for (size_t i = 0; i < arraysize(for_in_samples); i++) {
+    InterpreterTester tester(handles.main_isolate(), for_in_samples[i].first);
+    auto callable = tester.GetCallable<>();
+    Handle<Object> return_val = callable().ToHandleChecked();
+    CHECK_EQ(Handle<Smi>::cast(return_val)->value(), for_in_samples[i].second);
+  }
+}
+
+
+TEST(InterpreterSwitch) {
+  HandleAndZoneScope handles;
+  i::Isolate* isolate = handles.main_isolate();
+  i::Factory* factory = isolate->factory();
+
+  std::pair<const char*, Handle<Object>> switch_ops[] = {
+      std::make_pair("var a = 1;\n"
+                     "switch(a) {\n"
+                     " case 1: return 2;\n"
+                     " case 2: return 3;\n"
+                     "}\n",
+                     handle(Smi::FromInt(2), isolate)),
+      std::make_pair("var a = 1;\n"
+                     "switch(a) {\n"
+                     " case 2: a = 2; break;\n"
+                     " case 1: a = 3; break;\n"
+                     "}\n"
+                     "return a;",
+                     handle(Smi::FromInt(3), isolate)),
+      std::make_pair("var a = 1;\n"
+                     "switch(a) {\n"
+                     " case 1: a = 2; // fall-through\n"
+                     " case 2: a = 3; break;\n"
+                     "}\n"
+                     "return a;",
+                     handle(Smi::FromInt(3), isolate)),
+      std::make_pair("var a = 100;\n"
+                     "switch(a) {\n"
+                     " case 1: return 100;\n"
+                     " case 2: return 200;\n"
+                     "}\n"
+                     "return undefined;",
+                     factory->undefined_value()),
+      std::make_pair("var a = 100;\n"
+                     "switch(a) {\n"
+                     " case 1: return 100;\n"
+                     " case 2: return 200;\n"
+                     " default: return 300;\n"
+                     "}\n"
+                     "return undefined;",
+                     handle(Smi::FromInt(300), isolate)),
+      std::make_pair("var a = 100;\n"
+                     "switch(typeof(a)) {\n"
+                     " case 'string': return 1;\n"
+                     " case 'number': return 2;\n"
+                     " default: return 3;\n"
+                     "}\n",
+                     handle(Smi::FromInt(2), isolate)),
+      std::make_pair("var a = 100;\n"
+                     "switch(a) {\n"
+                     " case a += 20: return 1;\n"
+                     " case a -= 10: return 2;\n"
+                     " case a -= 10: return 3;\n"
+                     " default: return 3;\n"
+                     "}\n",
+                     handle(Smi::FromInt(3), isolate)),
+      std::make_pair("var a = 1;\n"
+                     "switch(a) {\n"
+                     " case 1: \n"
+                     "   switch(a + 1) {\n"
+                     "      case 2 : a += 1; break;\n"
+                     "      default : a += 2; break;\n"
+                     "   }  // fall-through\n"
+                     " case 2: a += 3;\n"
+                     "}\n"
+                     "return a;",
+                     handle(Smi::FromInt(5), isolate)),
+  };
+
+  for (size_t i = 0; i < arraysize(switch_ops); i++) {
+    std::string source(InterpreterTester::SourceForBody(switch_ops[i].first));
+    InterpreterTester tester(handles.main_isolate(), source.c_str());
+    auto callable = tester.GetCallable<>();
+
+    Handle<i::Object> return_value = callable().ToHandleChecked();
+    CHECK(return_value->SameValue(*switch_ops[i].second));
+  }
+}
+
+
+TEST(InterpreterSloppyThis) {
+  HandleAndZoneScope handles;
+  i::Isolate* isolate = handles.main_isolate();
+  i::Factory* factory = isolate->factory();
+
+  std::pair<const char*, Handle<Object>> sloppy_this[] = {
+      std::make_pair("var global_val = 100;\n"
+                     "function f() { return this.global_val; }\n",
+                     handle(Smi::FromInt(100), isolate)),
+      std::make_pair("var global_val = 110;\n"
+                     "function g() { return this.global_val; };"
+                     "function f() { return g(); }\n",
+                     handle(Smi::FromInt(110), isolate)),
+      std::make_pair("var global_val = 110;\n"
+                     "function g() { return this.global_val };"
+                     "function f() { 'use strict'; return g(); }\n",
+                     handle(Smi::FromInt(110), isolate)),
+      std::make_pair("function f() { 'use strict'; return this; }\n",
+                     factory->undefined_value()),
+      std::make_pair("function g() { 'use strict'; return this; };"
+                     "function f() { return g(); }\n",
+                     factory->undefined_value()),
+  };
+
+  for (size_t i = 0; i < arraysize(sloppy_this); i++) {
+    InterpreterTester tester(handles.main_isolate(), sloppy_this[i].first);
+    auto callable = tester.GetCallable<>();
+
+    Handle<i::Object> return_value = callable().ToHandleChecked();
+    CHECK(return_value->SameValue(*sloppy_this[i].second));
+  }
+}
+
+
+TEST(InterpreterThisFunction) {
+  HandleAndZoneScope handles;
+  i::Isolate* isolate = handles.main_isolate();
+  i::Factory* factory = isolate->factory();
+
+  InterpreterTester tester(handles.main_isolate(),
+                           "var f;\n f = function f() { return f.name; }");
+  auto callable = tester.GetCallable<>();
+
+  Handle<i::Object> return_value = callable().ToHandleChecked();
+  CHECK(return_value->SameValue(*factory->NewStringFromStaticChars("f")));
+}
+
+
+TEST(InterpreterNewTarget) {
+  HandleAndZoneScope handles;
+  i::Isolate* isolate = handles.main_isolate();
+  i::Factory* factory = isolate->factory();
+
+  // TODO(rmcilroy): Add tests that we get the original constructor for
+  // superclass constructors once we have class support.
+  InterpreterTester tester(handles.main_isolate(),
+                           "function f() { this.a = new.target; }");
+  auto callable = tester.GetCallable<>();
+  callable().ToHandleChecked();
+
+  Handle<Object> new_target_name = v8::Utils::OpenHandle(
+      *CompileRun("(function() { return (new f()).a.name; })();"));
+  CHECK(new_target_name->SameValue(*factory->NewStringFromStaticChars("f")));
+}
+
+}  // namespace interpreter
+}  // namespace internal
+}  // namespace v8

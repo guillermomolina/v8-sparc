@@ -13,7 +13,7 @@ namespace compiler {
 
 #define FOREACH_CTYPE_MACHINE_TYPE_MAPPING(V) \
   V(void, kMachNone)                          \
-  V(bool, kMachBool)                          \
+  V(bool, kMachUint8)                         \
   V(int8_t, kMachInt8)                        \
   V(uint8_t, kMachUint8)                      \
   V(int16_t, kMachInt16)                      \
@@ -34,12 +34,6 @@ inline MachineType MachineTypeForC() {
     *(static_cast<Object* volatile*>(0)) = static_cast<T>(0);
   }
   return kMachAnyTagged;
-}
-
-template <typename T>
-inline StoreRepresentation StoreRepresentationForC(
-    WriteBarrierKind write_barrier_kind) {
-  return StoreRepresentation(MachineTypeForC<T>(), write_barrier_kind);
 }
 
 #define DECLARE_TEMPLATE_SPECIALIZATION(ctype, mtype) \

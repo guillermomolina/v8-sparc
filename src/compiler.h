@@ -293,7 +293,7 @@ class CompilationInfo {
         (closure()->context()->global_object() != NULL);
   }
 
-  GlobalObject* global_object() const {
+  JSGlobalObject* global_object() const {
     return has_global_object() ? closure()->context()->global_object() : NULL;
   }
 
@@ -326,7 +326,7 @@ class CompilationInfo {
   }
   bool ShouldEnsureSpaceForLazyDeopt() { return !IsStub(); }
 
-  bool MustReplaceUndefinedReceiverWithGlobalProxy();
+  bool ExpectsJSReceiverAsReceiver();
 
   // Determines whether or not to insert a self-optimization header.
   bool ShouldSelfOptimize();

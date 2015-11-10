@@ -110,6 +110,9 @@ Handle<BytecodeArray> BytecodeArrayBuilder::ToBytecodeArray() {
 
 template <size_t N>
 void BytecodeArrayBuilder::Output(Bytecode bytecode, uint32_t(&operands)[N]) {
+  // Don't output dead code.
+  if (exit_seen_in_block_) return;
+
   DCHECK_EQ(Bytecodes::NumberOfOperands(bytecode), static_cast<int>(N));
   last_bytecode_start_ = bytecodes()->size();
   bytecodes()->push_back(Bytecodes::ToByte(bytecode));
@@ -123,7 +126,7 @@ void BytecodeArrayBuilder::Output(Bytecode bytecode, uint32_t(&operands)[N]) {
         break;
       case OperandSize::kShort: {
         uint8_t operand_bytes[2];
-        Bytecodes::ShortOperandToBytes(operands[i], operand_bytes);
+        WriteUnalignedUInt16(operand_bytes, operands[i]);
         bytecodes()->insert(bytecodes()->end(), operand_bytes,
                             operand_bytes + 2);
         break;
@@ -154,6 +157,9 @@ void BytecodeArrayBuilder::Output(Bytecode bytecode, uint32_t operand0) {
 
 
 void BytecodeArrayBuilder::Output(Bytecode bytecode) {
+  // Don't output dead code.
+  if (exit_seen_in_block_) return;
+
   DCHECK_EQ(Bytecodes::NumberOfOperands(bytecode), 0);
   last_bytecode_start_ = bytecodes()->size();
   bytecodes()->push_back(Bytecodes::ToByte(bytecode));
@@ -224,6 +230,8 @@ BytecodeArrayBuilder& BytecodeArrayBuilder::LoadLiteral(Handle<Object> object) {
   size_t entry = GetConstantPoolEntry(object);
   if (FitsInIdx8Operand(entry)) {
     Output(Bytecode::kLdaConstant, static_cast<uint8_t>(entry));
+  } else if (FitsInIdx16Operand(entry)) {
+    Output(Bytecode::kLdaConstantWide, static_cast<uint16_t>(entry));
   } else {
     UNIMPLEMENTED();
   }
@@ -263,6 +271,8 @@ BytecodeArrayBuilder& BytecodeArrayBuilder::LoadFalse() {
 
 BytecodeArrayBuilder& BytecodeArrayBuilder::LoadAccumulatorWithRegister(
     Register reg) {
+  // TODO(oth): Avoid loading the accumulator with the register if the
+  // previous bytecode stored the accumulator with the same register.
   Output(Bytecode::kLdar, reg.ToOperand());
   return *this;
 }
@@ -270,17 +280,26 @@ BytecodeArrayBuilder& BytecodeArrayBuilder::LoadAccumulatorWithRegister(
 
 BytecodeArrayBuilder& BytecodeArrayBuilder::StoreAccumulatorInRegister(
     Register reg) {
+  // TODO(oth): Avoid storing the accumulator in the register if the
+  // previous bytecode loaded the accumulator with the same register.
   Output(Bytecode::kStar, reg.ToOperand());
   return *this;
 }
 
 
 BytecodeArrayBuilder& BytecodeArrayBuilder::LoadGlobal(
-    size_t name_index, int feedback_slot, LanguageMode language_mode) {
-  Bytecode bytecode = BytecodeForLoadGlobal(language_mode);
+    size_t name_index, int feedback_slot, LanguageMode language_mode,
+    TypeofMode typeof_mode) {
+  // TODO(rmcilroy): Potentially store language and typeof information in an
+  // operand rather than having extra bytecodes.
+  Bytecode bytecode = BytecodeForLoadGlobal(language_mode, typeof_mode);
   if (FitsInIdx8Operand(name_index) && FitsInIdx8Operand(feedback_slot)) {
     Output(bytecode, static_cast<uint8_t>(name_index),
            static_cast<uint8_t>(feedback_slot));
+  } else if (FitsInIdx16Operand(name_index) &&
+             FitsInIdx16Operand(feedback_slot)) {
+    Output(BytecodeForWideOperands(bytecode), static_cast<uint16_t>(name_index),
+           static_cast<uint16_t>(feedback_slot));
   } else {
     UNIMPLEMENTED();
   }
@@ -294,6 +313,10 @@ BytecodeArrayBuilder& BytecodeArrayBuilder::StoreGlobal(
   if (FitsInIdx8Operand(name_index) && FitsInIdx8Operand(feedback_slot)) {
     Output(bytecode, static_cast<uint8_t>(name_index),
            static_cast<uint8_t>(feedback_slot));
+  } else if (FitsInIdx16Operand(name_index) &&
+             FitsInIdx16Operand(feedback_slot)) {
+    Output(BytecodeForWideOperands(bytecode), static_cast<uint16_t>(name_index),
+           static_cast<uint16_t>(feedback_slot));
   } else {
     UNIMPLEMENTED();
   }
@@ -334,6 +357,11 @@ BytecodeArrayBuilder& BytecodeArrayBuilder::LoadNamedProperty(
   if (FitsInIdx8Operand(name_index) && FitsInIdx8Operand(feedback_slot)) {
     Output(bytecode, object.ToOperand(), static_cast<uint8_t>(name_index),
            static_cast<uint8_t>(feedback_slot));
+  } else if (FitsInIdx16Operand(name_index) &&
+             FitsInIdx16Operand(feedback_slot)) {
+    Output(BytecodeForWideOperands(bytecode), object.ToOperand(),
+           static_cast<uint16_t>(name_index),
+           static_cast<uint16_t>(feedback_slot));
   } else {
     UNIMPLEMENTED();
   }
@@ -346,6 +374,9 @@ BytecodeArrayBuilder& BytecodeArrayBuilder::LoadKeyedProperty(
   Bytecode bytecode = BytecodeForKeyedLoadIC(language_mode);
   if (FitsInIdx8Operand(feedback_slot)) {
     Output(bytecode, object.ToOperand(), static_cast<uint8_t>(feedback_slot));
+  } else if (FitsInIdx16Operand(feedback_slot)) {
+    Output(BytecodeForWideOperands(bytecode), object.ToOperand(),
+           static_cast<uint16_t>(feedback_slot));
   } else {
     UNIMPLEMENTED();
   }
@@ -360,6 +391,11 @@ BytecodeArrayBuilder& BytecodeArrayBuilder::StoreNamedProperty(
   if (FitsInIdx8Operand(name_index) && FitsInIdx8Operand(feedback_slot)) {
     Output(bytecode, object.ToOperand(), static_cast<uint8_t>(name_index),
            static_cast<uint8_t>(feedback_slot));
+  } else if (FitsInIdx16Operand(name_index) &&
+             FitsInIdx16Operand(feedback_slot)) {
+    Output(BytecodeForWideOperands(bytecode), object.ToOperand(),
+           static_cast<uint16_t>(name_index),
+           static_cast<uint16_t>(feedback_slot));
   } else {
     UNIMPLEMENTED();
   }
@@ -374,6 +410,9 @@ BytecodeArrayBuilder& BytecodeArrayBuilder::StoreKeyedProperty(
   if (FitsInIdx8Operand(feedback_slot)) {
     Output(bytecode, object.ToOperand(), key.ToOperand(),
            static_cast<uint8_t>(feedback_slot));
+  } else if (FitsInIdx16Operand(feedback_slot)) {
+    Output(BytecodeForWideOperands(bytecode), object.ToOperand(),
+           key.ToOperand(), static_cast<uint16_t>(feedback_slot));
   } else {
     UNIMPLEMENTED();
   }
@@ -450,33 +489,49 @@ BytecodeArrayBuilder& BytecodeArrayBuilder::PopContext(Register context) {
 }
 
 
-BytecodeArrayBuilder& BytecodeArrayBuilder::CastAccumulatorToBoolean() {
-  if (LastBytecodeInSameBlock()) {
-    // If the previous bytecode puts a boolean in the accumulator
-    // there is no need to emit an instruction.
-    switch (Bytecodes::FromByte(bytecodes()->at(last_bytecode_start_))) {
-      case Bytecode::kToBoolean:
-        UNREACHABLE();
-      case Bytecode::kLdaTrue:
-      case Bytecode::kLdaFalse:
-      case Bytecode::kLogicalNot:
-      case Bytecode::kTestEqual:
-      case Bytecode::kTestNotEqual:
-      case Bytecode::kTestEqualStrict:
-      case Bytecode::kTestNotEqualStrict:
-      case Bytecode::kTestLessThan:
-      case Bytecode::kTestLessThanOrEqual:
-      case Bytecode::kTestGreaterThan:
-      case Bytecode::kTestGreaterThanOrEqual:
-      case Bytecode::kTestInstanceOf:
-      case Bytecode::kTestIn:
-        return *this;
-      default:
-        // Fall through to output kToBoolean.
-        break;
-    }
+bool BytecodeArrayBuilder::NeedToBooleanCast() {
+  if (!LastBytecodeInSameBlock()) {
+    // If the previous bytecode was from a different block return false.
+    return true;
   }
-  Output(Bytecode::kToBoolean);
+
+  // If the previous bytecode puts a boolean in the accumulator return true.
+  switch (Bytecodes::FromByte(bytecodes()->at(last_bytecode_start_))) {
+    case Bytecode::kToBoolean:
+      UNREACHABLE();
+    case Bytecode::kLdaTrue:
+    case Bytecode::kLdaFalse:
+    case Bytecode::kLogicalNot:
+    case Bytecode::kTestEqual:
+    case Bytecode::kTestNotEqual:
+    case Bytecode::kTestEqualStrict:
+    case Bytecode::kTestNotEqualStrict:
+    case Bytecode::kTestLessThan:
+    case Bytecode::kTestLessThanOrEqual:
+    case Bytecode::kTestGreaterThan:
+    case Bytecode::kTestGreaterThanOrEqual:
+    case Bytecode::kTestInstanceOf:
+    case Bytecode::kTestIn:
+    case Bytecode::kForInDone:
+      return false;
+    default:
+      return true;
+  }
+}
+
+
+BytecodeArrayBuilder& BytecodeArrayBuilder::CastAccumulatorToBoolean() {
+  // If the previous bytecode puts a boolean in the accumulator
+  // there is no need to emit an instruction.
+  if (NeedToBooleanCast()) {
+    Output(Bytecode::kToBoolean);
+  }
+  return *this;
+}
+
+
+BytecodeArrayBuilder& BytecodeArrayBuilder::CastAccumulatorToJSObject() {
+  Output(Bytecode::kToObject);
   return *this;
 }
 
@@ -502,17 +557,19 @@ BytecodeArrayBuilder& BytecodeArrayBuilder::Bind(BytecodeLabel* label) {
     // Now treat as if the label will only be back referred to.
   }
   label->bind_to(bytecodes()->size());
+  LeaveBasicBlock();
   return *this;
 }
 
 
 BytecodeArrayBuilder& BytecodeArrayBuilder::Bind(const BytecodeLabel& target,
                                                  BytecodeLabel* label) {
-  DCHECK_EQ(label->is_bound(), false);
-  DCHECK_EQ(target.is_bound(), true);
+  DCHECK(!label->is_bound());
+  DCHECK(target.is_bound());
   PatchJump(bytecodes()->begin() + target.offset(),
             bytecodes()->begin() + label->offset());
   label->bind_to(target.offset());
+  LeaveBasicBlock();
   return *this;
 }
 
@@ -531,6 +588,10 @@ Bytecode BytecodeArrayBuilder::GetJumpWithConstantOperand(
       return Bytecode::kJumpIfToBooleanTrueConstant;
     case Bytecode::kJumpIfToBooleanFalse:
       return Bytecode::kJumpIfToBooleanFalseConstant;
+    case Bytecode::kJumpIfNull:
+      return Bytecode::kJumpIfNullConstant;
+    case Bytecode::kJumpIfUndefined:
+      return Bytecode::kJumpIfUndefinedConstant;
     default:
       UNREACHABLE();
       return Bytecode::kJumpConstant;
@@ -573,8 +634,35 @@ void BytecodeArrayBuilder::PatchJump(
 }
 
 
+// static
+Bytecode BytecodeArrayBuilder::GetJumpWithToBoolean(Bytecode jump_bytecode) {
+  switch (jump_bytecode) {
+    case Bytecode::kJump:
+    case Bytecode::kJumpIfNull:
+    case Bytecode::kJumpIfUndefined:
+      return jump_bytecode;
+    case Bytecode::kJumpIfTrue:
+      return Bytecode::kJumpIfToBooleanTrue;
+    case Bytecode::kJumpIfFalse:
+      return Bytecode::kJumpIfToBooleanFalse;
+    default:
+      UNREACHABLE();
+  }
+  return static_cast<Bytecode>(-1);
+}
+
+
 BytecodeArrayBuilder& BytecodeArrayBuilder::OutputJump(Bytecode jump_bytecode,
                                                        BytecodeLabel* label) {
+  // Don't emit dead code.
+  if (exit_seen_in_block_) return *this;
+
+  // Check if the value in accumulator is boolean, if not choose an
+  // appropriate JumpIfToBoolean bytecode.
+  if (NeedToBooleanCast()) {
+    jump_bytecode = GetJumpWithToBoolean(jump_bytecode);
+  }
+
   int delta;
   if (label->is_bound()) {
     // Label has been bound already so this is a backwards jump.
@@ -600,6 +688,7 @@ BytecodeArrayBuilder& BytecodeArrayBuilder::OutputJump(Bytecode jump_bytecode,
       UNIMPLEMENTED();
     }
   }
+  LeaveBasicBlock();
   return *this;
 }
 
@@ -619,15 +708,14 @@ BytecodeArrayBuilder& BytecodeArrayBuilder::JumpIfFalse(BytecodeLabel* label) {
 }
 
 
-BytecodeArrayBuilder& BytecodeArrayBuilder::JumpIfToBooleanTrue(
-    BytecodeLabel* label) {
-  return OutputJump(Bytecode::kJumpIfToBooleanTrue, label);
+BytecodeArrayBuilder& BytecodeArrayBuilder::JumpIfNull(BytecodeLabel* label) {
+  return OutputJump(Bytecode::kJumpIfNull, label);
 }
 
 
-BytecodeArrayBuilder& BytecodeArrayBuilder::JumpIfToBooleanFalse(
+BytecodeArrayBuilder& BytecodeArrayBuilder::JumpIfUndefined(
     BytecodeLabel* label) {
-  return OutputJump(Bytecode::kJumpIfToBooleanFalse, label);
+  return OutputJump(Bytecode::kJumpIfUndefined, label);
 }
 
 
@@ -645,13 +733,28 @@ BytecodeArrayBuilder& BytecodeArrayBuilder::Return() {
 }
 
 
-BytecodeArrayBuilder& BytecodeArrayBuilder::EnterBlock() { return *this; }
+BytecodeArrayBuilder& BytecodeArrayBuilder::ForInPrepare(Register receiver) {
+  Output(Bytecode::kForInPrepare, receiver.ToOperand());
+  return *this;
+}
 
 
-BytecodeArrayBuilder& BytecodeArrayBuilder::LeaveBlock() {
+BytecodeArrayBuilder& BytecodeArrayBuilder::ForInNext(Register for_in_state,
+                                                      Register index) {
+  Output(Bytecode::kForInNext, for_in_state.ToOperand(), index.ToOperand());
+  return *this;
+}
+
+
+BytecodeArrayBuilder& BytecodeArrayBuilder::ForInDone(Register for_in_state) {
+  Output(Bytecode::kForInDone, for_in_state.ToOperand());
+  return *this;
+}
+
+
+void BytecodeArrayBuilder::LeaveBasicBlock() {
   last_block_end_ = bytecodes()->size();
   exit_seen_in_block_ = false;
-  return *this;
 }
 
 
@@ -679,6 +782,10 @@ BytecodeArrayBuilder& BytecodeArrayBuilder::Call(Register callable,
 BytecodeArrayBuilder& BytecodeArrayBuilder::New(Register constructor,
                                                 Register first_arg,
                                                 size_t arg_count) {
+  if (!first_arg.is_valid()) {
+    DCHECK_EQ(0u, arg_count);
+    first_arg = Register(0);
+  }
   DCHECK(FitsInIdx8Operand(arg_count));
   Output(Bytecode::kNew, constructor.ToOperand(), first_arg.ToOperand(),
          static_cast<uint8_t>(arg_count));
@@ -690,8 +797,23 @@ BytecodeArrayBuilder& BytecodeArrayBuilder::CallRuntime(
     Runtime::FunctionId function_id, Register first_arg, size_t arg_count) {
   DCHECK(FitsInIdx16Operand(function_id));
   DCHECK(FitsInIdx8Operand(arg_count));
+  if (!first_arg.is_valid()) {
+    DCHECK_EQ(0u, arg_count);
+    first_arg = Register(0);
+  }
   Output(Bytecode::kCallRuntime, static_cast<uint16_t>(function_id),
          first_arg.ToOperand(), static_cast<uint8_t>(arg_count));
+  return *this;
+}
+
+
+BytecodeArrayBuilder& BytecodeArrayBuilder::CallJSRuntime(int context_index,
+                                                          Register receiver,
+                                                          size_t arg_count) {
+  DCHECK(FitsInIdx16Operand(context_index));
+  DCHECK(FitsInIdx8Operand(arg_count));
+  Output(Bytecode::kCallJSRuntime, static_cast<uint16_t>(context_index),
+         receiver.ToOperand(), static_cast<uint8_t>(arg_count));
   return *this;
 }
 
@@ -807,6 +929,11 @@ bool BytecodeArrayBuilder::OperandIsValid(Bytecode bytecode, int operand_index,
     case OperandType::kImm8:
     case OperandType::kIdx8:
       return static_cast<uint8_t>(operand_value) == operand_value;
+    case OperandType::kMaybeReg8:
+      if (operand_value == 0) {
+        return true;
+      }
+    // Fall-through to kReg8 case.
     case OperandType::kReg8: {
       Register reg = Register::FromOperand(static_cast<uint8_t>(operand_value));
       if (reg.is_function_context() || reg.is_function_closure()) {
@@ -908,6 +1035,44 @@ Bytecode BytecodeArrayBuilder::BytecodeForCompareOperation(Token::Value op) {
 
 
 // static
+Bytecode BytecodeArrayBuilder::BytecodeForWideOperands(Bytecode bytecode) {
+  switch (bytecode) {
+    case Bytecode::kLoadICSloppy:
+      return Bytecode::kLoadICSloppyWide;
+    case Bytecode::kLoadICStrict:
+      return Bytecode::kLoadICStrictWide;
+    case Bytecode::kKeyedLoadICSloppy:
+      return Bytecode::kKeyedLoadICSloppyWide;
+    case Bytecode::kKeyedLoadICStrict:
+      return Bytecode::kKeyedLoadICStrictWide;
+    case Bytecode::kStoreICSloppy:
+      return Bytecode::kStoreICSloppyWide;
+    case Bytecode::kStoreICStrict:
+      return Bytecode::kStoreICStrictWide;
+    case Bytecode::kKeyedStoreICSloppy:
+      return Bytecode::kKeyedStoreICSloppyWide;
+    case Bytecode::kKeyedStoreICStrict:
+      return Bytecode::kKeyedStoreICStrictWide;
+    case Bytecode::kLdaGlobalSloppy:
+      return Bytecode::kLdaGlobalSloppyWide;
+    case Bytecode::kLdaGlobalStrict:
+      return Bytecode::kLdaGlobalStrictWide;
+    case Bytecode::kLdaGlobalInsideTypeofSloppy:
+      return Bytecode::kLdaGlobalInsideTypeofSloppyWide;
+    case Bytecode::kLdaGlobalInsideTypeofStrict:
+      return Bytecode::kLdaGlobalInsideTypeofStrictWide;
+    case Bytecode::kStaGlobalSloppy:
+      return Bytecode::kStaGlobalSloppyWide;
+    case Bytecode::kStaGlobalStrict:
+      return Bytecode::kStaGlobalStrictWide;
+    default:
+      UNREACHABLE();
+      return static_cast<Bytecode>(-1);
+  }
+}
+
+
+// static
 Bytecode BytecodeArrayBuilder::BytecodeForLoadIC(LanguageMode language_mode) {
   switch (language_mode) {
     case SLOPPY:
@@ -974,13 +1139,17 @@ Bytecode BytecodeArrayBuilder::BytecodeForKeyedStoreIC(
 
 
 // static
-Bytecode BytecodeArrayBuilder::BytecodeForLoadGlobal(
-    LanguageMode language_mode) {
+Bytecode BytecodeArrayBuilder::BytecodeForLoadGlobal(LanguageMode language_mode,
+                                                     TypeofMode typeof_mode) {
   switch (language_mode) {
     case SLOPPY:
-      return Bytecode::kLdaGlobalSloppy;
+      return typeof_mode == INSIDE_TYPEOF
+                 ? Bytecode::kLdaGlobalInsideTypeofSloppy
+                 : Bytecode::kLdaGlobalSloppy;
     case STRICT:
-      return Bytecode::kLdaGlobalStrict;
+      return typeof_mode == INSIDE_TYPEOF
+                 ? Bytecode::kLdaGlobalInsideTypeofStrict
+                 : Bytecode::kLdaGlobalStrict;
     case STRONG:
       UNIMPLEMENTED();
     default:
@@ -1059,6 +1228,12 @@ bool BytecodeArrayBuilder::FitsInImm8Operand(int value) {
 // static
 bool BytecodeArrayBuilder::FitsInIdx16Operand(int value) {
   return kMinUInt16 <= value && value <= kMaxUInt16;
+}
+
+
+// static
+bool BytecodeArrayBuilder::FitsInIdx16Operand(size_t value) {
+  return value <= static_cast<size_t>(kMaxUInt16);
 }
 
 

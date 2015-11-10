@@ -361,18 +361,17 @@ class CodeAddressMap: public CodeEventLogger {
     isolate->logger()->addCodeEventListener(this);
   }
 
-  virtual ~CodeAddressMap() {
+  ~CodeAddressMap() override {
     isolate_->logger()->removeCodeEventListener(this);
   }
 
-  virtual void CodeMoveEvent(Address from, Address to) {
+  void CodeMoveEvent(Address from, Address to) override {
     address_to_name_map_.Move(from, to);
   }
 
-  virtual void CodeDisableOptEvent(Code* code, SharedFunctionInfo* shared) {
-  }
+  void CodeDisableOptEvent(Code* code, SharedFunctionInfo* shared) override {}
 
-  virtual void CodeDeleteEvent(Address from) {
+  void CodeDeleteEvent(Address from) override {
     address_to_name_map_.Remove(from);
   }
 
@@ -452,10 +451,8 @@ class CodeAddressMap: public CodeEventLogger {
     DISALLOW_COPY_AND_ASSIGN(NameMap);
   };
 
-  virtual void LogRecordedBuffer(Code* code,
-                                 SharedFunctionInfo*,
-                                 const char* name,
-                                 int length) {
+  void LogRecordedBuffer(Code* code, SharedFunctionInfo*, const char* name,
+                         int length) override {
     address_to_name_map_.Insert(code->address(), name, length);
   }
 
@@ -677,7 +674,7 @@ class StringTableInsertionKey : public HashTableKey {
     return String::cast(key)->Hash();
   }
 
-  MUST_USE_RESULT virtual Handle<Object> AsHandle(Isolate* isolate) override {
+  MUST_USE_RESULT Handle<Object> AsHandle(Isolate* isolate) override {
     return handle(string_, isolate);
   }
 
@@ -1370,21 +1367,21 @@ class Serializer::ObjectSerializer : public ObjectVisitor {
         code_has_been_output_(false) {}
   void Serialize();
   void SerializeDeferred();
-  void VisitPointers(Object** start, Object** end);
-  void VisitEmbeddedPointer(RelocInfo* target);
-  void VisitExternalReference(Address* p);
-  void VisitExternalReference(RelocInfo* rinfo);
-  void VisitInternalReference(RelocInfo* rinfo);
-  void VisitCodeTarget(RelocInfo* target);
-  void VisitCodeEntry(Address entry_address);
-  void VisitCell(RelocInfo* rinfo);
-  void VisitRuntimeEntry(RelocInfo* reloc);
+  void VisitPointers(Object** start, Object** end) override;
+  void VisitEmbeddedPointer(RelocInfo* target) override;
+  void VisitExternalReference(Address* p) override;
+  void VisitExternalReference(RelocInfo* rinfo) override;
+  void VisitInternalReference(RelocInfo* rinfo) override;
+  void VisitCodeTarget(RelocInfo* target) override;
+  void VisitCodeEntry(Address entry_address) override;
+  void VisitCell(RelocInfo* rinfo) override;
+  void VisitRuntimeEntry(RelocInfo* reloc) override;
   // Used for seralizing the external strings that hold the natives source.
   void VisitExternalOneByteString(
-      v8::String::ExternalOneByteStringResource** resource);
+      v8::String::ExternalOneByteStringResource** resource) override;
   // We can't serialize a heap with external two byte strings.
   void VisitExternalTwoByteString(
-      v8::String::ExternalStringResource** resource) {
+      v8::String::ExternalStringResource** resource) override {
     UNREACHABLE();
   }
 
@@ -1477,7 +1474,6 @@ void PartialSerializer::Serialize(Object** o) {
       context->set(Context::NEXT_CONTEXT_LINK,
                    isolate_->heap()->undefined_value());
       DCHECK(!context->global_object()->IsUndefined());
-      DCHECK(!context->builtins()->IsUndefined());
     }
   }
   VisitPointer(o);
@@ -2462,7 +2458,7 @@ void CodeSerializer::SerializeObject(HeapObject* obj, HowToCode how_to_code,
   // Past this point we should not see any (context-specific) maps anymore.
   CHECK(!obj->IsMap());
   // There should be no references to the global object embedded.
-  CHECK(!obj->IsJSGlobalProxy() && !obj->IsGlobalObject());
+  CHECK(!obj->IsJSGlobalProxy() && !obj->IsJSGlobalObject());
   // There should be no hash table embedded. They would require rehashing.
   CHECK(!obj->IsHashTable());
   // We expect no instantiated function objects or contexts.

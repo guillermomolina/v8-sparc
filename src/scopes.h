@@ -117,6 +117,10 @@ class Scope: public ZoneObject {
   // Assumes outer_scope_ is non-null.
   void ReplaceOuterScope(Scope* outer_scope);
 
+  // Propagates any eagerly-gathered scope usage flags (such as calls_eval())
+  // to the passed-in scope.
+  void PropagateUsageFlagsToScope(Scope* other);
+
   Zone* zone() const { return zone_; }
 
   // ---------------------------------------------------------------------------
@@ -237,7 +241,7 @@ class Scope: public ZoneObject {
   void RecordWithStatement() { scope_contains_with_ = true; }
 
   // Inform the scope that the corresponding code contains an eval call.
-  void RecordEvalCall() { if (!is_script_scope()) scope_calls_eval_ = true; }
+  void RecordEvalCall() { scope_calls_eval_ = true; }
 
   // Inform the scope that the corresponding code uses "arguments".
   void RecordArgumentsUsage() { scope_uses_arguments_ = true; }
@@ -357,9 +361,10 @@ class Scope: public ZoneObject {
 
   bool NeedsHomeObject() const {
     return scope_uses_super_property_ ||
-           (scope_calls_eval_ && (IsConciseMethod(function_kind()) ||
-                                  IsAccessorFunction(function_kind()) ||
-                                  IsClassConstructor(function_kind())));
+           ((scope_calls_eval_ || inner_scope_calls_eval_) &&
+            (IsConciseMethod(function_kind()) ||
+             IsAccessorFunction(function_kind()) ||
+             IsClassConstructor(function_kind())));
   }
 
   const Scope* NearestOuterEvalScope() const {

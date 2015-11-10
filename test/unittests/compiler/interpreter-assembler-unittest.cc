@@ -308,21 +308,22 @@ TARGET_TEST_F(InterpreterAssemblerTest, BytecodeOperand) {
       int offset = interpreter::Bytecodes::GetOperandOffset(bytecode, i);
       switch (interpreter::Bytecodes::GetOperandType(bytecode, i)) {
         case interpreter::OperandType::kCount8:
-          EXPECT_THAT(m.BytecodeOperandCount8(i), m.IsBytecodeOperand(offset));
+          EXPECT_THAT(m.BytecodeOperandCount(i), m.IsBytecodeOperand(offset));
           break;
         case interpreter::OperandType::kIdx8:
-          EXPECT_THAT(m.BytecodeOperandIdx8(i), m.IsBytecodeOperand(offset));
+          EXPECT_THAT(m.BytecodeOperandIdx(i), m.IsBytecodeOperand(offset));
           break;
         case interpreter::OperandType::kImm8:
-          EXPECT_THAT(m.BytecodeOperandImm8(i),
+          EXPECT_THAT(m.BytecodeOperandImm(i),
                       m.IsBytecodeOperandSignExtended(offset));
           break;
+        case interpreter::OperandType::kMaybeReg8:
         case interpreter::OperandType::kReg8:
-          EXPECT_THAT(m.BytecodeOperandReg8(i),
+          EXPECT_THAT(m.BytecodeOperandReg(i),
                       m.IsBytecodeOperandSignExtended(offset));
           break;
         case interpreter::OperandType::kIdx16:
-          EXPECT_THAT(m.BytecodeOperandIdx16(i),
+          EXPECT_THAT(m.BytecodeOperandIdx(i),
                       m.IsBytecodeOperandShort(offset));
           break;
         case interpreter::OperandType::kNone:
@@ -471,6 +472,36 @@ TARGET_TEST_F(InterpreterAssemblerTest, LoadConstantPoolEntry) {
 }
 
 
+TARGET_TEST_F(InterpreterAssemblerTest, LoadFixedArrayElement) {
+  TRACED_FOREACH(interpreter::Bytecode, bytecode, kBytecodes) {
+    InterpreterAssemblerForTest m(this, bytecode);
+    int index = 3;
+    Node* fixed_array = m.IntPtrConstant(0xdeadbeef);
+    Node* load_element = m.LoadFixedArrayElement(fixed_array, index);
+    EXPECT_THAT(
+        load_element,
+        m.IsLoad(kMachAnyTagged, fixed_array,
+                 IsIntPtrAdd(
+                     IsIntPtrConstant(FixedArray::kHeaderSize - kHeapObjectTag),
+                     IsWordShl(IsInt32Constant(index),
+                               IsInt32Constant(kPointerSizeLog2)))));
+  }
+}
+
+
+TARGET_TEST_F(InterpreterAssemblerTest, LoadObjectField) {
+  TRACED_FOREACH(interpreter::Bytecode, bytecode, kBytecodes) {
+    InterpreterAssemblerForTest m(this, bytecode);
+    Node* object = m.IntPtrConstant(0xdeadbeef);
+    int offset = 16;
+    Node* load_field = m.LoadObjectField(object, offset);
+    EXPECT_THAT(load_field,
+                m.IsLoad(kMachAnyTagged, object,
+                         IsIntPtrConstant(offset - kHeapObjectTag)));
+  }
+}
+
+
 TARGET_TEST_F(InterpreterAssemblerTest, LoadContextSlot) {
   TRACED_FOREACH(interpreter::Bytecode, bytecode, kBytecodes) {
     InterpreterAssemblerForTest m(this, bytecode);
@@ -501,19 +532,6 @@ TARGET_TEST_F(InterpreterAssemblerTest, StoreContextSlot) {
         store_context_slot,
         m.IsStore(StoreRepresentation(kMachAnyTagged, kFullWriteBarrier),
                   context, offset, value));
-  }
-}
-
-
-TARGET_TEST_F(InterpreterAssemblerTest, LoadObjectField) {
-  TRACED_FOREACH(interpreter::Bytecode, bytecode, kBytecodes) {
-    InterpreterAssemblerForTest m(this, bytecode);
-    Node* object = m.IntPtrConstant(0xdeadbeef);
-    int offset = 16;
-    Node* load_field = m.LoadObjectField(object, offset);
-    EXPECT_THAT(load_field,
-                m.IsLoad(kMachAnyTagged, object,
-                         IsIntPtrConstant(offset - kHeapObjectTag)));
   }
 }
 
