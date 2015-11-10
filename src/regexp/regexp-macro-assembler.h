@@ -35,7 +35,8 @@ class RegExpMacroAssembler {
     kPPCImplementation,
     kX64Implementation,
     kX87Implementation,
-    kBytecodeImplementation
+    kBytecodeImplementation,
+    kSPARCImplementation
   };
 
   enum StackCheckFlag {

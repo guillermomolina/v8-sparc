@@ -52,6 +52,8 @@
 #include "src/arm/codegen-arm.h"  // NOLINT
 #elif V8_TARGET_ARCH_PPC
 #include "src/ppc/codegen-ppc.h"  // NOLINT
+#elif V8_TARGET_ARCH_SPARC
+#include "src/sparc/codegen-sparc.h"  // NOLINT
 #elif V8_TARGET_ARCH_MIPS
 #include "src/mips/codegen-mips.h"  // NOLINT
 #elif V8_TARGET_ARCH_MIPS64

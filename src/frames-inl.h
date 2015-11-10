@@ -20,6 +20,8 @@
 #include "src/arm/frames-arm.h"  // NOLINT
 #elif V8_TARGET_ARCH_PPC
 #include "src/ppc/frames-ppc.h"  // NOLINT
+#elif V8_TARGET_ARCH_SPARC
+#include "src/sparc/frames-sparc.h"  // NOLINT
 #elif V8_TARGET_ARCH_MIPS
 #include "src/mips/frames-mips.h"  // NOLINT
 #elif V8_TARGET_ARCH_MIPS64

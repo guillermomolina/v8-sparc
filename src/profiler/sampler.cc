@@ -441,7 +441,7 @@ void SignalHandler::HandleProfilerSignal(int signal, siginfo_t* info,
 #else
   // Extracting the sample from the context is extremely machine dependent.
   ucontext_t* ucontext = reinterpret_cast<ucontext_t*>(context);
-#if !(V8_OS_OPENBSD || (V8_OS_LINUX && V8_HOST_ARCH_PPC))
+#if !(V8_OS_OPENBSD || (V8_OS_LINUX && V8_HOST_ARCH_PPC)) 
   mcontext_t& mcontext = ucontext->uc_mcontext;
 #endif
 #if V8_OS_LINUX
@@ -540,9 +540,20 @@ void SignalHandler::HandleProfilerSignal(int signal, siginfo_t* info,
   state.fp = reinterpret_cast<Address>(ucontext->sc_rbp);
 #endif  // V8_HOST_ARCH_*
 #elif V8_OS_SOLARIS
+#if V8_HOST_ARCH_IA32
   state.pc = reinterpret_cast<Address>(mcontext.gregs[REG_PC]);
   state.sp = reinterpret_cast<Address>(mcontext.gregs[REG_SP]);
-  state.fp = reinterpret_cast<Address>(mcontext.gregs[REG_FP]);
+  state.fp = reinterpret_cast<Address>(mcontext.__gregs[REG_FP]);
+#elif V8_HOST_ARCH_X64
+  state.pc = reinterpret_cast<Address>(mcontext.gregs[REG_PC]);
+  state.sp = reinterpret_cast<Address>(mcontext.gregs[REG_SP]);
+  state.fp = reinterpret_cast<Address>(mcontext.__gregs[REG_FP]);
+#elif V8_HOST_ARCH_SPARC
+  UNIMPLEMENTED();
+  state.pc = reinterpret_cast<Address>(mcontext.gregs[REG_PC]);
+  state.sp = reinterpret_cast<Address>(mcontext.gregs[REG_SP]);
+ // state.fp = reinterpret_cast<Address>(mcontext.__gregs[REG_FP]);
+#endif  // V8_HOST_ARCH_*
 #elif V8_OS_QNX
 #if V8_HOST_ARCH_IA32
   state.pc = reinterpret_cast<Address>(mcontext.cpu.eip);

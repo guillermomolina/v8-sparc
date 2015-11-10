@@ -53,6 +53,9 @@ namespace internal {
 #if (V8_TARGET_ARCH_PPC && !V8_HOST_ARCH_PPC)
 #define USE_SIMULATOR 1
 #endif
+#if (V8_TARGET_ARCH_SPARC && !V8_HOST_ARCH_SPARC)
+#define USE_SIMULATOR 1
+#endif
 #if (V8_TARGET_ARCH_MIPS && !V8_HOST_ARCH_MIPS)
 #define USE_SIMULATOR 1
 #endif
@@ -595,20 +598,7 @@ enum InlineCacheState {
   // A generic handler is installed and no extra typefeedback is recorded.
   GENERIC,
   // Special state for debug break or step in prepare stubs.
-  DEBUG_STUB,
-  // Type-vector-based ICs have a default state, with the full calculation
-  // of IC state only determined by a look at the IC and the typevector
-  // together.
-  DEFAULT
-};
-
-
-enum CallFunctionFlags {
-  NO_CALL_FUNCTION_FLAGS,
-  CALL_AS_METHOD,
-  // Always wrap the receiver and call to the JSFunction. Only use this flag
-  // both the receiver type and the target method are statically known.
-  WRAP_AND_CALL
+  DEBUG_STUB
 };
 
 
@@ -949,6 +939,8 @@ enum FunctionKind {
   kInObjectLiteral = 1 << 7,
   kDefaultBaseConstructor = kDefaultConstructor | kBaseConstructor,
   kDefaultSubclassConstructor = kDefaultConstructor | kSubclassConstructor,
+  kClassConstructor =
+      kBaseConstructor | kSubclassConstructor | kDefaultConstructor,
   kConciseMethodInObjectLiteral = kConciseMethod | kInObjectLiteral,
   kConciseGeneratorMethodInObjectLiteral =
       kConciseGeneratorMethod | kInObjectLiteral,
@@ -1017,9 +1009,7 @@ inline bool IsSubclassConstructor(FunctionKind kind) {
 
 inline bool IsClassConstructor(FunctionKind kind) {
   DCHECK(IsValidFunctionKind(kind));
-  return kind &
-         (FunctionKind::kBaseConstructor | FunctionKind::kSubclassConstructor |
-          FunctionKind::kDefaultConstructor);
+  return kind & FunctionKind::kClassConstructor;
 }
 
 

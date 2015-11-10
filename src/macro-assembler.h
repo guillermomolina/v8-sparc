@@ -58,6 +58,11 @@ enum AllocationFlags {
 #include "src/ppc/assembler-ppc-inl.h"
 #include "src/ppc/constants-ppc.h"
 #include "src/ppc/macro-assembler-ppc.h"
+#elif V8_TARGET_ARCH_SPARC
+#include "src/sparc/assembler-sparc.h"
+#include "src/sparc/assembler-sparc-inl.h"
+#include "src/sparc/constants-sparc.h"
+#include "src/sparc/macro-assembler-sparc.h"
 #elif V8_TARGET_ARCH_MIPS
 #include "src/mips/assembler-mips.h"
 #include "src/mips/assembler-mips-inl.h"

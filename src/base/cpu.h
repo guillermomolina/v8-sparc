@@ -72,6 +72,17 @@ class CPU final {
     PPC_G5,
     PPC_PA6T
   };
+  
+ #if V8_HOST_ARCH_SPARC
+    // SPARC-specific part codes
+  enum {
+    SPARC,
+    SPARC_U,
+    SPARC_M,
+    SPARC_T,
+    SPARC_T1
+   };
+#endif
 
   // General features
   bool has_fpu() const { return has_fpu_; }
@@ -105,6 +116,19 @@ class CPU final {
 
   // mips features
   bool is_fp64_mode() const { return is_fp64_mode_; }
+
+  //sparc features
+  bool has_mul32() const { return has_mul32_; }
+  bool has_div32() const { return has_div32_; }
+  bool has_fsmuld() const { return has_fsmuld_; }
+  bool has_v9() const { return has_v9_; }
+  bool has_popc() const { return has_popc_; }
+  bool has_vis1() const { return has_vis1_; }
+  bool has_vis2() const { return has_vis2_; }
+  bool has_vis3() const { return has_vis3_; }
+  bool has_blk_init() const { return has_blk_init_; }
+  bool has_fmaf() const { return has_fmaf_; }
+  bool has_cbcond() const { return has_cbcond_; }
 
  private:
   char vendor_[13];
@@ -143,6 +167,17 @@ class CPU final {
   bool has_vfp3_;
   bool has_vfp3_d32_;
   bool is_fp64_mode_;
+  bool has_mul32_;
+  bool has_div32_;
+  bool has_fsmuld_;
+  bool has_v9_;
+  bool has_popc_;
+  bool has_vis1_;
+  bool has_vis2_;
+  bool has_vis3_;
+  bool has_blk_init_;
+  bool has_fmaf_;
+  bool has_cbcond_;
 };
 
 }  // namespace base

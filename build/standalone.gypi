@@ -52,7 +52,7 @@
         'variables': {
           'conditions': [
             ['OS=="linux" or OS=="freebsd" or OS=="openbsd" or \
-               OS=="netbsd" or OS=="mac" or OS=="qnx" or OS=="aix"', {
+               OS=="netbsd" or OS=="mac" or OS=="qnx" or OS=="aix" or OS=="solaris"', {
               # This handles the Unix platforms we generally deal with.
               # Anything else gets passed through, which probably won't work
               # very well; such hosts should pass an explicit target_arch
@@ -109,7 +109,7 @@
         }, {
           'gomadir': '<!(/bin/echo -n ${HOME}/goma)',
         }],
-        ['host_arch!="ppc" and host_arch!="ppc64" and host_arch!="ppc64le"', {
+        ['host_arch!="ppc" and host_arch!="ppc64" and host_arch!="ppc64le" and host_arch!="sparc"', {
           'host_clang%': '1',
         }, {
           'host_clang%': '0',
@@ -678,6 +678,9 @@
           }],
           [ 'component=="shared_library"', {
             'cflags': [ '-fPIC', ],
+          }],
+          [ 'OS=="solaris"', {
+             'defines': [ '_GLIBCXX_USE_C99_MATH', ],
           }],
         ],
       },

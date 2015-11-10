@@ -5,9 +5,9 @@
 // Platform-specific code for Solaris 10 goes here. For the POSIX-compatible
 // parts, the implementation is in platform-posix.cc.
 
-#ifdef __sparc
-# error "V8 does not support the SPARC CPU architecture."
-#endif
+//#ifdef __sparc
+//# error "V8 does not support the SPARC CPU architecture."
+//#endif
 
 #include <dlfcn.h>  // dladdr
 #include <errno.h>

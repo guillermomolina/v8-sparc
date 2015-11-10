@@ -36,6 +36,8 @@
 #include "src/regexp/arm/regexp-macro-assembler-arm.h"
 #elif V8_TARGET_ARCH_PPC
 #include "src/regexp/ppc/regexp-macro-assembler-ppc.h"
+#elif V8_TARGET_ARCH_SPARC
+#include "src/regexp/sparc/regexp-macro-assembler-sparc.h"
 #elif V8_TARGET_ARCH_MIPS
 #include "src/regexp/mips/regexp-macro-assembler-mips.h"
 #elif V8_TARGET_ARCH_MIPS64
@@ -6352,6 +6354,9 @@ RegExpEngine::CompilationResult RegExpEngine::Compile(
                                             (data->capture_count + 1) * 2);
 #elif V8_TARGET_ARCH_PPC
   RegExpMacroAssemblerPPC macro_assembler(isolate, zone, mode,
+                                          (data->capture_count + 1) * 2);
+#elif V8_TARGET_ARCH_SPARC
+  RegExpMacroAssemblerSPARC macro_assembler(isolate, zone, mode,
                                           (data->capture_count + 1) * 2);
 #elif V8_TARGET_ARCH_MIPS
   RegExpMacroAssemblerMIPS macro_assembler(isolate, zone, mode,
