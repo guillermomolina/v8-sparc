@@ -98,6 +98,8 @@ void generate(MacroAssembler* masm, uint32_t key) {
   __ GetNumberHash(r3, ip);
   __ pop(kRootRegister);
   __ blr();
+#elif V8_TARGET_ARCH_SPARC
+  UNIMPLEMENTED();
 #else
 #error Unsupported architecture.
 #endif

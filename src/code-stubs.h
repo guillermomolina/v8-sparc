@@ -143,9 +143,11 @@ namespace internal {
 
 // List of code stubs only used on SPARC platforms.
 #ifdef V8_TARGET_ARCH_SPARC
-#define CODE_STUB_LIST_SPARC(V) 
-    // CHECK_NEXT
-#else
+#define CODE_STUB_LIST_SPARC(V) \
+  V(DirectCEntry)              \
+  V(RestoreRegistersState)     \
+  V(StoreRegistersState)
+ #else
 #define CODE_STUB_LIST_SPARC(V)
 #endif
 

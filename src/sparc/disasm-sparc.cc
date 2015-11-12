@@ -42,8 +42,59 @@ namespace internal {
 }  // namespace internal
 }  // namespace v8
 
+    //------------------------------------------------------------------------------
 
 namespace disasm {
+    
+const char* NameConverter::NameOfAddress(byte* addr) const {
+  UNIMPLEMENTED();
+}
+
+
+const char* NameConverter::NameOfConstant(byte* addr) const {
+  UNIMPLEMENTED();
+}
+
+
+const char* NameConverter::NameOfCPURegister(int reg) const {
+  UNIMPLEMENTED();
+}
+
+
+const char* NameConverter::NameOfXMMRegister(int reg) const {
+  UNIMPLEMENTED();
+}
+
+
+const char* NameConverter::NameOfByteCPURegister(int reg) const {
+  UNIMPLEMENTED();
+}
+
+
+const char* NameConverter::NameInCode(byte* addr) const {
+  UNIMPLEMENTED();
+}
+
+
+//------------------------------------------------------------------------------
+
+Disassembler::Disassembler(const NameConverter& converter)
+    : converter_(converter) {}
+
+int Disassembler::InstructionDecode(v8::internal::Vector<char> buffer,
+                                    byte* instruction) {
+  UNIMPLEMENTED();
+}
+
+Disassembler::~Disassembler() {}
+
+
+// The MIPS assembler does not currently use constant pools.
+int Disassembler::ConstantPoolSizeAt(byte* instruction) {
+  UNIMPLEMENTED();
+}
+
+
 
 }  // namespace disasm
 

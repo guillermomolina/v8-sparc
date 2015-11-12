@@ -135,7 +135,7 @@
   'conditions': [
     ['host_arch=="ia32" or host_arch=="x64" or \
       host_arch=="ppc" or host_arch=="ppc64" or \
-      host_arch=="sparc" or clang==1', {
+      clang==1', {
       'variables': {
         'host_cxx_is_biarch%': 1,
        },
@@ -146,7 +146,7 @@
     }],
     ['target_arch=="ia32" or target_arch=="x64" or target_arch=="x87" or \
       target_arch=="ppc" or target_arch=="ppc64" or \
-      target_arch=="sparc" or clang==1', {
+      clang==1', {
       'variables': {
         'target_cxx_is_biarch%': 1,
        },
@@ -300,6 +300,7 @@
       ['v8_target_arch=="sparc"', {
         'defines': [
           'V8_TARGET_ARCH_SPARC',
+          'V8_INTERPRETED_REGEXP',
         ],
       }],  # sparc
       ['v8_target_arch=="ppc" or v8_target_arch=="ppc64"', {

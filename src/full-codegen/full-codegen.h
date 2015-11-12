@@ -325,9 +325,6 @@ class FullCodeGenerator: public AstVisitor {
 #elif V8_TARGET_ARCH_PPC
   void Split(Condition cc, Label* if_true, Label* if_false, Label* fall_through,
              CRegister cr = cr7);
-#elif V8_TARGET_ARCH_SPARC
-  void Split(Condition cc, Label* if_true, Label* if_false, Label* fall_through,
-             CRegister cr = cr7);
 #else  // All other arch.
   void Split(Condition cc,
              Label* if_true,

@@ -63,14 +63,10 @@ namespace internal {
   V(i0)  V(i1)  V(i2)  V(i3)  V(i4)  V(i5)   
     
 #define DOUBLE_REGISTERS(V)                               \
-  V(f0)  V(f1)  V(f2)  V(f3)  V(f4)  V(f5) V(f6) V(f7) \
-  V(f8) V(f9) V(f10) V(f11) V(f12) V(f13) V(f14) V(f15) \
-  V(f16) V(f17) V(f18) V(f19) V(f20) V(f21) V(f22) V(f23) \
-  V(f24) V(f25) V(f26) V(f27) V(f28) V(f29) V(f30) V(f31) \
-  V(f32) V(f33) V(f34) V(f35) V(f36) V(f37) V(f38) V(f39) \
-  V(f40) V(f41) V(f42) V(f43) V(f44) V(f45) V(f46) V(f47) \
-  V(f48) V(f49) V(f50) V(f51) V(f52) V(f53) V(f54) V(f55) \
-  V(f56) V(f57) V(f58) V(f59) V(f60) V(f61) V(f62) V(f63) 
+  V(f0)  V(f2)  V(f4)  V(f6)  V(f8)  V(f10) V(f12) V(f14) \
+  V(f16) V(f18) V(f20) V(f22) V(f24) V(f26) V(f28) V(f30) \
+  V(f32) V(f34) V(f36) V(f38) V(f40) V(f42) V(f44) V(f46) \
+  V(f48) V(f50) V(f52) V(f54) V(f56) V(f58) V(f60) V(f62) 
 
 #define ALLOCATABLE_DOUBLE_REGISTERS(V)                   \
   V(f0)  V(f2)  V(f4)  V(f6)  V(f8)  V(f10) V(f12) V(f14) \
@@ -224,6 +220,72 @@ struct DoubleRegister {
   int reg_code;
 };
 
+typedef DoubleRegister FPURegister;
+typedef DoubleRegister FloatRegister;
+
+const DoubleRegister no_freg = {-1};
+
+const DoubleRegister f0 = {0};  
+const DoubleRegister f2 = {2};
+const DoubleRegister f4 = {4};
+const DoubleRegister f6 = {6};
+const DoubleRegister f8 = {8};
+const DoubleRegister f10 = {10};
+const DoubleRegister f12 = {12};  
+const DoubleRegister f14 = {14};  
+const DoubleRegister f16 = {16};
+const DoubleRegister f18 = {18};
+const DoubleRegister f20 = {20};
+const DoubleRegister f22 = {22};
+const DoubleRegister f24 = {24};
+const DoubleRegister f26 = {26};
+const DoubleRegister f28 = {28};
+const DoubleRegister f30 = {30};
+const DoubleRegister f32 = {32};
+const DoubleRegister f34 = {34};
+const DoubleRegister f36 = {36};
+const DoubleRegister f38 = {38};
+const DoubleRegister f40 = {40};
+const DoubleRegister f42 = {42};
+const DoubleRegister f44 = {44};
+const DoubleRegister f46 = {46};
+const DoubleRegister f48 = {48};
+const DoubleRegister f50 = {50};
+const DoubleRegister f52 = {52};
+const DoubleRegister f54 = {54};
+const DoubleRegister f56 = {56};
+const DoubleRegister f58 = {58};
+const DoubleRegister f60 = {60};
+const DoubleRegister f62 = {62};
+
+
+
+// Register aliases.
+#define kLithiumScratchReg l0
+#define kLithiumScratchReg2 l1
+#define kLithiumScratchDouble f60
+#define kZeroRegister g0
+
+// Class Operand represents a shifter operand in data processing instructions
+class Operand BASE_EMBEDDED {
+ public:
+   INLINE(explicit Operand(Register rm)) { UNIMPLEMENTED(); }
+private:
+ 
+  friend class Assembler;
+  friend class MacroAssembler;
+};
+
+
+// Class MemOperand represents a memory operand in load and store instructions
+// On PowerPC we have base register + 16bit signed value
+// Alternatively we can have a 16bit signed value immediate
+class MemOperand BASE_EMBEDDED {
+ public:
+ private:
+ 
+  friend class Assembler;
+};
 
 class Assembler : public AssemblerBase {
 public:
@@ -264,7 +326,76 @@ public:
   // but it may be bound only once.
   void bind(Label* L);  // Binds an unbound label L to current code position.
 
-    // Debugging.
+
+   // Read/Modify the code target address in the branch/call instruction at pc.
+  static Address target_address_at(Address pc) { UNIMPLEMENTED(); }
+  static void set_target_address_at(Address pc,
+                                    Address target,
+                                    ICacheFlushMode icache_flush_mode =
+                                        FLUSH_ICACHE_IF_NEEDED) { UNIMPLEMENTED(); }
+  INLINE(static Address target_address_at(Address pc, Address constant_pool))  { UNIMPLEMENTED(); }
+  INLINE(static void set_target_address_at(
+      Address pc, Address constant_pool, Address target,
+      ICacheFlushMode icache_flush_mode = FLUSH_ICACHE_IF_NEEDED))  { UNIMPLEMENTED(); }
+  INLINE(static Address target_address_at(Address pc, Code* code))  { UNIMPLEMENTED(); }
+  INLINE(static void set_target_address_at(Address pc,
+                                           Code* code,
+                                           Address target,
+                                           ICacheFlushMode icache_flush_mode =
+                                               FLUSH_ICACHE_IF_NEEDED))  { UNIMPLEMENTED(); }
+
+  // Return the code target address at a call site from the return address
+  // of that call in the instruction stream.
+  inline static Address target_address_from_return_address(Address pc);
+
+  // This sets the branch destination (which gets loaded at the call address).
+  // This is for calls and branches within generated code.  The serializer
+  // has already deserialized the lui/ori instructions etc.
+  inline static void deserialization_set_special_target_at(
+      Address instruction_payload, Code* code, Address target)  { UNIMPLEMENTED(); }
+
+  // This sets the internal reference at the pc.
+  inline static void deserialization_set_target_internal_reference_at(
+      Address pc, Address target,
+      RelocInfo::Mode mode = RelocInfo::INTERNAL_REFERENCE) { UNIMPLEMENTED(); }
+
+
+  // Difference between address of current opcode and target address offset.
+  static const int kBranchPCOffset = 4;
+
+  // Here we are patching the address in the LUI/ORI instruction pair.
+  // These values are used in the serialization process and must be zero for
+  // MIPS platform, as Code, Embedded Object or External-reference pointers
+  // are split across two consecutive instructions and don't exist separately
+  // in the code, so the serializer should not step forwards in memory after
+  // a target is resolved and written.
+  static const int kSpecialTargetSize = 0;
+
+  // Number of consecutive instructions used to store 32bit/64bit constant.
+  // This constant was used in RelocInfo::target_address_address() function
+  // to tell serializer address of the instruction that follows
+  // LUI/ORI instruction pair.
+  static const int kInstructionsFor32BitConstant = 2;
+  static const int kInstructionsFor64BitConstant = 4;
+
+  // Distance between the instruction referring to the address of the call
+  // target and the return address.
+  static const int kCallTargetAddressOffset = 6 * kInstructionSize;
+
+  // Distance between start of patched debug break slot and the emitted address
+  // to jump to.
+  static const int kPatchDebugBreakSlotAddressOffset = 6 * kInstructionSize;
+
+  // Difference between address of current opcode and value read from pc
+  // register.
+  static const int kPcLoadDelta = 4;
+
+  static const int kDebugBreakSlotInstructions = 6;
+  static const int kDebugBreakSlotLength =
+      kDebugBreakSlotInstructions * kInstructionSize;
+
+
+  // Debugging.
 
   // Mark generator continuation.
   void RecordGeneratorContinuation();

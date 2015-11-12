@@ -16,6 +16,28 @@
 namespace v8 {
 namespace internal {
 
+Register JavaScriptFrame::fp_register() {
+    UNIMPLEMENTED();
+}
+Register JavaScriptFrame::context_register() {
+    UNIMPLEMENTED();
+}
+
+Register JavaScriptFrame::constant_pool_pointer_register() {
+  UNIMPLEMENTED();
+}
+
+
+Register StubFailureTrampolineFrame::fp_register() {
+    UNIMPLEMENTED();
+}
+Register StubFailureTrampolineFrame::context_register() {
+    UNIMPLEMENTED();
+}
+Register StubFailureTrampolineFrame::constant_pool_pointer_register() {
+    UNIMPLEMENTED();
+}
+
 }  // namespace internal
 }  // namespace v8
 

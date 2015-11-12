@@ -13,8 +13,19 @@
 namespace v8 {
 namespace internal {
 
- const Register kReturnRegister0 = {Register::kCode_i0};
+// Give alias names to registers for calling conventions.
+const Register kReturnRegister0 = {Register::kCode_i0};
 const Register kReturnRegister1 = {Register::kCode_i1};
+const Register kJSFunctionRegister = {Register::kCode_g4};
+const Register kContextRegister = {Register::kCode_g5};
+const Register kInterpreterAccumulatorRegister = {Register::kCode_l0};
+const Register kInterpreterRegisterFileRegister = {Register::kCode_l1};
+const Register kInterpreterBytecodeOffsetRegister = {Register::kCode_l2};
+const Register kInterpreterBytecodeArrayRegister = {Register::kCode_l3};
+const Register kInterpreterDispatchTableRegister = {Register::kCode_l4};
+const Register kJavaScriptCallArgCountRegister = {Register::kCode_i0};
+const Register kRuntimeCallFunctionRegister = {Register::kCode_i1};
+const Register kRuntimeCallArgCountRegister = {Register::kCode_i0};
    
 
 // Flags used for AllocateHeapNumber
@@ -42,7 +53,69 @@ public:
   // responsibility of the caller to never invoke such function on the
   // macro assembler.
   MacroAssembler(Isolate* isolate, void* buffer, int size);
+  
+  
+ // Returns the size of a call in instructions. Note, the value returned is
+  // only valid as long as no entries are added to the constant pool between
+  // checking the call size and emitting the actual call.
+  static int CallSize(Register target)  { UNIMPLEMENTED(); }
+  int CallSize(Address target, RelocInfo::Mode rmode, Condition cond = al) { UNIMPLEMENTED(); }
+  static int CallSizeNotPredictableCodeSize(Address target,
+                                            RelocInfo::Mode rmode,
+                                            Condition cond = al) { UNIMPLEMENTED(); }
 
+  // Jump, Call, and Ret pseudo instructions implementing inter-working.
+  void Jump(Register target) { UNIMPLEMENTED(); }
+  void JumpToJSEntry(Register target) { UNIMPLEMENTED(); }
+  void Jump(Handle<Code> code, RelocInfo::Mode rmode, Condition cond = al) { UNIMPLEMENTED(); }
+  void Call(Register target) { UNIMPLEMENTED(); }
+  void CallJSEntry(Register target) { UNIMPLEMENTED(); }
+  void Call(Address target, RelocInfo::Mode rmode, Condition cond = al) { UNIMPLEMENTED(); }
+  int CallSize(Handle<Code> code,
+               RelocInfo::Mode rmode = RelocInfo::CODE_TARGET,
+               TypeFeedbackId ast_id = TypeFeedbackId::None(),
+               Condition cond = al) { UNIMPLEMENTED(); }
+  void Call(Handle<Code> code, RelocInfo::Mode rmode = RelocInfo::CODE_TARGET,
+            TypeFeedbackId ast_id = TypeFeedbackId::None(),
+            Condition cond = al) { UNIMPLEMENTED(); }
+  void Ret()  { UNIMPLEMENTED(); }
+ 
+  // Emit code to discard a non-negative number of pointer-sized elements
+  // from the stack, clobbering only the sp register.
+  void Drop(int count) { UNIMPLEMENTED(); }
+
+  void Ret(int drop)  { UNIMPLEMENTED(); }
+
+  void Call(Label* target) { UNIMPLEMENTED(); }
+
+  // Emit call to the code we are currently generating.
+  void CallSelf() {
+    Handle<Code> self(reinterpret_cast<Code**>(CodeObject().location()));
+    Call(self, RelocInfo::CODE_TARGET);
+  }
+
+  // Register move. May do nothing if the registers are identical.
+  void Move(Register dst, Handle<Object> value) { UNIMPLEMENTED(); }
+  void Move(Register dst, Register src, Condition cond = al) { UNIMPLEMENTED(); }
+  void Move(DoubleRegister dst, DoubleRegister src) { UNIMPLEMENTED(); }
+
+  // Load an object from the root table.
+  void LoadRoot(Register destination, Heap::RootListIndex index,
+                Condition cond = al) { UNIMPLEMENTED(); }
+  // Store an object to the root table.
+  void StoreRoot(Register source, Heap::RootListIndex index,
+                 Condition cond = al) { UNIMPLEMENTED(); }
+
+  void PushRoot(Heap::RootListIndex index) { UNIMPLEMENTED(); }
+
+   void Push(Register src) { UNIMPLEMENTED(); }
+
+  // Push a handle.
+  void Push(Handle<Object> handle) { UNIMPLEMENTED(); }
+  void Push(Smi* smi) { Push(Handle<Smi>(smi, isolate())); }
+
+  void Pop(Register dst)  { UNIMPLEMENTED(); }
+  
   // Verify restrictions about code generated in stubs.
   void set_generating_stub(bool value) { generating_stub_ = value; }
   bool generating_stub() { return generating_stub_; }
@@ -97,13 +170,63 @@ public:
 
   // This is required for compatibility in architecture indepenedant code.
   inline void jmp(Label* L) { UNIMPLEMENTED(); }
+  // -------------------------------------------------------------------------
+  // Debugger Support.
+
+  void DebugBreak() { UNIMPLEMENTED(); }
+
+  // ---------------------------------------------------------------------------
+  // Runtime calls
+
+  // Call a code stub.
+  void CallStub(CodeStub* stub, TypeFeedbackId ast_id = TypeFeedbackId::None(),
+                Condition cond = al) { UNIMPLEMENTED(); }
+
+  // Call a runtime routine.
+  void CallRuntime(const Runtime::Function* f, int num_arguments,
+                   SaveFPRegsMode save_doubles = kDontSaveFPRegs) { UNIMPLEMENTED(); }
+  void CallRuntimeSaveDoubles(Runtime::FunctionId id)  { UNIMPLEMENTED(); }
+
+  // Convenience function: Same as above, but takes the fid instead.
+  void CallRuntime(Runtime::FunctionId id, int num_arguments,
+                   SaveFPRegsMode save_doubles = kDontSaveFPRegs) { UNIMPLEMENTED(); }
+
+  // Convenience function: call an external reference.
+  void CallExternalReference(const ExternalReference& ext, int num_arguments) { UNIMPLEMENTED(); }
+
+
+  // Call a code stub.
+  void TailCallStub(CodeStub* stub, Condition cond = al) { UNIMPLEMENTED(); }
 
   Handle<Object> CodeObject() {
     DCHECK(!code_object_.is_null());
     return code_object_;
   }
 
+  // Check if the map of an object is equal to a specified weak map and branch
+  // to a specified target if equal. Skip the smi check if not required
+  // (object is known to be a heap object)
+  void DispatchWeakMap(Register obj, Register scratch1, Register scratch2,
+                       Handle<WeakCell> cell, Handle<Code> success,
+                       SmiCheckType smi_check_type) { UNIMPLEMENTED(); }
+
+  // If the value is a NaN, canonicalize the value else, do nothing.
+  void FPUCanonicalizeNaN(const DoubleRegister dst, const DoubleRegister src) { UNIMPLEMENTED(); }
+
+
+  // Get value of the weak cell.
+  void GetWeakValue(Register value, Handle<WeakCell> cell) { UNIMPLEMENTED(); }
+
+  // Load the value of the weak cell in the value register. Branch to the
+  // given miss label is the weak cell was cleared.
+  void LoadWeakValue(Register value, Handle<WeakCell> cell, Label* miss) { UNIMPLEMENTED(); }
+
 private:
+  // Compute memory operands for safepoint stack slots.
+  static int SafepointRegisterStackIndex(int reg_code) { UNIMPLEMENTED(); }
+  MemOperand SafepointRegisterSlot(Register reg) { UNIMPLEMENTED(); }
+  MemOperand SafepointRegistersAndDoublesSlot(Register reg) { UNIMPLEMENTED(); }
+
   bool generating_stub_;
   bool has_frame_;
   // This handle will be patched with the code object on installation.

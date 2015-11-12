@@ -18,7 +18,9 @@
 namespace v8 {
 namespace internal {
 
+#ifndef V8_INTERPRETED_REGEXP
 #endif  // V8_INTERPRETED_REGEXP
+    
 }  // namespace internal
 }  // namespace v8
 

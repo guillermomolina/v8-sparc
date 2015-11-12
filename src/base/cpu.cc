@@ -53,10 +53,6 @@
 #include <unistd.h>  // sysconf()
 #endif
 #if V8_OS_SOLARIS && V8_HOST_ARCH_SPARC
-#include <sys/auxv.h>
-#include <sys/auxv_SPARC.h>
-#include <sys/systeminfo.h>
-#include <kstat.h>
 #endif
 
 #include <ctype.h>
@@ -733,63 +729,7 @@ CPU::CPU()
 #elif V8_HOST_ARCH_SPARC
 #ifndef USE_SIMULATOR
 #if V8_OS_SOLARIS
-    // Extract valid instruction set extensions.
-    uint_t av;
-    uint_t avn = getisax(&av, 1);
-    CHECK(avn == 1); //should only return one av
-
-    has_mul32_ = (av & AV_SPARC_MUL32)  != 0;
-    has_div32_ = (av & AV_SPARC_DIV32)  != 0;
-    has_fsmuld_ = (av & AV_SPARC_FSMULD) != 0;
-    has_v9_ = (av & AV_SPARC_V8PLUS) != 0;
-    has_popc_ = (av & AV_SPARC_POPC) != 0;
-    has_vis1_ =  (av & AV_SPARC_VIS) != 0;
-    has_vis2_ =  (av & AV_SPARC_VIS2) != 0;
-    has_blk_init_ = (av & AV_SPARC_ASI_BLK_INIT) != 0;
-    has_fmaf_ = (av & AV_SPARC_FMAF) != 0;
-    has_vis3_ = (av & AV_SPARC_VIS3) != 0;
-    has_cbcond_ = (av & AV_SPARC_CBCOND) != 0;
-
-    // Using kstat to determine the machine type.
-    kstat_ctl_t* kc = kstat_open();
-    kstat_t* ksp = kstat_lookup(kc, (char*)"cpu_info", -1, NULL);
-    const char* implementation = "UNKNOWN";
-    if (ksp != NULL) {
-      if (kstat_read(kc, ksp, NULL) != -1 && ksp->ks_data != NULL) {
-        kstat_named_t* knm = (kstat_named_t *)ksp->ks_data;
-        for (unsigned int i = 0; i < ksp->ks_ndata; i++) {
-          if (strcmp((const char*)&(knm[i].name),"implementation") == 0) {
-             implementation = KSTAT_NAMED_STR_PTR(&knm[i]);
-            // Convert to UPPER case before compare.
-            char* impl = strdup(implementation);
-
-            for (int i = 0; impl[i] != 0; i++)
-              impl[i] = (char)toupper((uint)impl[i]);
-            part_ = SPARC;
-            if (strstr(impl, "SPARC64") != NULL) {
-              part_ = SPARC_U;
-            } else if (strstr(impl, "SPARC-M") != NULL) {
-              // M-series SPARC is based on T-series.
-               part_ = SPARC_M;
-             } else if (strstr(impl, "SPARC-T") != NULL) {
-               part_ = SPARC_T;
-               if (strstr(impl, "SPARC-T1") != NULL) {
-                part_ = SPARC_T1;
-               }
-            } else {
-              if (strstr(impl, "SPARC") == NULL) {
-                implementation = "SPARC";
-              }
-            }
-            free((void*)impl);
-            break;
-          }
-        } // for(
-      }
-    }
-    CHECK(strcmp(implementation, "UNKNOWN") != 0); //  unknown cpu info (changed kstat interface?)
-    kstat_close(kc);
-  
+   
 #endif  // V8_OS_SOLARIS
 #endif  // !USE_SIMULATOR
 #endif  // V8_HOST_ARCH_SPARC

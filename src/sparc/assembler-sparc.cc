@@ -45,13 +45,35 @@
 
 namespace v8 {
 namespace internal {
-    
+   
+ void CpuFeatures::ProbeImpl(bool cross_compile) { }
+
+
+void CpuFeatures::PrintTarget() { }
+void CpuFeatures::PrintFeatures() { }
+   
+ // -----------------------------------------------------------------------------
+// Implementation of RelocInfo.
+
+const int RelocInfo::kApplyMask = RelocInfo::kCodeTargetMask |
+                                  1 << RelocInfo::INTERNAL_REFERENCE |
+                                  1 << RelocInfo::INTERNAL_REFERENCE_ENCODED;
+
+bool RelocInfo::IsCodedSpecially() {
+     UNIMPLEMENTED();
+}
+
+
+bool RelocInfo::IsInConstantPool() {
+     UNIMPLEMENTED();    
+}
+
+
 Assembler::Assembler(Isolate* isolate, void* buffer, int buffer_size)
     : AssemblerBase(isolate, buffer, buffer_size),
        recorded_ast_id_(TypeFeedbackId::None()),
       positions_recorder_(this) {
      UNIMPLEMENTED();
-
 }
 
 void Assembler::Align(int m) {

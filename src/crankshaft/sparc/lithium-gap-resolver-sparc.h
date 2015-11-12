@@ -10,10 +10,49 @@
 namespace v8 {
 namespace internal {
 
+class LCodeGen;
 class LGapResolver;
 
 class LGapResolver final BASE_EMBEDDED {
+ public:
+  explicit LGapResolver(LCodeGen* owner) { UNIMPLEMENTED(); }
+
+  // Resolve a set of parallel moves, emitting assembler instructions.
+  void Resolve(LParallelMove* parallel_move) { UNIMPLEMENTED(); }
+
+ private:
+  // Build the initial list of moves.
+  void BuildInitialMoveList(LParallelMove* parallel_move) { UNIMPLEMENTED(); }
+
+  // Perform the move at the moves_ index in question (possibly requiring
+  // other moves to satisfy dependencies).
+  void PerformMove(int index) { UNIMPLEMENTED(); }
+
+  // If a cycle is found in the series of moves, save the blocking value to
+  // a scratch register.  The cycle must be found by hitting the root of the
+  // depth-first search.
+  void BreakCycle(int index) { UNIMPLEMENTED(); }
+
+  // After a cycle has been resolved, restore the value from the scratch
+  // register to its proper destination.
+  void RestoreValue() { UNIMPLEMENTED(); }
+
+  // Emit a move and remove it from the move graph.
+  void EmitMove(int index) { UNIMPLEMENTED(); }
+
+  // Verify the move list before performing moves.
+  void Verify() { UNIMPLEMENTED(); }
+/*
+  LCodeGen* cgen_;
+
+  // List of moves not yet resolved.
+  ZoneList<LMoveOperands> moves_;
+
+  int root_index_;
+  bool in_cycle_;
+  LOperand* saved_destination_;*/
 };
+
 }  // namespace internal
 }  // namespace v8
 

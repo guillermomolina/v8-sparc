@@ -76,6 +76,9 @@ def DoMain(_):
   if host_arch == 'x64' and platform.architecture()[0] == '32bit':
     host_arch = 'ia32'
 
+  if host_processor == 'sparc':
+   host_arch = host_processor
+
   return host_arch
 
 if __name__ == '__main__':

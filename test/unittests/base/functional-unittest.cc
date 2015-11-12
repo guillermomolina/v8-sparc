@@ -103,7 +103,7 @@ TYPED_TEST(FunctionalTest, HashValueArrayUsesHashRange) {
   EXPECT_EQ(hash_range(values, values + arraysize(values)), hash_value(values));
 }
 
-
+#ifndef V8_TARGET_ARCH_SPARC
 TYPED_TEST(FunctionalTest, BitEqualTo) {
   bit_equal_to<TypeParam> pred;
   for (size_t i = 0; i < 128; ++i) {
@@ -128,7 +128,7 @@ TYPED_TEST(FunctionalTest, BitEqualToImpliesSameBitHash) {
     }
   }
 }
-
+#endif
 
 namespace {
 
