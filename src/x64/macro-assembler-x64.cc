@@ -851,6 +851,30 @@ void MacroAssembler::Cvtlsi2sd(XMMRegister dst, const Operand& src) {
 }
 
 
+void MacroAssembler::Cvtqsi2ss(XMMRegister dst, Register src) {
+  if (CpuFeatures::IsSupported(AVX)) {
+    CpuFeatureScope scope(this, AVX);
+    vxorps(dst, dst, dst);
+    vcvtqsi2ss(dst, dst, src);
+  } else {
+    xorps(dst, dst);
+    cvtqsi2ss(dst, src);
+  }
+}
+
+
+void MacroAssembler::Cvtqsi2ss(XMMRegister dst, const Operand& src) {
+  if (CpuFeatures::IsSupported(AVX)) {
+    CpuFeatureScope scope(this, AVX);
+    vxorps(dst, dst, dst);
+    vcvtqsi2ss(dst, dst, src);
+  } else {
+    xorps(dst, dst);
+    cvtqsi2ss(dst, src);
+  }
+}
+
+
 void MacroAssembler::Cvtqsi2sd(XMMRegister dst, Register src) {
   if (CpuFeatures::IsSupported(AVX)) {
     CpuFeatureScope scope(this, AVX);
@@ -872,6 +896,21 @@ void MacroAssembler::Cvtqsi2sd(XMMRegister dst, const Operand& src) {
     xorpd(dst, dst);
     cvtqsi2sd(dst, src);
   }
+}
+
+
+void MacroAssembler::Cvtqui2sd(XMMRegister dst, Register src) {
+  Label msb_set_src;
+  Label jmp_return;
+  testq(src, src);
+  j(sign, &msb_set_src, Label::kNear);
+  Cvtqsi2sd(dst, src);
+  jmp(&jmp_return, Label::kNear);
+  bind(&msb_set_src);
+  shrq(src, Immediate(1));
+  Cvtqsi2sd(dst, src);
+  addsd(dst, dst);
+  bind(&jmp_return);
 }
 
 
@@ -3189,6 +3228,36 @@ void MacroAssembler::Lzcntq(Register dst, const Operand& src) {
 }
 
 
+void MacroAssembler::Tzcntq(Register dst, Register src) {
+  if (CpuFeatures::IsSupported(BMI1)) {
+    CpuFeatureScope scope(this, BMI1);
+    tzcntq(dst, src);
+    return;
+  }
+  Label not_zero_src;
+  bsfq(dst, src);
+  j(not_zero, &not_zero_src, Label::kNear);
+  // Define the result of tzcnt(0) separately, because bsf(0) is undefined.
+  Set(dst, 64);
+  bind(&not_zero_src);
+}
+
+
+void MacroAssembler::Tzcntq(Register dst, const Operand& src) {
+  if (CpuFeatures::IsSupported(BMI1)) {
+    CpuFeatureScope scope(this, BMI1);
+    tzcntq(dst, src);
+    return;
+  }
+  Label not_zero_src;
+  bsfq(dst, src);
+  j(not_zero, &not_zero_src, Label::kNear);
+  // Define the result of tzcnt(0) separately, because bsf(0) is undefined.
+  Set(dst, 64);
+  bind(&not_zero_src);
+}
+
+
 void MacroAssembler::Tzcntl(Register dst, Register src) {
   if (CpuFeatures::IsSupported(BMI1)) {
     CpuFeatureScope scope(this, BMI1);
@@ -3231,6 +3300,26 @@ void MacroAssembler::Popcntl(Register dst, const Operand& src) {
   if (CpuFeatures::IsSupported(POPCNT)) {
     CpuFeatureScope scope(this, POPCNT);
     popcntl(dst, src);
+    return;
+  }
+  UNREACHABLE();
+}
+
+
+void MacroAssembler::Popcntq(Register dst, Register src) {
+  if (CpuFeatures::IsSupported(POPCNT)) {
+    CpuFeatureScope scope(this, POPCNT);
+    popcntq(dst, src);
+    return;
+  }
+  UNREACHABLE();
+}
+
+
+void MacroAssembler::Popcntq(Register dst, const Operand& src) {
+  if (CpuFeatures::IsSupported(POPCNT)) {
+    CpuFeatureScope scope(this, POPCNT);
+    popcntq(dst, src);
     return;
   }
   UNREACHABLE();

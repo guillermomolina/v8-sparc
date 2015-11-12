@@ -10980,15 +10980,6 @@ bool Map::EquivalentToForNormalization(Map* other,
 }
 
 
-void JSFunction::JSFunctionIterateBody(int object_size, ObjectVisitor* v) {
-  // Iterate over all fields in the body but take care in dealing with
-  // the code entry.
-  IteratePointers(v, kPropertiesOffset, kCodeEntryOffset);
-  v->VisitCodeEntry(this->address() + kCodeEntryOffset);
-  IteratePointers(v, kCodeEntryOffset + kPointerSize, object_size);
-}
-
-
 bool JSFunction::Inlines(SharedFunctionInfo* candidate) {
   DisallowHeapAllocation no_gc;
   if (shared() == candidate) return true;
@@ -11244,16 +11235,22 @@ static void ShrinkInstanceSize(Map* map, void* data) {
 
 void JSFunction::CompleteInobjectSlackTracking() {
   DCHECK(has_initial_map());
-  Map* map = initial_map();
+  initial_map()->CompleteInobjectSlackTracking();
+}
 
-  DCHECK(map->counter() >= Map::kSlackTrackingCounterEnd - 1);
-  map->set_counter(Map::kRetainingCounterStart);
 
-  int slack = map->unused_property_fields();
-  TransitionArray::TraverseTransitionTree(map, &GetMinInobjectSlack, &slack);
+void Map::CompleteInobjectSlackTracking() {
+  // Has to be an initial map.
+  DCHECK(GetBackPointer()->IsUndefined());
+
+  DCHECK_GE(counter(), kSlackTrackingCounterEnd - 1);
+  set_counter(kRetainingCounterStart);
+
+  int slack = unused_property_fields();
+  TransitionArray::TraverseTransitionTree(this, &GetMinInobjectSlack, &slack);
   if (slack != 0) {
     // Resize the initial map and all maps in its transition tree.
-    TransitionArray::TraverseTransitionTree(map, &ShrinkInstanceSize, &slack);
+    TransitionArray::TraverseTransitionTree(this, &ShrinkInstanceSize, &slack);
   }
 }
 
@@ -14508,8 +14505,8 @@ int JSObject::GetFastElementsUsage() {
     case FAST_SMI_ELEMENTS:
     case FAST_DOUBLE_ELEMENTS:
     case FAST_ELEMENTS:
-      // Only JSArray have packed elements.
-      return Smi::cast(JSArray::cast(this)->length())->value();
+      return IsJSArray() ? Smi::cast(JSArray::cast(this)->length())->value()
+                         : store->length();
     case FAST_SLOPPY_ARGUMENTS_ELEMENTS:
       store = FixedArray::cast(FixedArray::cast(store)->get(1));
     // Fall through.

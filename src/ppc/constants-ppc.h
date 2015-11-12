@@ -238,6 +238,7 @@ enum OpcodeExt2 {
   MTSPR = 467 << 1,    // Move to Special-Purpose-Register
   DIVD = 489 << 1,     // Divide Double Word
   DIVW = 491 << 1,     // Divide Word
+  POPCNTD = 506 << 1,  // Population Count Doubleword
 
   // Below represent bits 10-1  (any value >= 512)
   LFSX = 535 << 1,    // load float-single w/ x-form
@@ -291,7 +292,8 @@ enum OpcodeExt4 {
   MTFSF = 711 << 1,   // move to FPSCR fields XFL-form
   FCFID = 846 << 1,   // Floating convert from integer doubleword
   FCTID = 814 << 1,   // Floating convert from integer doubleword
-  FCTIDZ = 815 << 1   // Floating convert from integer doubleword
+  FCTIDZ = 815 << 1,  // Floating convert from integer doubleword
+  FCFIDU = 974 << 1   // Floating convert from integer doubleword unsigned
 };
 
 enum OpcodeExt5 {

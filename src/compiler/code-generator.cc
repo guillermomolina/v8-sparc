@@ -551,6 +551,11 @@ void CodeGenerator::BuildTranslationForFrameStateDescriptor(
           shared_info_id,
           static_cast<unsigned int>(descriptor->parameters_count()));
       break;
+    case FrameStateType::kConstructStub:
+      translation->BeginConstructStubFrame(
+          shared_info_id,
+          static_cast<unsigned int>(descriptor->parameters_count()));
+      break;
   }
 
   for (size_t i = 0; i < descriptor->GetSize(state_combine); i++) {
@@ -664,7 +669,7 @@ void CodeGenerator::MarkLazyDeoptSite() {
 
 
 OutOfLineCode::OutOfLineCode(CodeGenerator* gen)
-    : masm_(gen->masm()), next_(gen->ools_) {
+    : frame_(gen->frame()), masm_(gen->masm()), next_(gen->ools_) {
   gen->ools_ = this;
 }
 

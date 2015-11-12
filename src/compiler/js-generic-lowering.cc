@@ -456,7 +456,9 @@ void JSGenericLowering::LowerJSLoadDynamic(Node* node) {
 }
 
 
-void JSGenericLowering::LowerJSCreate(Node* node) { UNIMPLEMENTED(); }
+void JSGenericLowering::LowerJSCreate(Node* node) {
+  ReplaceWithRuntimeCall(node, Runtime::kNewObject);
+}
 
 
 void JSGenericLowering::LowerJSCreateArguments(Node* node) {

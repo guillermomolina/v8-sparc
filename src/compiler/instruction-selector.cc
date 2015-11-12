@@ -722,6 +722,8 @@ void InstructionSelector::VisitNode(Node* node) {
       return MarkAsWord32(node), VisitWord32Ctz(node);
     case IrOpcode::kWord32Popcnt:
       return MarkAsWord32(node), VisitWord32Popcnt(node);
+    case IrOpcode::kWord64Popcnt:
+      return MarkAsWord32(node), VisitWord64Popcnt(node);
     case IrOpcode::kWord64And:
       return MarkAsWord64(node), VisitWord64And(node);
     case IrOpcode::kWord64Or:
@@ -738,6 +740,8 @@ void InstructionSelector::VisitNode(Node* node) {
       return MarkAsWord64(node), VisitWord64Ror(node);
     case IrOpcode::kWord64Clz:
       return MarkAsWord64(node), VisitWord64Clz(node);
+    case IrOpcode::kWord64Ctz:
+      return MarkAsWord64(node), VisitWord64Ctz(node);
     case IrOpcode::kWord64Equal:
       return VisitWord64Equal(node);
     case IrOpcode::kInt32Add:
@@ -812,10 +816,14 @@ void InstructionSelector::VisitNode(Node* node) {
       return MarkAsWord32(node), VisitTruncateFloat64ToInt32(node);
     case IrOpcode::kTruncateInt64ToInt32:
       return MarkAsWord32(node), VisitTruncateInt64ToInt32(node);
+    case IrOpcode::kRoundInt64ToFloat32:
+      return MarkAsFloat32(node), VisitRoundInt64ToFloat32(node);
     case IrOpcode::kRoundInt64ToFloat64:
       return MarkAsFloat64(node), VisitRoundInt64ToFloat64(node);
     case IrOpcode::kBitcastFloat32ToInt32:
       return MarkAsWord32(node), VisitBitcastFloat32ToInt32(node);
+    case IrOpcode::kRoundUint64ToFloat64:
+      return MarkAsFloat64(node), VisitRoundUint64ToFloat64(node);
     case IrOpcode::kBitcastFloat64ToInt64:
       return MarkAsWord64(node), VisitBitcastFloat64ToInt64(node);
     case IrOpcode::kBitcastInt32ToFloat32:
@@ -976,6 +984,12 @@ void InstructionSelector::VisitWord64Ror(Node* node) { UNIMPLEMENTED(); }
 void InstructionSelector::VisitWord64Clz(Node* node) { UNIMPLEMENTED(); }
 
 
+void InstructionSelector::VisitWord64Ctz(Node* node) { UNIMPLEMENTED(); }
+
+
+void InstructionSelector::VisitWord64Popcnt(Node* node) { UNIMPLEMENTED(); }
+
+
 void InstructionSelector::VisitWord64Equal(Node* node) { UNIMPLEMENTED(); }
 
 
@@ -1031,7 +1045,17 @@ void InstructionSelector::VisitTruncateInt64ToInt32(Node* node) {
 }
 
 
+void InstructionSelector::VisitRoundInt64ToFloat32(Node* node) {
+  UNIMPLEMENTED();
+}
+
+
 void InstructionSelector::VisitRoundInt64ToFloat64(Node* node) {
+  UNIMPLEMENTED();
+}
+
+
+void InstructionSelector::VisitRoundUint64ToFloat64(Node* node) {
   UNIMPLEMENTED();
 }
 

@@ -235,6 +235,7 @@
   V(Word32Clz)                  \
   V(Word32Ctz)                  \
   V(Word32Popcnt)               \
+  V(Word64Popcnt)               \
   V(Word64And)                  \
   V(Word64Or)                   \
   V(Word64Xor)                  \
@@ -243,6 +244,7 @@
   V(Word64Sar)                  \
   V(Word64Ror)                  \
   V(Word64Clz)                  \
+  V(Word64Ctz)                  \
   V(Int32Add)                   \
   V(Int32AddWithOverflow)       \
   V(Int32Sub)                   \
@@ -271,7 +273,9 @@
   V(TruncateFloat64ToFloat32)   \
   V(TruncateFloat64ToInt32)     \
   V(TruncateInt64ToInt32)       \
+  V(RoundInt64ToFloat32)        \
   V(RoundInt64ToFloat64)        \
+  V(RoundUint64ToFloat64)       \
   V(BitcastFloat32ToInt32)      \
   V(BitcastFloat64ToInt64)      \
   V(BitcastInt32ToFloat32)      \
@@ -367,6 +371,11 @@ class IrOpcode {
 
   static bool IsIfProjectionOpcode(Value value) {
     return kIfTrue <= value && value <= kIfDefault;
+  }
+
+  // Returns true if opcode can be inlined.
+  static bool IsInlineeOpcode(Value value) {
+    return value == kJSCallConstruct || value == kJSCallFunction;
   }
 
   // Returns true if opcode for comparison operator.

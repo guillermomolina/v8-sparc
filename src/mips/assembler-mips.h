@@ -487,8 +487,6 @@ class Assembler : public AssemblerBase {
   // of that call in the instruction stream.
   inline static Address target_address_from_return_address(Address pc);
 
-  static void JumpToJumpRegister(Address pc);
-
   static void QuietNaN(HeapObject* nan);
 
   // This sets the branch destination (which gets loaded at the call address).
@@ -1145,6 +1143,8 @@ class Assembler : public AssemblerBase {
     UNREACHABLE();
   }
 
+  bool IsPrevInstrCompactBranch() { return prev_instr_compact_branch_; }
+
  protected:
   // Relocation for a type-recording IC has the AST id added to it.  This
   // member variable is a way to pass the information from the call site to
@@ -1207,8 +1207,6 @@ class Assembler : public AssemblerBase {
   bool is_buffer_growth_blocked() const {
     return block_buffer_growth_;
   }
-
-  bool IsPrevInstrCompactBranch() { return prev_instr_compact_branch_; }
 
  private:
   inline static void set_target_internal_reference_encoded_at(Address pc,
