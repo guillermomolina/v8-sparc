@@ -133,8 +133,17 @@ void InstructionSelector::VisitWord32Ctz(Node* node) {
       UNIMPLEMENTED();
 }
 
+void InstructionSelector::VisitWord64Ctz(Node* node) { 
+      UNIMPLEMENTED();
+}
+
 
 void InstructionSelector::VisitWord32Popcnt(Node* node) {
+      UNIMPLEMENTED();
+}
+
+
+void InstructionSelector::VisitWord64Popcnt(Node* node){
       UNIMPLEMENTED();
 }
 
@@ -278,9 +287,17 @@ void InstructionSelector::VisitTruncateFloat64ToInt32(Node* node) {
       UNIMPLEMENTED();
 }
 
+void InstructionSelector::VisitRoundInt64ToFloat32(Node* node) {
+      UNIMPLEMENTED();
+}
 
 void InstructionSelector::VisitRoundInt64ToFloat64(Node* node) {
       UNIMPLEMENTED();
+}
+
+
+void InstructionSelector::VisitRoundUint64ToFloat64(Node* node) {
+  UNIMPLEMENTED();
 }
 
 

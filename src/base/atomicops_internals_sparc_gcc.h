@@ -8,168 +8,160 @@
 #ifndef V8_BASE_ATOMICOPS_INTERNALS_SPARC_H_
 #define V8_BASE_ATOMICOPS_INTERNALS_SPARC_H_
 
-#include "src/base/logging.h"
 
 namespace v8 {
 namespace base {
 
-// Atomically execute:
-//      result = *ptr;
-//      if (*ptr == old_value)
-//        *ptr = new_value;
-//      return result;
-//
-// I.e., replace "*ptr" with "new_value" if "*ptr" used to be "old_value".
-// Always return the old value of "*ptr"
-//
-// This routine implies no memory barriers.
+
 inline Atomic32 NoBarrier_CompareAndSwap(volatile Atomic32* ptr,
                                          Atomic32 old_value,
                                          Atomic32 new_value) {
-    UNIMPLEMENTED();
+  return (__sync_val_compare_and_swap(ptr, old_value, new_value));
 }
 
-// Atomically store new_value into *ptr, returning the previous value held in
-// *ptr.  This routine implies no memory barriers.
 inline Atomic32 NoBarrier_AtomicExchange(volatile Atomic32* ptr,
                                          Atomic32 new_value) {
-    UNIMPLEMENTED();
+  Atomic32 old_value;
+  do {
+    old_value = *ptr;
+  } while (__sync_bool_compare_and_swap(ptr, old_value, new_value) == false);
+  return old_value;
 }
 
-// Atomically increment *ptr by "increment".  Returns the new value of
-// *ptr with the increment applied.  This routine implies no memory barriers.
 inline Atomic32 NoBarrier_AtomicIncrement(volatile Atomic32* ptr,
                                           Atomic32 increment) {
-    UNIMPLEMENTED();
+  return Barrier_AtomicIncrement(ptr, increment);
 }
 
 inline Atomic32 Barrier_AtomicIncrement(volatile Atomic32* ptr,
                                         Atomic32 increment) {
-    UNIMPLEMENTED();
+  for (;;) {
+    Atomic32 old_value = *ptr;
+    Atomic32 new_value = old_value + increment;
+    if (__sync_bool_compare_and_swap(ptr, old_value, new_value)) {
+      return new_value;
+      // The exchange took place as expected.
+    }
+    // Otherwise, *ptr changed mid-loop and we need to retry.
+  }
 }
 
-// "Acquire" operations
-// ensure that no later memory access can be reordered ahead of the operation.
-// "Release" operations ensure that no previous memory access can be reordered
-// after the operation.  "Barrier" operations have both "Acquire" and "Release"
-// semantics.   A MemoryBarrier() has "Barrier" semantics, but does no memory
-// access.
 inline Atomic32 Acquire_CompareAndSwap(volatile Atomic32* ptr,
-                                       Atomic32 old_value,
-                                       Atomic32 new_value) {
-    UNIMPLEMENTED();
+                                       Atomic32 old_value, Atomic32 new_value) {
+  return NoBarrier_CompareAndSwap(ptr, old_value, new_value);
 }
 
 inline Atomic32 Release_CompareAndSwap(volatile Atomic32* ptr,
-                                       Atomic32 old_value,
-                                       Atomic32 new_value) {
-    UNIMPLEMENTED();
+                                       Atomic32 old_value, Atomic32 new_value) {
+  return NoBarrier_CompareAndSwap(ptr, old_value, new_value);
 }
 
 inline void NoBarrier_Store(volatile Atomic8* ptr, Atomic8 value) {
-    UNIMPLEMENTED();
+  *ptr = value;
 }
 
 inline void NoBarrier_Store(volatile Atomic32* ptr, Atomic32 value) {
-    UNIMPLEMENTED();
+  *ptr = value;
 }
 
 inline void MemoryBarrier() {
-    UNIMPLEMENTED();
-}
+  __asm__ __volatile__("" : : : "memory"); }
 
 inline void Acquire_Store(volatile Atomic32* ptr, Atomic32 value) {
-    UNIMPLEMENTED();
+  *ptr = value;
+  MemoryBarrier();
 }
 
 inline void Release_Store(volatile Atomic32* ptr, Atomic32 value) {
-    UNIMPLEMENTED();
+  MemoryBarrier();
+  *ptr = value;
 }
 
-inline Atomic8 NoBarrier_Load(volatile const Atomic8* ptr) {
-    UNIMPLEMENTED();
-}
+inline Atomic8 NoBarrier_Load(volatile const Atomic8* ptr) { return *ptr; }
 
-inline Atomic32 NoBarrier_Load(volatile const Atomic32* ptr) {
-    UNIMPLEMENTED();
-}
+inline Atomic32 NoBarrier_Load(volatile const Atomic32* ptr) { return *ptr; }
 
 inline Atomic32 Acquire_Load(volatile const Atomic32* ptr) {
-    UNIMPLEMENTED();
+  Atomic32 value = *ptr;
+  MemoryBarrier();
+  return value;
 }
 
 inline Atomic32 Release_Load(volatile const Atomic32* ptr) {
-    UNIMPLEMENTED();
+  MemoryBarrier();
+  return *ptr;
 }
 
 
 // 64-bit versions of the atomic ops.
-
 inline Atomic64 NoBarrier_CompareAndSwap(volatile Atomic64* ptr,
                                          Atomic64 old_value,
                                          Atomic64 new_value) {
-    UNIMPLEMENTED();
+  return (__sync_val_compare_and_swap(ptr, old_value, new_value));
 }
 
-// Atomically store new_value into *ptr, returning the previous value held in
-// *ptr.  This routine implies no memory barriers.
 inline Atomic64 NoBarrier_AtomicExchange(volatile Atomic64* ptr,
                                          Atomic64 new_value) {
-    UNIMPLEMENTED();
+  Atomic64 old_value;
+  do {
+    old_value = *ptr;
+  } while (__sync_bool_compare_and_swap(ptr, old_value, new_value) == false);
+  return old_value;
 }
 
-// Atomically increment *ptr by "increment".  Returns the new value of
-// *ptr with the increment applied.  This routine implies no memory barriers.
 inline Atomic64 NoBarrier_AtomicIncrement(volatile Atomic64* ptr,
                                           Atomic64 increment) {
-    UNIMPLEMENTED();
+  return Barrier_AtomicIncrement(ptr, increment);
 }
 
 inline Atomic64 Barrier_AtomicIncrement(volatile Atomic64* ptr,
                                         Atomic64 increment) {
-    UNIMPLEMENTED();
+  for (;;) {
+    Atomic64 old_value = *ptr;
+    Atomic64 new_value = old_value + increment;
+    if (__sync_bool_compare_and_swap(ptr, old_value, new_value)) {
+      return new_value;
+      // The exchange took place as expected.
+    }
+    // Otherwise, *ptr changed mid-loop and we need to retry.
+  }
 }
 
-// "Acquire" operations
-// ensure that no later memory access can be reordered ahead of the operation.
-// "Release" operations ensure that no previous memory access can be reordered
-// after the operation.  "Barrier" operations have both "Acquire" and "Release"
-// semantics.   A MemoryBarrier() has "Barrier" semantics, but does no memory
-// access.
 inline Atomic64 Acquire_CompareAndSwap(volatile Atomic64* ptr,
-                                       Atomic64 old_value,
-                                       Atomic64 new_value) {
-    UNIMPLEMENTED();
+                                       Atomic64 old_value, Atomic64 new_value) {
+  return NoBarrier_CompareAndSwap(ptr, old_value, new_value);
 }
 
 inline Atomic64 Release_CompareAndSwap(volatile Atomic64* ptr,
-                                       Atomic64 old_value,
-                                       Atomic64 new_value) {
-    UNIMPLEMENTED();
+                                       Atomic64 old_value, Atomic64 new_value) {
+  return NoBarrier_CompareAndSwap(ptr, old_value, new_value);
 }
 
 inline void NoBarrier_Store(volatile Atomic64* ptr, Atomic64 value) {
-    UNIMPLEMENTED();
+  *ptr = value;
 }
 
 inline void Acquire_Store(volatile Atomic64* ptr, Atomic64 value) {
-    UNIMPLEMENTED();
+  *ptr = value;
+  MemoryBarrier();
 }
 
 inline void Release_Store(volatile Atomic64* ptr, Atomic64 value) {
-    UNIMPLEMENTED();
+  MemoryBarrier();
+  *ptr = value;
 }
 
-inline Atomic64 NoBarrier_Load(volatile const Atomic64* ptr) {
-    UNIMPLEMENTED();
-}
+inline Atomic64 NoBarrier_Load(volatile const Atomic64* ptr) { return *ptr; }
 
 inline Atomic64 Acquire_Load(volatile const Atomic64* ptr) {
-    UNIMPLEMENTED();
+  Atomic64 value = *ptr;
+  MemoryBarrier();
+  return value;
 }
 
 inline Atomic64 Release_Load(volatile const Atomic64* ptr) {
-    UNIMPLEMENTED();
+  MemoryBarrier();
+  return *ptr;
 }
 
 }  // namespace base

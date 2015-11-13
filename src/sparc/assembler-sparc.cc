@@ -68,13 +68,17 @@ bool RelocInfo::IsInConstantPool() {
      UNIMPLEMENTED();    
 }
 
-
 Assembler::Assembler(Isolate* isolate, void* buffer, int buffer_size)
     : AssemblerBase(isolate, buffer, buffer_size),
        recorded_ast_id_(TypeFeedbackId::None()),
       positions_recorder_(this) {
      UNIMPLEMENTED();
 }
+
+void Assembler::GetCode(CodeDesc* desc) {
+    UNIMPLEMENTED();
+}
+
 
 void Assembler::Align(int m) {
   DCHECK(m >= 4 && base::bits::IsPowerOfTwo32(m));
@@ -83,6 +87,23 @@ void Assembler::Align(int m) {
   }
 }
 
+    
+void Assembler::bind(Label* L) {
+  DCHECK(!L->is_bound());  // Label can only be bound once.
+  UNIMPLEMENTED();
+}
+
+void Assembler::GrowBuffer(int needed) {
+    UNIMPLEMENTED();
+}
+
+void Assembler::RecordRelocInfo(RelocInfo::Mode rmode, int data) {
+    UNIMPLEMENTED();
+}
+
+
+/*
+
 
 void Assembler::CodeTargetAlign() {
   // No advantage to aligning branch/call targets to more than
@@ -90,59 +111,12 @@ void Assembler::CodeTargetAlign() {
   Align(4);
 }
 
-void Assembler::GetCode(CodeDesc* desc) {
-    UNIMPLEMENTED();
-}
-
-void Assembler::bind_to(Label* L, int pos) {
-    UNIMPLEMENTED();
-}
-    
-void Assembler::bind(Label* L) {
-  DCHECK(!L->is_bound());  // Label can only be bound once.
-  bind_to(L, pc_offset());
-}
-
-void Assembler::GrowBuffer(int needed) {
-    UNIMPLEMENTED();
-}
-
-void Assembler::RecordRelocInfo(RelocInfo::Mode rmode, intptr_t data) {
-    UNIMPLEMENTED();
-}
-
-void Assembler::db(uint8_t data) {
-  CheckBuffer();
-  *reinterpret_cast<uint8_t*>(pc_) = data;
-  pc_ += sizeof(uint8_t);
-}
-
-
-void Assembler::dd(uint32_t data) {
-  CheckBuffer();
-  *reinterpret_cast<uint32_t*>(pc_) = data;
-  pc_ += sizeof(uint32_t);
-}
-
-
-void Assembler::dq(uint64_t data) {
-  CheckBuffer();
-  *reinterpret_cast<uint64_t*>(pc_) = data;
-  pc_ += sizeof(uint64_t);
-}
-
-
-void Assembler::dd(Label* label) {
-    UNIMPLEMENTED();
-}
-
-
 // Debugging.
 int Assembler::RelocateInternalReference(RelocInfo::Mode rmode, byte* pc,
                                          intptr_t pc_delta) {
     UNIMPLEMENTED();
 }
-
+*/
 }  // namespace internal
 }  // namespace v8
 

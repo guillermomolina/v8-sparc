@@ -59,25 +59,25 @@ public:
   // only valid as long as no entries are added to the constant pool between
   // checking the call size and emitting the actual call.
   static int CallSize(Register target)  { UNIMPLEMENTED(); }
-  int CallSize(Address target, RelocInfo::Mode rmode, Condition cond = al) { UNIMPLEMENTED(); }
+  int CallSize(Address target, RelocInfo::Mode rmode, Condition condition = always) { UNIMPLEMENTED(); }
   static int CallSizeNotPredictableCodeSize(Address target,
                                             RelocInfo::Mode rmode,
-                                            Condition cond = al) { UNIMPLEMENTED(); }
+                                            Condition condition = always) { UNIMPLEMENTED(); }
 
   // Jump, Call, and Ret pseudo instructions implementing inter-working.
   void Jump(Register target) { UNIMPLEMENTED(); }
   void JumpToJSEntry(Register target) { UNIMPLEMENTED(); }
-  void Jump(Handle<Code> code, RelocInfo::Mode rmode, Condition cond = al) { UNIMPLEMENTED(); }
+  void Jump(Handle<Code> code, RelocInfo::Mode rmode, Condition condition = always) { UNIMPLEMENTED(); }
   void Call(Register target) { UNIMPLEMENTED(); }
   void CallJSEntry(Register target) { UNIMPLEMENTED(); }
-  void Call(Address target, RelocInfo::Mode rmode, Condition cond = al) { UNIMPLEMENTED(); }
+  void Call(Address target, RelocInfo::Mode rmode, Condition condition = always) { UNIMPLEMENTED(); }
   int CallSize(Handle<Code> code,
                RelocInfo::Mode rmode = RelocInfo::CODE_TARGET,
                TypeFeedbackId ast_id = TypeFeedbackId::None(),
-               Condition cond = al) { UNIMPLEMENTED(); }
+               Condition condition = always) { UNIMPLEMENTED(); }
   void Call(Handle<Code> code, RelocInfo::Mode rmode = RelocInfo::CODE_TARGET,
             TypeFeedbackId ast_id = TypeFeedbackId::None(),
-            Condition cond = al) { UNIMPLEMENTED(); }
+            Condition condition = always) { UNIMPLEMENTED(); }
   void Ret()  { UNIMPLEMENTED(); }
  
   // Emit code to discard a non-negative number of pointer-sized elements
@@ -96,15 +96,15 @@ public:
 
   // Register move. May do nothing if the registers are identical.
   void Move(Register dst, Handle<Object> value) { UNIMPLEMENTED(); }
-  void Move(Register dst, Register src, Condition cond = al) { UNIMPLEMENTED(); }
+  void Move(Register dst, Register src, Condition condition = always) { UNIMPLEMENTED(); }
   void Move(DoubleRegister dst, DoubleRegister src) { UNIMPLEMENTED(); }
 
   // Load an object from the root table.
   void LoadRoot(Register destination, Heap::RootListIndex index,
-                Condition cond = al) { UNIMPLEMENTED(); }
+                Condition condition = always) { UNIMPLEMENTED(); }
   // Store an object to the root table.
   void StoreRoot(Register source, Heap::RootListIndex index,
-                 Condition cond = al) { UNIMPLEMENTED(); }
+                 Condition condition = always) { UNIMPLEMENTED(); }
 
   void PushRoot(Heap::RootListIndex index) { UNIMPLEMENTED(); }
 
@@ -180,7 +180,7 @@ public:
 
   // Call a code stub.
   void CallStub(CodeStub* stub, TypeFeedbackId ast_id = TypeFeedbackId::None(),
-                Condition cond = al) { UNIMPLEMENTED(); }
+                Condition condition = always) { UNIMPLEMENTED(); }
 
   // Call a runtime routine.
   void CallRuntime(const Runtime::Function* f, int num_arguments,
@@ -196,7 +196,7 @@ public:
 
 
   // Call a code stub.
-  void TailCallStub(CodeStub* stub, Condition cond = al) { UNIMPLEMENTED(); }
+  void TailCallStub(CodeStub* stub, Condition condition = always) { UNIMPLEMENTED(); }
 
   Handle<Object> CodeObject() {
     DCHECK(!code_object_.is_null());

@@ -223,6 +223,16 @@
             'test-js-arm64-variables.cc'
           ],
         }],
+        ['v8_target_arch=="sparc"', {
+          'sources': [  ### gcmole(arch:sparc) ###
+            'test-assembler-sparc.cc',
+            'test-code-stubs-sparc.cc',
+            'test-disasm-sparc.cc',
+            'test-fuzz-sparc.cc',
+            'test-javascript-sparc.cc',
+            'test-js-sparc-variables.cc'
+          ],
+        }],
         ['v8_target_arch=="ppc"', {
           'sources': [  ### gcmole(arch:ppc) ###
             'test-assembler-ppc.cc',
