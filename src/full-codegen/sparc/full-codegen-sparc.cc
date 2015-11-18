@@ -82,7 +82,7 @@ class JumpPatchSite BASE_EMBEDDED {
 // The function builds a JS frame.  Please see JavaScriptFrameConstants in
 // frames-mips.h for its layout.
 void FullCodeGenerator::Generate() {
-      UNIMPLEMENTED();
+    WARNING("FullCodeGenerator::Generate");
 }
 
 

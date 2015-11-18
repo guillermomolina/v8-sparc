@@ -40,40 +40,83 @@
 
 using namespace v8::internal;
 
-#define __ masm.
+// Test the SPARC assembler by compiling some simple functions into
+// a buffer and executing them.  These tests do not initialize the
+// V8 library, create a context, or use any V8 objects.
+
+typedef int (*F0)();
+typedef int (*F1)(int64_t x);
+typedef int (*F2)(int64_t x, int64_t y);
+typedef unsigned (*F3)(double x);
+typedef uint64_t (*F4)(uint64_t* x, uint64_t* y);
+typedef uint64_t (*F5)(uint64_t x);
+
+#define __ assm.
 
 
-TEST(AssemblerIa326) {
- /* CcTest::InitializeVM();
+TEST(AssemblerSPARCReturnOperation) {
+  CcTest::InitializeVM();
+  // Allocate an executable page of memory.
+  size_t actual_size;
+  byte* buffer = static_cast<byte*>(v8::base::OS::Allocate(
+      Assembler::kMinimalBufferSize, &actual_size, true));
+  CHECK(buffer);
+  Assembler assm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size));
 
-  Isolate* isolate = reinterpret_cast<Isolate*>(CcTest::isolate());
-  HandleScope scope(isolate);
-  v8::internal::byte buffer[256];
-  Assembler assm(isolate, buffer, sizeof buffer);
-
-  __ movsd(xmm0, Operand(esp, 1 * kPointerSize));
-  __ movsd(xmm1, Operand(esp, 3 * kPointerSize));
-  __ addsd(xmm0, xmm1);
-  __ mulsd(xmm0, xmm1);
-  __ subsd(xmm0, xmm1);
-  __ divsd(xmm0, xmm1);
-  // Copy xmm0 to st(0) using eight bytes of stack.
-  __ sub(esp, Immediate(8));
-  __ movsd(Operand(esp, 0), xmm0);
-  __ fld_d(Operand(esp, 0));
-  __ add(esp, Immediate(8));
-  __ ret(0);
+  // Assemble a simple function that copies argument 2 and returns it.
+  __ retl(); 
+  __ delayed()->mov( o1, o0); 
 
   CodeDesc desc;
   assm.GetCode(&desc);
-  Handle<Code> code = isolate->factory()->NewCode(
-      desc, Code::ComputeFlags(Code::STUB), Handle<Code>());
-#ifdef OBJECT_PRINT
-  OFStream os(stdout);
-  code->Print(os);
-#endif
-  F5 f = FUNCTION_CAST<F5>(code->entry());
-  double res = f(2.2, 1.1);
-  ::printf("f() = %f\n", res);
-  CHECK(2.29 < res && res < 2.31);*/
+  // Call the function from C++.
+  int result =  FUNCTION_CAST<F2>(buffer)(3, 2);
+  CHECK_EQ(2, result);
 }
+
+
+TEST(AssemblerSPARCStackOperations) {
+  CcTest::InitializeVM();
+  // Allocate an executable page of memory.
+  size_t actual_size;
+  byte* buffer = static_cast<byte*>(v8::base::OS::Allocate(
+      Assembler::kMinimalBufferSize, &actual_size, true));
+  CHECK(buffer);
+  Assembler assm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size));
+
+  // Assemble a simple function that copies argument 2 and returns it.
+  __ save(sp, -176, sp); // Make room in stack
+  __ mov(i1, i0); 
+  __ ret(); 
+  __ delayed()->restore(); // free the stack
+
+
+  CodeDesc desc;
+  assm.GetCode(&desc);
+  // Call the function from C++.
+  int result =  FUNCTION_CAST<F2>(buffer)(3, 2);
+  CHECK_EQ(2, result);
+}
+
+
+TEST(AssemblerSPARCArithmeticOperations) {
+  CcTest::InitializeVM();
+  // Allocate an executable page of memory.
+  size_t actual_size;
+  byte* buffer = static_cast<byte*>(v8::base::OS::Allocate(
+      Assembler::kMinimalBufferSize, &actual_size, true));
+  CHECK(buffer);
+  Assembler assm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size));
+
+  // Assemble a simple function that adds arguments returning the sum.
+  __ retl();
+  __ delayed()->add(o0, o1, o0); 
+
+  CodeDesc desc;
+  assm.GetCode(&desc);
+  // Call the function from C++.
+  int result =  FUNCTION_CAST<F2>(buffer)(3, 2);
+  CHECK_EQ(5, result);
+}
+
+

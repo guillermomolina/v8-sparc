@@ -20,83 +20,83 @@ namespace internal {
 void Builtins::Generate_Adaptor(MacroAssembler* masm,
                                 CFunctionId id,
                                 BuiltinExtraArguments extra_args) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_Adaptor");
 }
 
 /*
 // Load the built-in InternalArray function from the current context.
 static void GenerateLoadInternalArrayFunction(MacroAssembler* masm,
                                               Register result) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::");
 }
 
 
 // Load the built-in Array function from the current context.
 static void GenerateLoadArrayFunction(MacroAssembler* masm, Register result) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::");
 }
 */
 
 void Builtins::Generate_InternalArrayCode(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_InternalArrayCode");
 }
 
 
 void Builtins::Generate_ArrayCode(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_ArrayCode");
 }
 
 
 // static
 void Builtins::Generate_StringConstructor(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_StringConstructor");
 }
 
 
 void Builtins::Generate_StringConstructor_ConstructStub(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_StringConstructor_ConstructStub");
 }
 
 
 /*static void CallRuntimePassFunction(
     MacroAssembler* masm, Runtime::FunctionId function_id) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::");
 }*/
 
 /*
 static void GenerateTailCallToSharedCode(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::");
 }
 */
 
 /*static void GenerateTailCallToReturnedCode(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::");
 }*/
 
 
 void Builtins::Generate_InOptimizationQueue(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_InOptimizationQueue");
 }
 
 
 /*static void Generate_JSConstructStubHelper(MacroAssembler* masm,
                                            bool is_api_function) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::");
 }*/
 
 
 void Builtins::Generate_JSConstructStubGeneric(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_JSConstructStubGeneric");
 }
 
 
 void Builtins::Generate_JSConstructStubApi(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_JSConstructStubApi");
 }
 
 
 void Builtins::Generate_JSConstructStubForDerived(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_JSConstructStubForDerived");
 }
 
 
@@ -106,70 +106,70 @@ enum IsTagged { kArgcIsSmiTagged, kArgcIsUntaggedInt };
 // Clobbers a2; preserves all other registers.
 /*static void Generate_CheckStackOverflow(MacroAssembler* masm, Register argc,
                                         IsTagged argc_is_tagged) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::");
 }*/
 
 
 /*static void Generate_JSEntryTrampolineHelper(MacroAssembler* masm,
                                              bool is_construct) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::");
 }*/
 
 
 void Builtins::Generate_JSEntryTrampoline(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_JSEntryTrampoline");
 }
 
 
 void Builtins::Generate_JSConstructEntryTrampoline(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_JSConstructEntryTrampoline");
 }
 
 
 void Builtins::Generate_InterpreterEntryTrampoline(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_InterpreterEntryTrampoline");
 }
 
 
 void Builtins::Generate_InterpreterExitTrampoline(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_InterpreterExitTrampoline");
 }
 
 
 // static
 void Builtins::Generate_InterpreterPushArgsAndCall(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_InterpreterPushArgsAndCall");
 }
 
 
 // static
 void Builtins::Generate_InterpreterPushArgsAndConstruct(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_InterpreterPushArgsAndConstruct");
 }
 
 
 void Builtins::Generate_CompileLazy(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_CompileLazy");
 }
 
 
 /*static void CallCompileOptimized(MacroAssembler* masm, bool concurrent) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::");
 }*/
 
 
 void Builtins::Generate_CompileOptimized(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_CompileOptimized");
 }
 
 
 void Builtins::Generate_CompileOptimizedConcurrent(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_CompileOptimizedConcurrent");
 }
 
 
 static void GenerateMakeCodeYoungAgainCommon(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::GenerateMakeCodeYoungAgainCommon");
 }
 
 #define DEFINE_CODE_AGE_BUILTIN_GENERATOR(C)                 \
@@ -186,70 +186,70 @@ CODE_AGE_LIST(DEFINE_CODE_AGE_BUILTIN_GENERATOR)
 
 
 void Builtins::Generate_MarkCodeAsExecutedOnce(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_MarkCodeAsExecutedOnce");
 }
 
 
 void Builtins::Generate_MarkCodeAsExecutedTwice(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_MarkCodeAsExecutedTwice");
 }
 
 
 void Builtins::Generate_MarkCodeAsToBeExecutedOnce(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_MarkCodeAsToBeExecutedOnce");
 }
 
 
 /*static void Generate_NotifyStubFailureHelper(MacroAssembler* masm,
                                              SaveFPRegsMode save_doubles) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::");
 }*/
 
 
 void Builtins::Generate_NotifyStubFailure(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_NotifyStubFailure");
 }
 
 
 void Builtins::Generate_NotifyStubFailureSaveDoubles(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_NotifyStubFailureSaveDoubles");
 }
 
 
 /*static void Generate_NotifyDeoptimizedHelper(MacroAssembler* masm,
                                              Deoptimizer::BailoutType type) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::");
 }*/
 
 
 void Builtins::Generate_NotifyDeoptimized(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_NotifyDeoptimized");
 }
 
 
 void Builtins::Generate_NotifySoftDeoptimized(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_NotifySoftDeoptimized");
 }
 
 
 void Builtins::Generate_NotifyLazyDeoptimized(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_NotifyLazyDeoptimized");
 }
 
 
 void Builtins::Generate_OnStackReplacement(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_OnStackReplacement");
 }
 
 
 void Builtins::Generate_OsrAfterStackCheck(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_OsrAfterStackCheck");
 }
 
 
 // static
 void Builtins::Generate_FunctionCall(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_FunctionCall");
 }
 
 
@@ -258,84 +258,84 @@ void Builtins::Generate_FunctionCall(MacroAssembler* masm) {
                                           const int argumentsOffset,
                                           const int indexOffset,
                                           const int limitOffset) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::");
 }*/
 
 
 // Used by FunctionApply and ReflectApply
 /*static void Generate_ApplyHelper(MacroAssembler* masm, bool targetIsArgument) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::");
 }*/
 
 
 /*static void Generate_ConstructHelper(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::");
 }*/
 
 
 void Builtins::Generate_FunctionApply(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_FunctionApply");
 }
 
 
 void Builtins::Generate_ReflectApply(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_ReflectApply");
 }
 
 
 void Builtins::Generate_ReflectConstruct(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_ReflectConstruct");
 }
 
 
 /*static void ArgumentAdaptorStackCheck(MacroAssembler* masm,
                                       Label* stack_overflow) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::");
 }*/
 
 
 /*static void EnterArgumentsAdaptorFrame(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::");
 }*/
 
 
 /*static void LeaveArgumentsAdaptorFrame(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::");
 }*/
 
 
 // static
 void Builtins::Generate_CallFunction(MacroAssembler* masm,
                                      ConvertReceiverMode mode) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_CallFunction");
 }
 
 
 // static
 void Builtins::Generate_Call(MacroAssembler* masm, ConvertReceiverMode mode) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_Call");
 }
 
 
 void Builtins::Generate_ConstructFunction(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_ConstructFunction");
 }
 
 
 // static
 void Builtins::Generate_ConstructProxy(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_ConstructProxy");
 }
 
 
 // static
 void Builtins::Generate_Construct(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_Construct");
 }
 
 
 void Builtins::Generate_ArgumentsAdaptorTrampoline(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("Builtins::Generate_ArgumentsAdaptorTrampoline");
 }
 
 

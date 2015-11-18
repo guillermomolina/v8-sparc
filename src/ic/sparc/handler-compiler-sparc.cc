@@ -18,14 +18,14 @@ namespace internal {
 void NamedLoadHandlerCompiler::GenerateLoadViaGetter(
     MacroAssembler* masm, Handle<Map> map, Register receiver, Register holder,
     int accessor_index, int expected_arguments, Register scratch) {
-    UNIMPLEMENTED();
+    WARNING("NamedLoadHandlerCompiler::GenerateLoadViaGetter");
 }
 
 
 void NamedStoreHandlerCompiler::GenerateStoreViaSetter(
     MacroAssembler* masm, Handle<Map> map, Register receiver, Register holder,
     int accessor_index, int expected_arguments, Register scratch) {
-    UNIMPLEMENTED();
+    WARNING("NamedStoreHandlerCompiler::GenerateStoreViaSetter");
 }
 
 
@@ -105,12 +105,12 @@ static void StoreIC_PushArgs(MacroAssembler* masm) {
 */
 
 void NamedStoreHandlerCompiler::GenerateSlow(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+   WARNING("NamedStoreHandlerCompiler::GenerateSlow");
 }
 
 
 void ElementHandlerCompiler::GenerateStoreSlow(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+  WARNING("ElementHandlerCompiler::GenerateStoreSlow");
 }
 
 

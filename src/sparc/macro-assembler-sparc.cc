@@ -41,7 +41,7 @@ int MacroAssembler::LeaveFrame(StackFrame::Type type, int stack_adjustment) {
 void MacroAssembler::TailCallExternalReference(const ExternalReference& ext,
                                                int num_arguments,
                                                int result_size) {
-     UNIMPLEMENTED();
+     WARNING("MacroAssembler::TailCallExternalReference");
 }
 
 
@@ -73,6 +73,37 @@ void MacroAssembler::RecordWrite(
     PointersToHereCheck pointers_to_here_check_for_value) {
     UNIMPLEMENTED();
 }
+
+
+CodePatcher::CodePatcher(byte* address, int instructions,
+                         FlushICache flush_cache)
+    : address_(address),
+      size_(instructions* kInstructionSize),
+      masm_(NULL, address, size_ + Assembler::kGap),
+      flush_cache_(flush_cache) {
+  // Create a new macro assembler pointing to the address of the code to patch.
+  // The size is adjusted with kGap on order for the assembler to generate size
+  // bytes of instructions without failing with buffer size constraints.
+  DCHECK(masm_.reloc_info_writer.pos() == address_ + size_ + Assembler::kGap);
+}
+
+
+CodePatcher::~CodePatcher() {
+  // Indicate that code has changed.
+  if (flush_cache_ == FLUSH) {
+    Assembler::FlushICacheWithoutIsolate(address_, size_);
+  }
+  
+  WARNING("CodePatcher::~CodePatcher");
+/*
+  // Check that the code was patched as expected.
+  DCHECK(masm_.pc_ == address_ + size_);
+  DCHECK(masm_.reloc_info_writer.pos() == address_ + size_ + Assembler::kGap);*/
+}
+
+
+void CodePatcher::emit_int32(int instr) { masm()->emit_int32(instr); }
+
 
 }  // namespace internal
 }  // namespace v8

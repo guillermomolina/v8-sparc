@@ -62,9 +62,9 @@ const int wordSize = sizeof(char*);
 // clang-format off
 #define GENERAL_REGISTERS(V)                              \
   V(g0)  V(g1)  V(g2)  V(g3)  V(g4)  V(g5)  V(g6)  V(g7)  \
-  V(o0)  V(o1)  V(o2)  V(o3)  V(o4)  V(o5)  V(o6)  V(o7)  \
+  V(o0)  V(o1)  V(o2)  V(o3)  V(o4)  V(o5)  V(sp)  V(o7)  \
   V(l0)  V(l1)  V(l2)  V(l3)  V(l4)  V(l5)  V(l6)  V(l7)  \
-  V(i0)  V(i1)  V(i2)  V(i3)  V(i4)  V(i5)  V(i6)  V(i7) 
+  V(i0)  V(i1)  V(i2)  V(i3)  V(i4)  V(i5)  V(fp)  V(i7) 
 
 #define ALLOCATABLE_GENERAL_REGISTERS(V)                  \
             V(g1)  V(g2)  V(g3)  V(g4)                                   \
@@ -258,45 +258,14 @@ struct DoubleRegister {
   int reg_code;
 };
 
+#define DECLARE_REGISTER(R) \
+  const DoubleRegister R = {DoubleRegister::kCode_##R};
+DOUBLE_REGISTERS(DECLARE_REGISTER)
+#undef DECLARE_REGISTER
+const DoubleRegister no_double_reg = {DoubleRegister::kCode_no_reg};
+
 typedef DoubleRegister FPURegister;
 typedef DoubleRegister FloatRegister;
-
-const DoubleRegister no_freg = {-1};
-
-const DoubleRegister f0 = {0};  
-const DoubleRegister f2 = {2};
-const DoubleRegister f4 = {4};
-const DoubleRegister f6 = {6};
-const DoubleRegister f8 = {8};
-const DoubleRegister f10 = {10};
-const DoubleRegister f12 = {12};  
-const DoubleRegister f14 = {14};  
-const DoubleRegister f16 = {16};
-const DoubleRegister f18 = {18};
-const DoubleRegister f20 = {20};
-const DoubleRegister f22 = {22};
-const DoubleRegister f24 = {24};
-const DoubleRegister f26 = {26};
-const DoubleRegister f28 = {28};
-const DoubleRegister f30 = {30};
-const DoubleRegister f32 = {32};
-const DoubleRegister f34 = {34};
-const DoubleRegister f36 = {36};
-const DoubleRegister f38 = {38};
-const DoubleRegister f40 = {40};
-const DoubleRegister f42 = {42};
-const DoubleRegister f44 = {44};
-const DoubleRegister f46 = {46};
-const DoubleRegister f48 = {48};
-const DoubleRegister f50 = {50};
-const DoubleRegister f52 = {52};
-const DoubleRegister f54 = {54};
-const DoubleRegister f56 = {56};
-const DoubleRegister f58 = {58};
-const DoubleRegister f60 = {60};
-const DoubleRegister f62 = {62};
-
-
 
 // Register aliases.
 #define kLithiumScratchReg l0
@@ -316,8 +285,6 @@ private:
 
 
 // Class MemOperand represents a memory operand in load and store instructions
-// On PowerPC we have base register + 16bit signed value
-// Alternatively we can have a 16bit signed value immediate
 class MemOperand BASE_EMBEDDED {
  public:
  private:
@@ -504,7 +471,7 @@ protected:
   // the relocation info.
   TypeFeedbackId recorded_ast_id_;
    
-  int64_t buffer_space() const { UNIMPLEMENTED(); }
+  int64_t buffer_space() const { return reloc_info_writer.pos() - pc_; }
   
   // Record reloc info for current pc_.
   void RecordRelocInfo(RelocInfo::Mode rmode, int data = 0);
@@ -520,6 +487,11 @@ private:
   // relocation info entries.
   // CHECK_NEXT
   static const int kGap = 32;
+
+    // Relocation information generation.
+  // Each relocation is encoded as a variable size value.
+  static const int kMaxRelocSize = RelocInfoWriter::kMaxSize;
+  RelocInfoWriter reloc_info_writer;
 
   void bind_to(Label* L, int pos);
   
@@ -1711,6 +1683,79 @@ public:
                                                u_field(3, 29, 25) | immed(true) | simm(simm13a, 13)); }
   inline void wrfprs( Register d) { v9_only(); emit_int32( op(arith_op) | rs1(d) | op3(wrreg_op3) | u_field(6, 29, 25)); }
 
+  // pp 297 Synthetic Instructions
+  inline void cmp(  Register s1, Register s2 ) { subcc( s1, s2, g0 ); }
+  inline void cmp(  Register s1, int simm13a ) { subcc( s1, simm13a, g0 ); }
+
+  inline void tst( Register s ) { orcc( g0, s, g0 ); }
+
+  inline void ret()   { jmpl( i7, 2 * kInstructionSize, g0 ); }
+  inline void retl()  { jmpl( o7, 2 * kInstructionSize, g0 ); }
+
+  void set(const MemOperand& rs, Register d);
+  void set(int64_t value, Register d);
+ 
+  // sign-extend 32 to 64
+  inline void signx( Register s, Register d ) { sra( s, g0, d); }
+  inline void signx( Register d )             { sra( d, g0, d); }
+
+  inline void not1( Register s, Register d ) { xnor( s, g0, d ); }
+  inline void not1( Register d )             { xnor( d, g0, d ); }
+
+  inline void neg( Register s, Register d ) { sub( g0, s, d ); }
+  inline void neg( Register d )             { sub( g0, d, d ); }
+
+  inline void cas(  Register s1, Register s2, Register d) { casa( s1, s2, d, ASI_PRIMARY); }
+  inline void casx( Register s1, Register s2, Register d) { casxa(s1, s2, d, ASI_PRIMARY); }
+  inline void cas_ptr(  Register s1, Register s2, Register d) { casx( s1, s2, d ); }
+
+  // little-endian
+  inline void casl(  Register s1, Register s2, Register d) { casa( s1, s2, d, ASI_PRIMARY_LITTLE); }
+  inline void casxl( Register s1, Register s2, Register d) { casxa(s1, s2, d, ASI_PRIMARY_LITTLE); }
+
+  inline void inc(   Register d,  int const13 = 1 ) { add(   d, const13, d); }
+  inline void inccc( Register d,  int const13 = 1 ) { addcc( d, const13, d); }
+
+  inline void dec(   Register d,  int const13 = 1 ) { sub(   d, const13, d); }
+  inline void deccc( Register d,  int const13 = 1 ) { subcc( d, const13, d); }
+
+  inline void btst( Register s1,  Register s2 ) { andcc( s1, s2, g0 ); }
+  inline void btst( int simm13a,  Register s )  { andcc( s,  simm13a, g0 ); }
+
+  inline void bset( Register s1,  Register s2 ) { or3( s1, s2, s2 ); }
+  inline void bset( int simm13a,  Register s )  { or3( s,  simm13a, s ); }
+
+  inline void bclr( Register s1,  Register s2 ) { andn( s1, s2, s2 ); }
+  inline void bclr( int simm13a,  Register s )  { andn( s,  simm13a, s ); }
+
+  inline void btog( Register s1,  Register s2 ) { xor3( s1, s2, s2 ); }
+  inline void btog( int simm13a,  Register s )  { xor3( s,  simm13a, s ); }
+
+  inline void clr( Register d ) { or3( g0, g0, d ); }
+
+  inline void clrb( Register s1, Register s2);
+  inline void clrh( Register s1, Register s2);
+  inline void clr(  Register s1, Register s2);
+  inline void clrx( Register s1, Register s2);
+
+  inline void clrb( Register s1, int simm13a);
+  inline void clrh( Register s1, int simm13a);
+  inline void clr(  Register s1, int simm13a);
+  inline void clrx( Register s1, int simm13a);
+
+  // copy & clear upper word
+  inline void clruw( Register s, Register d ) { srl( s, g0, d); }
+  // clear upper word
+  inline void clruwu( Register d ) { srl( d, g0, d); }
+
+   inline void mov( Register s,  Register d) {
+    if ( !s.is(d) )
+        or3( g0, s, d);
+    else
+        assert_not_delayed();  // Put something useful in the delay slot!
+  }
+  inline void mov( int simm13a, Register d) { or3( g0, simm13a, d); }
+  
   //  VIS1 instructions
 
   void alignaddr( Register s1, Register s2, Register d ) { vis1_only(); emit_int32( op(arith_op) | rd(d) | op3(alignaddr_op3) | rs1(s1) | opf(alignaddr_opf) | rs2(s2)); }

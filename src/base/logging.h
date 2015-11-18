@@ -13,6 +13,7 @@
 
 extern "C" V8_NORETURN void V8_Fatal(const char* file, int line,
                                      const char* format, ...);
+extern "C" void V8_Warning(const char* file, int line, const char* format, ...);
 
 
 // The FATAL, UNREACHABLE and UNIMPLEMENTED macros are useful during
@@ -24,12 +25,16 @@ extern "C" V8_NORETURN void V8_Fatal(const char* file, int line,
   V8_Fatal(__FILE__, __LINE__, "unimplemented code")
 #define UNREACHABLE()                           \
   V8_Fatal(__FILE__, __LINE__, "unreachable code")
+#define WARNING(msg)                           \
+  V8_Warning(__FILE__, __LINE__, "%s", (msg))
 #else
 #define FATAL(msg)                              \
   V8_Fatal("", 0, "%s", (msg))
 #define UNIMPLEMENTED()                         \
   V8_Fatal("", 0, "unimplemented code")
 #define UNREACHABLE() V8_Fatal("", 0, "unreachable code")
+#define WARNING(msg)                              \
+  V8_Warning("", 0, "%s", (msg))
 #endif
 
 

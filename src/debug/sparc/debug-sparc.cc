@@ -36,17 +36,17 @@ void DebugCodegen::PatchDebugBreakSlot(Address pc, Handle<Code> code) {
 
 void DebugCodegen::GenerateDebugBreakStub(MacroAssembler* masm,
                                           DebugBreakCallHelperMode mode) {
-    UNIMPLEMENTED();
+    WARNING("DebugCodegen::GenerateDebugBreakStub");
 }
 
 
 void DebugCodegen::GeneratePlainReturnLiveEdit(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+   WARNING("DebugCodegen::GeneratePlainReturnLiveEdit");
 }
 
 
 void DebugCodegen::GenerateFrameDropperLiveEdit(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+   WARNING("DebugCodegen::GenerateFrameDropperLiveEdit");
 }
 
 

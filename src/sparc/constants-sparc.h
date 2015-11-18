@@ -17,6 +17,8 @@ namespace internal {
 const unsigned kInstructionSize = 4;
 const unsigned kInstructionSizeLog2 = 2;
 
+const unsigned kFixedFrameSize = 176;
+
 // CHECK_NEXT
 enum Condition {
   kNoCondition = -1,
@@ -49,6 +51,8 @@ enum FPUCondition {
   UNE = 0x12,  // Not equal, on Mips release >= 6.
   NE = 0x13,   // Ordered Greater Than or Less Than. on Mips >= 6 only.
 };
+
+
 
 }  // namespace internal
 }  // namespace v8

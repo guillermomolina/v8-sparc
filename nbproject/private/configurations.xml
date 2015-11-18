@@ -8591,8 +8591,6 @@
         </df>
       </df>
       <df name="out">
-        <df name="build">
-        </df>
         <df name="samples">
         </df>
         <df name="sparc.debug">
@@ -8607,131 +8605,13 @@
               <in>resources.cc</in>
             </df>
           </df>
-          <df name="obj.host">
-            <df name="gtest">
-              <df name="testing">
-                <df name="gtest">
-                  <df name="src">
-                  </df>
-                </df>
-              </df>
-            </df>
-            <df name="testing">
-            </df>
-            <df name="third_party">
-              <df name="icu">
-              </df>
-            </df>
-          </df>
           <df name="obj.target">
-            <df name="cctest">
-              <df name="gen">
-              </df>
-              <df name="test">
-                <df name="cctest">
-                  <df name="compiler">
-                  </df>
-                  <df name="interpreter">
-                  </df>
-                </df>
-              </df>
-            </df>
-            <df name="d8">
-              <df name="gen">
-              </df>
-              <df name="src">
-              </df>
-            </df>
-            <df name="gmock">
-              <df name="testing">
-                <df name="gmock">
-                  <df name="src">
-                  </df>
-                </df>
-              </df>
-            </df>
-            <df name="gtest">
-              <df name="testing">
-                <df name="gtest">
-                  <df name="src">
-                  </df>
-                </df>
-              </df>
-            </df>
-            <df name="hello-world">
+            <df name="prueba">
               <df name="samples">
-              </df>
-            </df>
-            <df name="icui18n">
-              <df name="third_party">
-                <df name="icu">
-                  <df name="source">
-                    <df name="i18n">
-                    </df>
-                  </df>
-                </df>
-              </df>
-            </df>
-            <df name="icuuc">
-              <df name="third_party">
-                <df name="icu">
-                  <df name="source">
-                    <df name="common">
-                    </df>
-                    <df name="stubdata">
-                    </df>
-                  </df>
-                </df>
-              </df>
-            </df>
-            <df name="parser-shell">
-              <df name="tools">
-              </df>
-            </df>
-            <df name="process">
-              <df name="samples">
-              </df>
-            </df>
-            <df name="shell">
-              <df name="samples">
-              </df>
-            </df>
-            <df name="src">
-            </df>
-            <df name="test">
-              <df name="cctest">
-              </df>
-            </df>
-            <df name="testing">
-            </df>
-            <df name="third_party">
-              <df name="icu">
               </df>
             </df>
             <df name="tools">
               <df name="gyp">
-              </df>
-            </df>
-            <df name="unittests">
-              <df name="test">
-                <df name="unittests">
-                  <df name="base">
-                    <df name="platform">
-                    </df>
-                    <df name="utils">
-                    </df>
-                  </df>
-                  <df name="compiler">
-                  </df>
-                  <df name="heap">
-                  </df>
-                  <df name="interpreter">
-                  </df>
-                  <df name="libplatform">
-                  </df>
-                  <df name="runtime">
-                  </df>
-                </df>
               </df>
             </df>
             <df name="v8_base">
@@ -8806,20 +8686,6 @@
             </df>
           </df>
         </df>
-        <df name="src">
-        </df>
-        <df name="test">
-          <df name="cctest">
-          </df>
-          <df name="unittests">
-          </df>
-        </df>
-        <df name="testing">
-        </df>
-        <df name="third_party">
-          <df name="icu">
-          </df>
-        </df>
         <df name="tools">
           <df name="gyp">
           </df>
@@ -8828,6 +8694,7 @@
       <df name="samples">
         <in>hello-world.cc</in>
         <in>process.cc</in>
+        <in>prueba.cc</in>
         <in>shell.cc</in>
       </df>
       <df name="src">
@@ -10202,6 +10069,7 @@
           <in>test-assembler-mips.cc</in>
           <in>test-assembler-mips64.cc</in>
           <in>test-assembler-ppc.cc</in>
+          <in>test-assembler-sparc.cc</in>
           <in>test-assembler-x64.cc</in>
           <in>test-assembler-x87.cc</in>
           <in>test-ast-expression-visitor.cc</in>
@@ -10216,6 +10084,7 @@
           <in>test-code-stubs-ia32.cc</in>
           <in>test-code-stubs-mips.cc</in>
           <in>test-code-stubs-mips64.cc</in>
+          <in>test-code-stubs-sparc.cc</in>
           <in>test-code-stubs-x64.cc</in>
           <in>test-code-stubs-x87.cc</in>
           <in>test-code-stubs.cc</in>
@@ -10235,6 +10104,7 @@
           <in>test-disasm-mips.cc</in>
           <in>test-disasm-mips64.cc</in>
           <in>test-disasm-ppc.cc</in>
+          <in>test-disasm-sparc.cc</in>
           <in>test-disasm-x64.cc</in>
           <in>test-disasm-x87.cc</in>
           <in>test-diy-fp.cc</in>
@@ -10249,6 +10119,7 @@
           <in>test-flags.cc</in>
           <in>test-func-name-inference.cc</in>
           <in>test-fuzz-arm64.cc</in>
+          <in>test-fuzz-sparc.cc</in>
           <in>test-gc-tracer.cc</in>
           <in>test-global-handles.cc</in>
           <in>test-global-object.cc</in>
@@ -10260,7 +10131,9 @@
           <in>test-identity-map.cc</in>
           <in>test-incremental-marking.cc</in>
           <in>test-javascript-arm64.cc</in>
+          <in>test-javascript-sparc.cc</in>
           <in>test-js-arm64-variables.cc</in>
+          <in>test-js-sparc-variables.cc</in>
           <in>test-list.cc</in>
           <in>test-liveedit.cc</in>
           <in>test-lockers.cc</in>
@@ -10305,6 +10178,7 @@
           <in>test-unscopables-hidden-prototype.cc</in>
           <in>test-utils-arm64.cc</in>
           <in>test-utils-arm64.h</in>
+          <in>test-utils-sparc.cc</in>
           <in>test-utils.cc</in>
           <in>test-version.cc</in>
           <in>test-weakmaps.cc</in>
@@ -14468,8 +14342,10 @@
       <runprofile version="9">
         <runcommandpicklist>
           <runcommandpicklistitem>"${OUTPUT_PATH}"</runcommandpicklistitem>
+          <runcommandpicklistitem>"${OUTPUT_PATH}"/cctest test-assembler-sparc/AssemblerIa326</runcommandpicklistitem>
+          <runcommandpicklistitem>"${OUTPUT_PATH}" test-assembler-sparc/AssemblerIa326</runcommandpicklistitem>
         </runcommandpicklist>
-        <runcommand>"${OUTPUT_PATH}"</runcommand>
+        <runcommand>"${OUTPUT_PATH}" test-assembler-sparc/AssemblerIa326</runcommand>
         <rundir>.</rundir>
         <buildfirst>false</buildfirst>
         <terminal-type>0</terminal-type>

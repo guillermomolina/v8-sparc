@@ -115,3 +115,15 @@ extern "C" void V8_Fatal(const char* file, int line, const char* format, ...) {
   fflush(stderr);
   v8::base::OS::Abort();
 }
+
+extern "C" void V8_Warning(const char* file, int line, const char* format, ...) {
+  fflush(stdout);
+  fflush(stderr);
+  v8::base::OS::PrintError("# Warning in %s, line %d :  ", file, line);
+  va_list arguments;
+  va_start(arguments, format);
+  v8::base::OS::VPrintError(format, arguments);
+  va_end(arguments);
+  v8::base::OS::PrintError("\n");
+  fflush(stderr);
+}

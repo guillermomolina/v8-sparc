@@ -186,7 +186,7 @@ bool CEntryStub::NeedsImmovableCode() {
 
 
 void CodeStub::GenerateStubsAheadOfTime(Isolate* isolate) {
-    UNIMPLEMENTED();
+    WARNING("CodeStub::GenerateStubsAheadOfTime");
 }
 
 
@@ -216,7 +216,7 @@ void CEntryStub::Generate(MacroAssembler* masm) {
 
 
 void JSEntryStub::Generate(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("JSEntryStub::Generate");
 }
 
 
@@ -653,46 +653,46 @@ static void ArrayConstructorStubAheadOfTimeHelper(Isolate* isolate) {
 
 
 void ArrayConstructorStubBase::GenerateStubsAheadOfTime(Isolate* isolate) {
-   UNIMPLEMENTED(); 
+   WARNING("ArrayConstructorStubBase::GenerateStubsAheadOfTime");
 }
 
 
 void InternalArrayConstructorStubBase::GenerateStubsAheadOfTime(
     Isolate* isolate) {
-   UNIMPLEMENTED(); 
+    WARNING("InternalArrayConstructorStubBase::GenerateStubsAheadOfTime");
 }
 
 
 void ArrayConstructorStub::GenerateDispatchToArrayStub(
     MacroAssembler* masm,
     AllocationSiteOverrideMode mode) {
-   UNIMPLEMENTED(); 
+   WARNING("ArrayConstructorStub::GenerateDispatchToArrayStub");
 }
 
 
 void ArrayConstructorStub::Generate(MacroAssembler* masm) {
-   UNIMPLEMENTED(); 
+   WARNING("ArrayConstructorStub::Generate");
 }
 
 
 void InternalArrayConstructorStub::GenerateCase(
     MacroAssembler* masm, ElementsKind kind) {
-   UNIMPLEMENTED(); 
+   WARNING("InternalArrayConstructorStub::GenerateCase");
 }
 
 
 void InternalArrayConstructorStub::Generate(MacroAssembler* masm) {
-   UNIMPLEMENTED(); 
+   WARNING("InternalArrayConstructorStub::Generate");
 }
 
 
 void LoadGlobalViaContextStub::Generate(MacroAssembler* masm) {
-   UNIMPLEMENTED(); 
+   WARNING("LoadGlobalViaContextStub::Generate");
 }
 
 
 void StoreGlobalViaContextStub::Generate(MacroAssembler* masm) {
-   UNIMPLEMENTED(); 
+   WARNING("StoreGlobalViaContextStub::Generate");
 }
 /*
 

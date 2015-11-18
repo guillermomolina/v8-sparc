@@ -23,21 +23,21 @@ namespace internal {
 
 /*static void GenerateGlobalInstanceTypeCheck(MacroAssembler* masm, Register type,
                                             Label* global_object) {
-     UNIMPLEMENTED();
+     WARNING("Builtins::");
 }*/
 
 /*static void GenerateDictionaryLoad(MacroAssembler* masm, Label* miss,
                                    Register elements, Register name,
                                    Register result, Register scratch1,
                                    Register scratch2) {
-     UNIMPLEMENTED();
+     WARNING("Builtins::");
 }*/
 
 /*static void GenerateDictionaryStore(MacroAssembler* masm, Label* miss,
                                     Register elements, Register name,
                                     Register value, Register scratch1,
                                     Register scratch2) {
-     UNIMPLEMENTED();
+     WARNING("Builtins::");
 }*/
 
 
@@ -47,7 +47,7 @@ namespace internal {
                                            Register receiver, Register map,
                                            Register scratch,
                                            int interceptor_bit, Label* slow) {
-     UNIMPLEMENTED();
+     WARNING("Builtins::");
 }*/
 
 
@@ -57,7 +57,7 @@ namespace internal {
                                   Register scratch1, Register scratch2,
                                   Register result, Label* slow,
                                   LanguageMode language_mode) {
-     UNIMPLEMENTED();
+     WARNING("Builtins::");
 }*/
 
 
@@ -66,51 +66,51 @@ namespace internal {
 /*static void GenerateKeyNameCheck(MacroAssembler* masm, Register key,
                                  Register map, Register hash,
                                  Label* index_string, Label* not_unique) {
-     UNIMPLEMENTED();
+     WARNING("Builtins::");
 }*/
 
 
 void LoadIC::GenerateNormal(MacroAssembler* masm, LanguageMode language_mode) {
-     UNIMPLEMENTED();
+     WARNING("LoadIC::GenerateNormal");
 }
 
 
 // A register that isn't one of the parameters to the load ic.
 /*static const Register LoadIC_TempRegister() { 
-     UNIMPLEMENTED();
+     WARNING("Builtins::");
 }*/
 
 
 /*static void LoadIC_PushArgs(MacroAssembler* masm) {
-     UNIMPLEMENTED();
+     WARNING("Builtins::");
 }*/
 
 
 void LoadIC::GenerateMiss(MacroAssembler* masm) {
-     UNIMPLEMENTED();
+     WARNING("LoadIC::GenerateMiss");
 }
 
 
 void LoadIC::GenerateRuntimeGetProperty(MacroAssembler* masm,
                                         LanguageMode language_mode) {
-     UNIMPLEMENTED();
+     WARNING("LoadIC::GenerateRuntimeGetProperty");
 }
 
 
 void KeyedLoadIC::GenerateMiss(MacroAssembler* masm) {
-     UNIMPLEMENTED();
+     WARNING("KeyedLoadIC::GenerateMiss");
 }
 
 
 void KeyedLoadIC::GenerateRuntimeGetProperty(MacroAssembler* masm,
                                              LanguageMode language_mode) {
-     UNIMPLEMENTED();
+     WARNING("KeyedLoadIC::GenerateRuntimeGetProperty");
 }
 
 
 void KeyedLoadIC::GenerateMegamorphic(MacroAssembler* masm,
                                       LanguageMode language_mode) {
-     UNIMPLEMENTED();
+     WARNING("KeyedLoadIC::GenerateMegamorphic");
 }
 
 
@@ -119,38 +119,38 @@ void KeyedLoadIC::GenerateMegamorphic(MacroAssembler* masm,
     KeyedStoreCheckMap check_map, KeyedStoreIncrementLength increment_length,
     Register value, Register key, Register receiver, Register receiver_map,
     Register elements_map, Register elements) {
-     UNIMPLEMENTED();
+     WARNING("Builtins::");
 }*/
 
 
 void KeyedStoreIC::GenerateMegamorphic(MacroAssembler* masm,
                                        LanguageMode language_mode) {
-     UNIMPLEMENTED();
+     WARNING("KeyedStoreIC::GenerateMegamorphic");
 }
 
 
 /*static void StoreIC_PushArgs(MacroAssembler* masm) {
-     UNIMPLEMENTED();
+     WARNING("Builtins::");
 }*/
 
 
 void KeyedStoreIC::GenerateMiss(MacroAssembler* masm) {
-     UNIMPLEMENTED();
+     WARNING("KeyedStoreIC::GenerateMiss");
 }
 
 
 void StoreIC::GenerateMegamorphic(MacroAssembler* masm) {
-     UNIMPLEMENTED();
+     WARNING("StoreIC::GenerateMegamorphic");
 }
 
 
 void StoreIC::GenerateMiss(MacroAssembler* masm) {
-     UNIMPLEMENTED();
+     WARNING("StoreIC::GenerateMiss");
 }
 
 
 void StoreIC::GenerateNormal(MacroAssembler* masm) {
-     UNIMPLEMENTED();
+     WARNING("StoreIC::GenerateNormal");
 }
 
 
@@ -158,17 +158,19 @@ void StoreIC::GenerateNormal(MacroAssembler* masm) {
 
 
 Condition CompareIC::ComputeCondition(Token::Value op) {
-     UNIMPLEMENTED();
+     WARNING("CompareIC::ComputeCondition");
+     return Condition::al;
 }
 
 
 bool CompareIC::HasInlinedSmiCode(Address address) {
-     UNIMPLEMENTED();
+     WARNING("CompareIC::HasInlinedSmiCode");
+     return false;
 }
 
 
 void PatchInlinedSmiCode(Address address, InlinedSmiCheck check) {
-     UNIMPLEMENTED();
+     WARNING("PatchInlinedSmiCode");
 }
 
 

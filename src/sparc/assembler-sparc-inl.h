@@ -237,9 +237,9 @@ inline void Assembler::emit_int32(int instruction) {
     STATIC_ASSERT(sizeof(*pc_) == 1);
      DCHECK((pc_ + sizeof(instruction)) <= (buffer_ + buffer_size_));
 
-    *pc_ = instruction;
+    *reinterpret_cast<int*>(pc_) = instruction;
     pc_ += kInstructionSize;
-//    CheckBuffer();
+    CheckBuffer();
 }
 
 inline void Assembler::emit_data(void const * data, unsigned size) {

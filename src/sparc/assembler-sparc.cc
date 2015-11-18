@@ -72,11 +72,18 @@ Assembler::Assembler(Isolate* isolate, void* buffer, int buffer_size)
     : AssemblerBase(isolate, buffer, buffer_size),
        recorded_ast_id_(TypeFeedbackId::None()),
       positions_recorder_(this) {
-     UNIMPLEMENTED();
+   reloc_info_writer.Reposition(buffer_ + buffer_size_, pc_);
 }
 
 void Assembler::GetCode(CodeDesc* desc) {
-    UNIMPLEMENTED();
+  DCHECK(pc_ <= reloc_info_writer.pos());  // No overlap.
+  // Set up code descriptor.
+  desc->buffer = buffer_;
+  desc->buffer_size = buffer_size_;
+  desc->instr_size = pc_offset();
+  desc->reloc_size =
+      static_cast<int>((buffer_ + buffer_size_) - reloc_info_writer.pos());
+  desc->origin = this;
 }
 
 

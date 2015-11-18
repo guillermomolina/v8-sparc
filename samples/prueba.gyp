@@ -28,7 +28,7 @@
 {
   'variables': {
     'v8_code': 1,
-    'v8_enable_i18n_support%': 1,
+    'v8_enable_i18n_support%': 0,
   },
   'includes': ['../build/toolchain.gypi', '../build/features.gypi'],
   'target_defaults': {
@@ -59,24 +59,6 @@
     ],
   },
   'targets': [
-    {
-      'target_name': 'shell',
-      'sources': [
-        'shell.cc',
-      ],
-    },
-    {
-      'target_name': 'hello-world',
-      'sources': [
-        'hello-world.cc',
-      ],
-    },
-    {
-      'target_name': 'process',
-      'sources': [
-        'process.cc',
-      ],
-    },
     {
       'target_name': 'prueba',
       'sources': [

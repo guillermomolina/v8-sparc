@@ -22,13 +22,12 @@ UnaryMathFunction CreateExpFunction() {
 }
 
 
-
 UnaryMathFunction CreateSqrtFunction() {
-#if defined(USE_SIMULATOR)
+//#if defined(USE_SIMULATOR)
   return &std::sqrt;
-#else
-    UNIMPLEMENTED();
-#endif
+//#else
+ //   UNIMPLEMENTED();
+//#endif
 }
 
 #undef __
@@ -120,7 +119,12 @@ static const uint32_t kCodeAgePatchFirstInstruction = 0x00010180;
 
 
 CodeAgingHelper::CodeAgingHelper() {
-    UNIMPLEMENTED();
+  DCHECK(young_sequence_.length() == kNoCodeAgeSequenceLength);
+  // The sequence of instructions that is patched out for aging code is the
+  // following boilerplate stack-building prologue that is found both in
+  // FUNCTION and OPTIMIZED_FUNCTION code:
+  CodePatcher patcher(young_sequence_.start(), young_sequence_.length());
+  patcher.masm()->save(sp, -kFixedFrameSize, sp);
 }
 
 
