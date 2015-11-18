@@ -52,7 +52,7 @@ RUNTIME_FUNCTION(Runtime_CompleteFunctionConstruction) {
   DCHECK(args.length() == 3);
   CONVERT_ARG_HANDLE_CHECKED(JSFunction, func, 0);
   CONVERT_ARG_HANDLE_CHECKED(JSFunction, constructor, 1);
-  CONVERT_ARG_HANDLE_CHECKED(Object, new_target, 2);
+  CONVERT_ARG_HANDLE_CHECKED(Object, unchecked_new_target, 2);
   func->shared()->set_name_should_print_as_anonymous(true);
 
   // If new.target is equal to |constructor| then the function |func| created
@@ -61,18 +61,19 @@ RUNTIME_FUNCTION(Runtime_CompleteFunctionConstruction) {
   // Function builtin subclassing case and therefore the function |func|
   // has wrong initial map. To fix that we create a new function object with
   // correct initial map.
-  if (new_target->IsUndefined() || *constructor == *new_target) {
+  if (unchecked_new_target->IsUndefined() ||
+      *constructor == *unchecked_new_target) {
     return *func;
   }
 
   // Create a new JSFunction object with correct initial map.
   HandleScope handle_scope(isolate);
-  Handle<JSFunction> original_constructor =
-      Handle<JSFunction>::cast(new_target);
+  Handle<JSFunction> new_target =
+      Handle<JSFunction>::cast(unchecked_new_target);
 
   DCHECK(constructor->has_initial_map());
   Handle<Map> initial_map =
-      JSFunction::EnsureDerivedHasInitialMap(original_constructor, constructor);
+      JSFunction::EnsureDerivedHasInitialMap(new_target, constructor);
 
   Handle<SharedFunctionInfo> shared_info(func->shared(), isolate);
   Handle<Context> context(func->context(), isolate);
@@ -528,6 +529,24 @@ RUNTIME_FUNCTION(Runtime_Call) {
 }
 
 
+RUNTIME_FUNCTION(Runtime_TailCall) {
+  HandleScope scope(isolate);
+  DCHECK_LE(2, args.length());
+  int const argc = args.length() - 2;
+  CONVERT_ARG_HANDLE_CHECKED(JSReceiver, target, 0);
+  CONVERT_ARG_HANDLE_CHECKED(Object, receiver, 1);
+  ScopedVector<Handle<Object>> argv(argc);
+  for (int i = 0; i < argc; ++i) {
+    argv[i] = args.at<Object>(2 + i);
+  }
+  Handle<Object> result;
+  ASSIGN_RETURN_FAILURE_ON_EXCEPTION(
+      isolate, result,
+      Execution::Call(isolate, target, receiver, argc, argv.start()));
+  return *result;
+}
+
+
 RUNTIME_FUNCTION(Runtime_Apply) {
   HandleScope scope(isolate);
   DCHECK(args.length() == 5);
@@ -565,13 +584,13 @@ RUNTIME_FUNCTION(Runtime_Apply) {
 }
 
 
-RUNTIME_FUNCTION(Runtime_GetOriginalConstructor) {
+RUNTIME_FUNCTION(Runtime_GetNewTarget) {
   SealHandleScope shs(isolate);
   DCHECK(args.length() == 0);
   JavaScriptFrameIterator it(isolate);
   JavaScriptFrame* frame = it.frame();
   // TODO(4544): Currently we never inline any [[Construct]] calls where the
-  // actual constructor differs from the original constructor. Fix this soon!
+  // actual target differs from the new target. Fix this soon!
   if (frame->HasInlinedFrames()) {
     HandleScope scope(isolate);
     List<FrameSummary> frames(FLAG_max_inlining_levels + 1);
@@ -580,7 +599,7 @@ RUNTIME_FUNCTION(Runtime_GetOriginalConstructor) {
     return summary.is_constructor() ? Object::cast(*summary.function())
                                     : isolate->heap()->undefined_value();
   }
-  return frame->IsConstructor() ? frame->GetOriginalConstructor()
+  return frame->IsConstructor() ? frame->GetNewTarget()
                                 : isolate->heap()->undefined_value();
 }
 

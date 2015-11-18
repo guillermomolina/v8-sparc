@@ -39,9 +39,12 @@ TEST_F(BytecodeArrayBuilderTest, AllBytecodesGenerated) {
       .LoadTrue()
       .LoadFalse();
 
-  // Emit accumulator transfers.
+  // Emit accumulator transfers. Stores followed by loads to the same register
+  // are not generated. Hence, a dummy instruction in between.
   Register reg(0);
-  builder.LoadAccumulatorWithRegister(reg).StoreAccumulatorInRegister(reg);
+  builder.LoadAccumulatorWithRegister(reg)
+      .LoadNull()
+      .StoreAccumulatorInRegister(reg);
 
   // Emit global load / store operations.
   builder.LoadGlobal(0, 1, LanguageMode::SLOPPY, TypeofMode::NOT_INSIDE_TYPEOF)
@@ -99,7 +102,8 @@ TEST_F(BytecodeArrayBuilderTest, AllBytecodesGenerated) {
       .CreateObjectLiteral(0, 0);
 
   // Call operations.
-  builder.Call(reg, reg, 0)
+  builder.Call(reg, reg, 0, 0)
+      .Call(reg, reg, 0, 1024)
       .CallRuntime(Runtime::kIsArray, reg, 1)
       .CallJSRuntime(Context::SPREAD_ITERABLE_INDEX, reg, 1);
 

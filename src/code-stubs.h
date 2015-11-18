@@ -44,7 +44,6 @@ namespace internal {
   V(ProfileEntryHook)                       \
   V(RecordWrite)                            \
   V(RegExpExec)                             \
-  V(StoreArrayLiteralElement)               \
   V(StoreBufferOverflow)                    \
   V(StoreElement)                           \
   V(StringCompare)                          \
@@ -1245,20 +1244,15 @@ class StoreTransitionHelper {
   }
 
   static Register SlotRegister() {
-    DCHECK(FLAG_vector_stores);
     return VectorStoreTransitionDescriptor::SlotRegister();
   }
 
   static Register VectorRegister() {
-    DCHECK(FLAG_vector_stores);
     return VectorStoreTransitionDescriptor::VectorRegister();
   }
 
   static Register MapRegister() {
-    if (FLAG_vector_stores) {
-      return VectorStoreTransitionDescriptor::MapRegister();
-    }
-    return StoreTransitionDescriptor::MapRegister();
+    return VectorStoreTransitionDescriptor::MapRegister();
   }
 
   static int ReceiverIndex() {
@@ -1276,7 +1270,6 @@ class StoreTransitionHelper {
   }
 
   static int VectorIndex() {
-    DCHECK(FLAG_vector_stores);
     if (HasVirtualSlotArg()) {
       return VectorStoreTransitionDescriptor::kVirtualSlotVectorIndex;
     }
@@ -1285,7 +1278,6 @@ class StoreTransitionHelper {
 
   // Some platforms don't have a slot arg.
   static bool HasVirtualSlotArg() {
-    if (!FLAG_vector_stores) return false;
     return SlotRegister().is(no_reg);
   }
 };
@@ -2579,10 +2571,7 @@ class StoreFastElementStub : public HydrogenCodeStub {
   }
 
   CallInterfaceDescriptor GetCallInterfaceDescriptor() const override {
-    if (FLAG_vector_stores) {
-      return VectorStoreICDescriptor(isolate());
-    }
-    return StoreDescriptor(isolate());
+    return VectorStoreICDescriptor(isolate());
   }
 
   Code::Kind GetCodeKind() const override { return Code::HANDLER; }
@@ -2833,10 +2822,7 @@ class StoreElementStub : public PlatformCodeStub {
   }
 
   CallInterfaceDescriptor GetCallInterfaceDescriptor() const override {
-    if (FLAG_vector_stores) {
-      return VectorStoreICDescriptor(isolate());
-    }
-    return StoreDescriptor(isolate());
+    return VectorStoreICDescriptor(isolate());
   }
 
   Code::Kind GetCodeKind() const override { return Code::HANDLER; }
@@ -2971,16 +2957,6 @@ class ElementsTransitionAndStoreStub : public HydrogenCodeStub {
   class IsJSArrayBits : public BitField<bool, 19, 1> {};
 
   DEFINE_HYDROGEN_CODE_STUB(ElementsTransitionAndStore, HydrogenCodeStub);
-};
-
-
-class StoreArrayLiteralElementStub : public PlatformCodeStub {
- public:
-  explicit StoreArrayLiteralElementStub(Isolate* isolate)
-      : PlatformCodeStub(isolate) { }
-
-  DEFINE_CALL_INTERFACE_DESCRIPTOR(StoreArrayLiteralElement);
-  DEFINE_PLATFORM_CODE_STUB(StoreArrayLiteralElement, PlatformCodeStub);
 };
 
 

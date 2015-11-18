@@ -10,11 +10,7 @@
 #include "src/compiler/all-nodes.h"
 #include "src/compiler/ast-graph-builder.h"
 #include "src/compiler/common-operator.h"
-#include "src/compiler/common-operator-reducer.h"
-#include "src/compiler/dead-code-elimination.h"
 #include "src/compiler/graph-reducer.h"
-#include "src/compiler/js-global-object-specialization.h"
-#include "src/compiler/js-native-context-specialization.h"
 #include "src/compiler/js-operator.h"
 #include "src/compiler/node-matchers.h"
 #include "src/compiler/node-properties.h"
@@ -53,7 +49,7 @@ class JSCallAccessor {
     return call_->InputAt(1);
   }
 
-  Node* original_constructor() {
+  Node* new_target() {
     DCHECK_EQ(IrOpcode::kJSCallConstruct, call_->opcode());
     return call_->InputAt(formal_arguments() + 1);
   }
@@ -70,7 +66,7 @@ class JSCallAccessor {
 
   int formal_arguments() {
     // Both, {JSCallFunction} and {JSCallConstruct}, have two extra inputs:
-    //  - JSCallConstruct: Includes target function and original constructor.
+    //  - JSCallConstruct: Includes target function and new target.
     //  - JSCallFunction: Includes target function and receiver.
     return call_->op()->ValueInputCount() - 2;
   }
@@ -356,9 +352,6 @@ Reduction JSInliner::ReduceJSCall(Node* node, Handle<JSFunction> function) {
   if (info_->is_deoptimization_enabled()) {
     info.MarkAsDeoptimizationEnabled();
   }
-  if (info_->is_native_context_specializing()) {
-    info.MarkAsNativeContextSpecializing();
-  }
 
   if (!Compiler::ParseAndAnalyze(info.parse_info())) {
     TRACE("Not inlining %s into %s because parsing failed\n",
@@ -410,34 +403,6 @@ Reduction JSInliner::ReduceJSCall(Node* node, Handle<JSFunction> function) {
   AstGraphBuilder graph_builder(local_zone_, &info, &jsgraph);
   graph_builder.CreateGraph(false);
 
-  // TODO(mstarzinger): Unify this with the Pipeline once JSInliner refactoring
-  // starts.
-  if (info.is_native_context_specializing()) {
-    GraphReducer graph_reducer(local_zone_, &graph, jsgraph.Dead());
-    DeadCodeElimination dead_code_elimination(&graph_reducer, &graph,
-                                              jsgraph.common());
-    CommonOperatorReducer common_reducer(&graph_reducer, &graph,
-                                         jsgraph.common(), jsgraph.machine());
-    JSGlobalObjectSpecialization global_object_specialization(
-        &graph_reducer, &jsgraph,
-        info.is_deoptimization_enabled()
-            ? JSGlobalObjectSpecialization::kDeoptimizationEnabled
-            : JSGlobalObjectSpecialization::kNoFlags,
-        handle(info.global_object(), info.isolate()), info_->dependencies());
-    JSNativeContextSpecialization native_context_specialization(
-        &graph_reducer, &jsgraph,
-        info.is_deoptimization_enabled()
-            ? JSNativeContextSpecialization::kDeoptimizationEnabled
-            : JSNativeContextSpecialization::kNoFlags,
-        handle(info.global_object()->native_context(), info.isolate()),
-        info_->dependencies(), local_zone_);
-    graph_reducer.AddReducer(&dead_code_elimination);
-    graph_reducer.AddReducer(&common_reducer);
-    graph_reducer.AddReducer(&global_object_specialization);
-    graph_reducer.AddReducer(&native_context_specialization);
-    graph_reducer.ReduceGraph();
-  }
-
   CopyVisitor visitor(&graph, jsgraph_->graph(), &zone);
   visitor.CopyGraph();
 
@@ -452,13 +417,13 @@ Reduction JSInliner::ReduceJSCall(Node* node, Handle<JSFunction> function) {
   if (node->opcode() == IrOpcode::kJSCallConstruct) {
     Node* effect = NodeProperties::GetEffectInput(node);
     Node* context = NodeProperties::GetContextInput(node);
-    Node* create = jsgraph_->graph()->NewNode(
-        jsgraph_->javascript()->Create(), call.target(),
-        call.original_constructor(), context, effect);
+    Node* create = jsgraph_->graph()->NewNode(jsgraph_->javascript()->Create(),
+                                              call.target(), call.new_target(),
+                                              context, frame_state, effect);
     NodeProperties::ReplaceEffectInput(node, create);
-    // TODO(4544): For now Runtime_GetOriginalConstructor depends on the actual
-    // constructor to coincide with the original constructor. Fix this!
-    CHECK_EQ(call.target(), call.original_constructor());
+    // TODO(4544): For now Runtime_GetNewTarget depends on the actual target to
+    // coincide with the new target. Fix this!
+    CHECK_EQ(call.target(), call.new_target());
     // TODO(4544): For derived constructors we should not allocate an implicit
     // receiver and also the return value should not be checked afterwards.
     CHECK(!IsClassConstructor(function->shared()->kind()));

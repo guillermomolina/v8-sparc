@@ -1204,7 +1204,6 @@ void AstGraphBuilder::VisitSwitchStatement(SwitchStatement* stmt) {
 
   // Keep the switch value on the stack until a case matches.
   VisitForValue(stmt->tag());
-  Node* tag = environment()->Top();
 
   // Iterate over all cases and create nodes for label comparison.
   for (int i = 0; i < clauses->length(); i++) {
@@ -1220,6 +1219,7 @@ void AstGraphBuilder::VisitSwitchStatement(SwitchStatement* stmt) {
     // value is still on the operand stack while the label is evaluated.
     VisitForValue(clause->label());
     Node* label = environment()->Pop();
+    Node* tag = environment()->Top();
     const Operator* op = javascript()->StrictEqual();
     Node* condition = NewNode(op, tag, label);
     compare_switch.BeginLabel(i, condition);
@@ -1555,18 +1555,18 @@ void AstGraphBuilder::VisitClassLiteralContents(ClassLiteral* expr) {
 
   // The prototype is ensured to exist by Runtime_DefineClass. No access check
   // is needed here since the constructor is created by the class literal.
-  Node* proto =
+  Node* prototype =
       BuildLoadObjectField(literal, JSFunction::kPrototypeOrInitialMapOffset);
 
   // The class literal and the prototype are both expected on the operand stack
   // during evaluation of the method values.
   environment()->Push(literal);
-  environment()->Push(proto);
+  environment()->Push(prototype);
 
   // Create nodes to store method values into the literal.
   for (int i = 0; i < expr->properties()->length(); i++) {
     ObjectLiteral::Property* property = expr->properties()->at(i);
-    environment()->Push(property->is_static() ? literal : proto);
+    environment()->Push(environment()->Peek(property->is_static() ? 1 : 0));
 
     VisitForValue(property->key());
     Node* name = BuildToName(environment()->Pop(), expr->GetIdForProperty(i));
@@ -1619,11 +1619,11 @@ void AstGraphBuilder::VisitClassLiteralContents(ClassLiteral* expr) {
 
   // Set both the prototype and constructor to have fast properties, and also
   // freeze them in strong mode.
-  environment()->Pop();  // proto
-  environment()->Pop();  // literal
+  prototype = environment()->Pop();
+  literal = environment()->Pop();
   const Operator* op =
       javascript()->CallRuntime(Runtime::kFinalizeClassDefinition, 2);
-  literal = NewNode(op, literal, proto);
+  literal = NewNode(op, literal, prototype);
 
   // Assign to class variable.
   if (expr->class_variable_proxy() != nullptr) {
@@ -1632,7 +1632,7 @@ void AstGraphBuilder::VisitClassLiteralContents(ClassLiteral* expr) {
     VectorSlotPair feedback = CreateVectorSlotPair(
         expr->NeedsProxySlot() ? expr->ProxySlot()
                                : FeedbackVectorSlot::Invalid());
-    BuildVariableAssignment(var, literal, Token::INIT_CONST, feedback,
+    BuildVariableAssignment(var, literal, Token::INIT, feedback,
                             BailoutId::None(), states);
   }
   ast_context()->ProduceValue(literal);
@@ -1738,6 +1738,7 @@ void AstGraphBuilder::VisitObjectLiteral(ObjectLiteral* expr) {
             VisitForValue(property->value());
             FrameStateBeforeAndAfter states(this, property->value()->id());
             Node* value = environment()->Pop();
+            Node* literal = environment()->Top();
             Handle<Name> name = key->AsPropertyName();
             VectorSlotPair feedback =
                 CreateVectorSlotPair(property->GetSlot(0));
@@ -1750,7 +1751,7 @@ void AstGraphBuilder::VisitObjectLiteral(ObjectLiteral* expr) {
           }
           break;
         }
-        environment()->Push(literal);  // Duplicate receiver.
+        environment()->Push(environment()->Top());  // Duplicate receiver.
         VisitForValue(property->key());
         VisitForValue(property->value());
         Node* value = environment()->Pop();
@@ -1768,7 +1769,7 @@ void AstGraphBuilder::VisitObjectLiteral(ObjectLiteral* expr) {
         break;
       }
       case ObjectLiteral::Property::PROTOTYPE: {
-        environment()->Push(literal);  // Duplicate receiver.
+        environment()->Push(environment()->Top());  // Duplicate receiver.
         VisitForValue(property->value());
         Node* value = environment()->Pop();
         Node* receiver = environment()->Pop();
@@ -1795,6 +1796,7 @@ void AstGraphBuilder::VisitObjectLiteral(ObjectLiteral* expr) {
 
   // Create nodes to define accessors, using only a single call to the runtime
   // for each pair of corresponding getters and setters.
+  literal = environment()->Top();  // Reload from operand stack.
   for (AccessorTable::Iterator it = accessor_table.begin();
        it != accessor_table.end(); ++it) {
     VisitForValue(it->first);
@@ -1824,7 +1826,7 @@ void AstGraphBuilder::VisitObjectLiteral(ObjectLiteral* expr) {
     ObjectLiteral::Property* property = expr->properties()->at(property_index);
 
     if (property->kind() == ObjectLiteral::Property::PROTOTYPE) {
-      environment()->Push(literal);  // Duplicate receiver.
+      environment()->Push(environment()->Top());  // Duplicate receiver.
       VisitForValue(property->value());
       Node* value = environment()->Pop();
       Node* receiver = environment()->Pop();
@@ -1835,7 +1837,7 @@ void AstGraphBuilder::VisitObjectLiteral(ObjectLiteral* expr) {
       continue;
     }
 
-    environment()->Push(literal);  // Duplicate receiver.
+    environment()->Push(environment()->Top());  // Duplicate receiver.
     VisitForValue(property->key());
     Node* name = BuildToName(environment()->Pop(),
                              expr->GetIdForProperty(property_index));
@@ -1879,6 +1881,7 @@ void AstGraphBuilder::VisitObjectLiteral(ObjectLiteral* expr) {
   }
 
   // Transform literals that contain functions to fast properties.
+  literal = environment()->Top();  // Reload from operand stack.
   if (expr->has_function()) {
     const Operator* op =
         javascript()->CallRuntime(Runtime::kToFastProperties, 1);
@@ -1933,6 +1936,7 @@ void AstGraphBuilder::VisitArrayLiteral(ArrayLiteral* expr) {
       VectorSlotPair pair = CreateVectorSlotPair(expr->LiteralFeedbackSlot());
       Node* value = environment()->Pop();
       Node* index = jsgraph()->Constant(array_index);
+      Node* literal = environment()->Peek(1);
       Node* store = BuildKeyedStore(literal, index, value, pair);
       states.AddToNode(store, expr->GetIdForElement(array_index),
                        OutputFrameStateCombine::Ignore());
@@ -1947,7 +1951,6 @@ void AstGraphBuilder::VisitArrayLiteral(ArrayLiteral* expr) {
   environment()->Pop();  // Array literal index.
   for (; array_index < expr->values()->length(); array_index++) {
     Expression* subexpr = expr->values()->at(array_index);
-    Node* array = environment()->Pop();
     Node* result;
 
     if (subexpr->IsSpread()) {
@@ -1955,6 +1958,7 @@ void AstGraphBuilder::VisitArrayLiteral(ArrayLiteral* expr) {
       FrameStateBeforeAndAfter states(this,
                                       subexpr->AsSpread()->expression()->id());
       Node* iterable = environment()->Pop();
+      Node* array = environment()->Pop();
       Node* function = BuildLoadNativeContextField(
           Context::CONCAT_ITERABLE_TO_ARRAY_BUILTIN_INDEX);
       result = NewNode(javascript()->CallFunction(3, language_mode()), function,
@@ -1963,6 +1967,7 @@ void AstGraphBuilder::VisitArrayLiteral(ArrayLiteral* expr) {
     } else {
       VisitForValue(subexpr);
       Node* value = environment()->Pop();
+      Node* array = environment()->Pop();
       const Operator* op =
           javascript()->CallRuntime(Runtime::kAppendElement, 2);
       result = NewNode(op, array, value);
@@ -2503,7 +2508,7 @@ void AstGraphBuilder::VisitCallSuper(Call* expr) {
   ZoneList<Expression*>* args = expr->arguments();
   VisitForValues(args);
 
-  // Original constructor is loaded from the {new.target} variable.
+  // The new target is loaded from the {new.target} variable.
   VisitForValue(super->new_target_var());
 
   // Create node to perform the super call.
@@ -2521,7 +2526,7 @@ void AstGraphBuilder::VisitCallNew(CallNew* expr) {
   ZoneList<Expression*>* args = expr->arguments();
   VisitForValues(args);
 
-  // Original constructor is the same as the callee.
+  // The new target is the same as the callee.
   environment()->Push(environment()->Peek(args->length()));
 
   // Create node to perform the construct call.
@@ -3202,7 +3207,7 @@ Node* AstGraphBuilder::BuildThisFunctionVariable(Variable* this_function_var) {
   // Assign the object to the {.this_function} variable. This should never lazy
   // deopt, so it is fine to send invalid bailout id.
   FrameStateBeforeAndAfter states(this, BailoutId::None());
-  BuildVariableAssignment(this_function_var, this_function, Token::INIT_CONST,
+  BuildVariableAssignment(this_function_var, this_function, Token::INIT,
                           VectorSlotPair(), BailoutId::None(), states);
   return this_function;
 }
@@ -3211,9 +3216,8 @@ Node* AstGraphBuilder::BuildThisFunctionVariable(Variable* this_function_var) {
 Node* AstGraphBuilder::BuildNewTargetVariable(Variable* new_target_var) {
   if (new_target_var == nullptr) return nullptr;
 
-  // Retrieve the original constructor in case we are called as a constructor.
-  const Operator* op =
-      javascript()->CallRuntime(Runtime::kGetOriginalConstructor, 0);
+  // Retrieve the new target in case we are called as a constructor.
+  const Operator* op = javascript()->CallRuntime(Runtime::kGetNewTarget, 0);
   Node* object = NewNode(op);
   // TODO(4544): Bailout id only needed for JavaScriptFrame::Summarize.
   PrepareFrameState(object, BailoutId::FunctionContext());
@@ -3221,8 +3225,8 @@ Node* AstGraphBuilder::BuildNewTargetVariable(Variable* new_target_var) {
   // Assign the object to the {new.target} variable. This should never lazy
   // deopt, so it is fine to send invalid bailout id.
   FrameStateBeforeAndAfter states(this, BailoutId::None());
-  BuildVariableAssignment(new_target_var, object, Token::INIT_CONST,
-                          VectorSlotPair(), BailoutId::None(), states);
+  BuildVariableAssignment(new_target_var, object, Token::INIT, VectorSlotPair(),
+                          BailoutId::None(), states);
   return object;
 }
 
@@ -3419,13 +3423,13 @@ Node* AstGraphBuilder::BuildVariableAssignment(
     case VariableLocation::PARAMETER:
     case VariableLocation::LOCAL:
       // Local var, const, or let variable.
-      if (mode == CONST_LEGACY && op == Token::INIT_CONST_LEGACY) {
+      if (mode == CONST_LEGACY && op == Token::INIT) {
         // Perform an initialization check for legacy const variables.
         Node* current = environment()->Lookup(variable);
         if (current->op() != the_hole->op()) {
           value = BuildHoleCheckSilent(current, value, current);
         }
-      } else if (mode == CONST_LEGACY && op != Token::INIT_CONST_LEGACY) {
+      } else if (mode == CONST_LEGACY && op != Token::INIT) {
         // Non-initializing assignment to legacy const is
         // - exception in strict mode.
         // - ignored in sloppy mode.
@@ -3433,13 +3437,13 @@ Node* AstGraphBuilder::BuildVariableAssignment(
           return BuildThrowConstAssignError(bailout_id);
         }
         return value;
-      } else if (mode == LET && op == Token::INIT_LET) {
+      } else if (mode == LET && op == Token::INIT) {
         // No initialization check needed because scoping guarantees it. Note
         // that we still perform a lookup to keep the variable live, because
         // baseline code might contain debug code that inspects the variable.
         Node* current = environment()->Lookup(variable);
         CHECK_NOT_NULL(current);
-      } else if (mode == LET && op != Token::INIT_LET) {
+      } else if (mode == LET && op != Token::INIT) {
         // Perform an initialization check for let declared variables.
         Node* current = environment()->Lookup(variable);
         if (current->op() == the_hole->op()) {
@@ -3447,7 +3451,7 @@ Node* AstGraphBuilder::BuildVariableAssignment(
         } else if (current->opcode() == IrOpcode::kPhi) {
           BuildHoleCheckThenThrow(current, variable, value, bailout_id);
         }
-      } else if (mode == CONST && op == Token::INIT_CONST) {
+      } else if (mode == CONST && op == Token::INIT) {
         // Perform an initialization check for const {this} variables.
         // Note that the {this} variable is the only const variable being able
         // to trigger bind operations outside the TDZ, via {super} calls.
@@ -3455,7 +3459,7 @@ Node* AstGraphBuilder::BuildVariableAssignment(
         if (current->op() != the_hole->op() && variable->is_this()) {
           value = BuildHoleCheckElseThrow(current, variable, value, bailout_id);
         }
-      } else if (mode == CONST && op != Token::INIT_CONST) {
+      } else if (mode == CONST && op != Token::INIT) {
         // Assignment to const is exception in all modes.
         Node* current = environment()->Lookup(variable);
         if (current->op() == the_hole->op()) {
@@ -3470,13 +3474,13 @@ Node* AstGraphBuilder::BuildVariableAssignment(
     case VariableLocation::CONTEXT: {
       // Context variable (potentially up the context chain).
       int depth = current_scope()->ContextChainLength(variable->scope());
-      if (mode == CONST_LEGACY && op == Token::INIT_CONST_LEGACY) {
+      if (mode == CONST_LEGACY && op == Token::INIT) {
         // Perform an initialization check for legacy const variables.
         const Operator* op =
             javascript()->LoadContext(depth, variable->index(), false);
         Node* current = NewNode(op, current_context());
         value = BuildHoleCheckSilent(current, value, current);
-      } else if (mode == CONST_LEGACY && op != Token::INIT_CONST_LEGACY) {
+      } else if (mode == CONST_LEGACY && op != Token::INIT) {
         // Non-initializing assignment to legacy const is
         // - exception in strict mode.
         // - ignored in sloppy mode.
@@ -3484,13 +3488,13 @@ Node* AstGraphBuilder::BuildVariableAssignment(
           return BuildThrowConstAssignError(bailout_id);
         }
         return value;
-      } else if (mode == LET && op != Token::INIT_LET) {
+      } else if (mode == LET && op != Token::INIT) {
         // Perform an initialization check for let declared variables.
         const Operator* op =
             javascript()->LoadContext(depth, variable->index(), false);
         Node* current = NewNode(op, current_context());
         value = BuildHoleCheckThenThrow(current, variable, value, bailout_id);
-      } else if (mode == CONST && op == Token::INIT_CONST) {
+      } else if (mode == CONST && op == Token::INIT) {
         // Perform an initialization check for const {this} variables.
         // Note that the {this} variable is the only const variable being able
         // to trigger bind operations outside the TDZ, via {super} calls.
@@ -3500,7 +3504,7 @@ Node* AstGraphBuilder::BuildVariableAssignment(
           Node* current = NewNode(op, current_context());
           value = BuildHoleCheckElseThrow(current, variable, value, bailout_id);
         }
-      } else if (mode == CONST && op != Token::INIT_CONST) {
+      } else if (mode == CONST && op != Token::INIT) {
         // Assignment to const is exception in all modes.
         const Operator* op =
             javascript()->LoadContext(depth, variable->index(), false);

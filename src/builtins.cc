@@ -1576,8 +1576,10 @@ BUILTIN(ReflectGetPrototypeOf) {
                               isolate->factory()->NewStringFromAsciiChecked(
                                   "Reflect.getPrototypeOf")));
   }
-
-  return *Object::GetPrototype(isolate, target);
+  Handle<Object> prototype;
+  ASSIGN_RETURN_FAILURE_ON_EXCEPTION(isolate, prototype,
+                                     Object::GetPrototype(isolate, target));
+  return *prototype;
 }
 
 
@@ -1633,6 +1635,29 @@ BUILTIN(ReflectIsExtensible) {
         JSObject::IsExtensible(Handle<JSObject>::cast(target)));
   }
   return *isolate->factory()->false_value();
+}
+
+
+// ES6 section 26.1.11 Reflect.ownKeys
+BUILTIN(ReflectOwnKeys) {
+  HandleScope scope(isolate);
+  DCHECK_EQ(2, args.length());
+  Handle<Object> target = args.at<Object>(1);
+
+  if (!target->IsJSReceiver()) {
+    THROW_NEW_ERROR_RETURN_FAILURE(
+        isolate, NewTypeError(MessageTemplate::kCalledOnNonObject,
+                              isolate->factory()->NewStringFromAsciiChecked(
+                                  "Reflect.ownKeys")));
+  }
+
+  Handle<FixedArray> keys;
+  ASSIGN_RETURN_FAILURE_ON_EXCEPTION(
+      isolate, keys,
+      JSReceiver::GetKeys(Handle<JSReceiver>::cast(target),
+                          JSReceiver::OWN_ONLY, INCLUDE_SYMBOLS,
+                          CONVERT_TO_STRING, IGNORE_ENUMERABILITY));
+  return *isolate->factory()->NewJSArrayWithElements(keys);
 }
 
 

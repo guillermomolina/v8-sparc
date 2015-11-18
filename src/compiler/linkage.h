@@ -57,6 +57,15 @@ class LinkageLocation {
     return LinkageLocation(STACK_SLOT, slot);
   }
 
+  static LinkageLocation ConvertToTailCallerLocation(
+      LinkageLocation caller_location, int stack_param_delta) {
+    if (!caller_location.IsRegister()) {
+      return LinkageLocation(STACK_SLOT,
+                             caller_location.GetLocation() + stack_param_delta);
+    }
+    return caller_location;
+  }
+
  private:
   friend class CallDescriptor;
   friend class OperandGenerator;
@@ -222,7 +231,7 @@ class CallDescriptor final : public ZoneObject {
 
   bool HasSameReturnLocationsAs(const CallDescriptor* other) const;
 
-  bool CanTailCall(const Node* call) const;
+  bool CanTailCall(const Node* call, int* stack_param_delta) const;
 
  private:
   friend class Linkage;
@@ -316,6 +325,9 @@ class Linkage : public ZoneObject {
   MachineType GetReturnType(size_t index = 0) const {
     return incoming_->GetReturnType(index);
   }
+
+  bool ParameterHasSecondaryLocation(int index) const;
+  LinkageLocation GetParameterSecondaryLocation(int index) const;
 
   // Get the frame offset for a given spill slot. The location depends on the
   // calling convention and the specific frame layout, and may thus be

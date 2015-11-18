@@ -747,6 +747,21 @@ Reduction JSTypedLowering::ReduceJSToNumberInput(Node* input) {
     if (result.Changed()) return result;
     return Changed(input);  // JSToNumber(JSToNumber(x)) => JSToNumber(x)
   }
+  // Check for ToNumber truncation of signaling NaN to undefined mapping.
+  if (input->opcode() == IrOpcode::kSelect) {
+    Node* check = NodeProperties::GetValueInput(input, 0);
+    Node* vtrue = NodeProperties::GetValueInput(input, 1);
+    Type* vtrue_type = NodeProperties::GetType(vtrue);
+    Node* vfalse = NodeProperties::GetValueInput(input, 2);
+    Type* vfalse_type = NodeProperties::GetType(vfalse);
+    if (vtrue_type->Is(Type::Undefined()) && vfalse_type->Is(Type::Number())) {
+      if (check->opcode() == IrOpcode::kNumberIsHoleNaN &&
+          check->InputAt(0) == vfalse) {
+        // JSToNumber(Select(NumberIsHoleNaN(x), y:undefined, x:number)) => x
+        return Replace(vfalse);
+      }
+    }
+  }
   // Check if we have a cached conversion.
   Type* input_type = NodeProperties::GetType(input);
   if (input_type->Is(Type::Number())) {
@@ -1311,6 +1326,77 @@ Reduction JSTypedLowering::ReduceJSConvertReceiver(Node* node) {
   }
   ReplaceWithValue(node, receiver, effect, control);
   return Changed(receiver);
+}
+
+
+namespace {
+
+// Maximum instance size for which allocations will be inlined.
+const int kMaxInlineInstanceSize = 64 * kPointerSize;
+
+
+// Checks whether allocation using the given constructor can be inlined.
+bool IsAllocationInlineable(Handle<JSFunction> constructor) {
+  // TODO(bmeurer): Support inlining of class constructors.
+  if (IsClassConstructor(constructor->shared()->kind())) return false;
+  return constructor->has_initial_map() &&
+         constructor->initial_map()->instance_type() == JS_OBJECT_TYPE &&
+         constructor->initial_map()->instance_size() < kMaxInlineInstanceSize;
+}
+
+}  // namespace
+
+
+Reduction JSTypedLowering::ReduceJSCreate(Node* node) {
+  DCHECK_EQ(IrOpcode::kJSCreate, node->opcode());
+  Node* const target = NodeProperties::GetValueInput(node, 0);
+  Type* const target_type = NodeProperties::GetType(target);
+  Node* const new_target = NodeProperties::GetValueInput(node, 1);
+  Node* const effect = NodeProperties::GetEffectInput(node);
+  // TODO(turbofan): Add support for NewTarget passed to JSCreate.
+  if (target != new_target) return NoChange();
+  // Extract constructor function.
+  if (target_type->IsConstant() &&
+      target_type->AsConstant()->Value()->IsJSFunction()) {
+    Handle<JSFunction> constructor =
+        Handle<JSFunction>::cast(target_type->AsConstant()->Value());
+    // Check that function is a constructor.
+    if (!constructor->IsConstructor()) return NoChange();
+    // Force completion of inobject slack tracking before
+    // generating code to finalize the instance size.
+    if (constructor->IsInobjectSlackTrackingInProgress()) {
+      constructor->CompleteInobjectSlackTracking();
+    }
+
+    // TODO(bmeurer): We fall back to the runtime in case we cannot inline
+    // the allocation here, which is sort of expensive. We should think about
+    // a soft fallback to some NewObjectCodeStub.
+    if (IsAllocationInlineable(constructor)) {
+      // Compute instance size from initial map of {constructor}.
+      Handle<Map> initial_map(constructor->initial_map(), isolate());
+      int const instance_size = initial_map->instance_size();
+
+      // Add a dependency on the {initial_map} to make sure that this code is
+      // deoptimized whenever the {initial_map} of the {constructor} changes.
+      dependencies()->AssumeInitialMapCantChange(initial_map);
+
+      // Emit code to allocate the JSObject instance for the {constructor}.
+      AllocationBuilder a(jsgraph(), effect, graph()->start());
+      a.Allocate(instance_size);
+      a.Store(AccessBuilder::ForMap(), initial_map);
+      a.Store(AccessBuilder::ForJSObjectProperties(),
+              jsgraph()->EmptyFixedArrayConstant());
+      a.Store(AccessBuilder::ForJSObjectElements(),
+              jsgraph()->EmptyFixedArrayConstant());
+      for (int i = 0; i < initial_map->GetInObjectProperties(); ++i) {
+        a.Store(AccessBuilder::ForJSObjectInObjectProperty(initial_map, i),
+                jsgraph()->UndefinedConstant());
+      }
+      a.FinishAndChange(node);
+      return Changed(node);
+    }
+  }
+  return NoChange();
 }
 
 
@@ -2153,6 +2239,8 @@ Reduction JSTypedLowering::Reduce(Node* node) {
       return ReduceJSStoreContext(node);
     case IrOpcode::kJSConvertReceiver:
       return ReduceJSConvertReceiver(node);
+    case IrOpcode::kJSCreate:
+      return ReduceJSCreate(node);
     case IrOpcode::kJSCreateArguments:
       return ReduceJSCreateArguments(node);
     case IrOpcode::kJSCreateClosure:

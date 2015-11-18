@@ -138,6 +138,7 @@ CheckedStoreRepresentation CheckedStoreRepresentationOf(Operator const* op) {
   V(ChangeInt32ToFloat64, Operator::kNoProperties, 1, 0, 1)                   \
   V(RoundInt64ToFloat32, Operator::kNoProperties, 1, 0, 1)                    \
   V(RoundInt64ToFloat64, Operator::kNoProperties, 1, 0, 1)                    \
+  V(RoundUint64ToFloat32, Operator::kNoProperties, 1, 0, 1)                   \
   V(RoundUint64ToFloat64, Operator::kNoProperties, 1, 0, 1)                   \
   V(ChangeInt32ToInt64, Operator::kNoProperties, 1, 0, 1)                     \
   V(ChangeUint32ToFloat64, Operator::kNoProperties, 1, 0, 1)                  \
@@ -184,8 +185,10 @@ CheckedStoreRepresentation CheckedStoreRepresentationOf(Operator const* op) {
   V(Float64Max, Operator::kNoProperties, 2, 0, 1)           \
   V(Float64Min, Operator::kNoProperties, 2, 0, 1)           \
   V(Float64RoundDown, Operator::kNoProperties, 1, 0, 1)     \
+  V(Float64RoundUp, Operator::kNoProperties, 1, 0, 1)       \
   V(Float64RoundTruncate, Operator::kNoProperties, 1, 0, 1) \
-  V(Float64RoundTiesAway, Operator::kNoProperties, 1, 0, 1)
+  V(Float64RoundTiesAway, Operator::kNoProperties, 1, 0, 1) \
+  V(Float64RoundTiesEven, Operator::kNoProperties, 1, 0, 1)
 
 
 #define MACHINE_TYPE_LIST(V) \

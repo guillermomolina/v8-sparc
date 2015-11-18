@@ -31,14 +31,26 @@ class AccessBuilder final : public AllStatic {
   // Provides access to JSObject::elements() field.
   static FieldAccess ForJSObjectElements();
 
+  // Provides access to JSObject inobject property fields.
+  static FieldAccess ForJSObjectInObjectProperty(Handle<Map> map, int index);
+
   // Provides access to JSFunction::context() field.
   static FieldAccess ForJSFunctionContext();
 
   // Provides access to JSFunction::shared() field.
   static FieldAccess ForJSFunctionSharedFunctionInfo();
 
+  // Provides access to JSArray::length() field.
+  static FieldAccess ForJSArrayLength(ElementsKind elements_kind);
+
   // Provides access to JSArrayBuffer::backing_store() field.
   static FieldAccess ForJSArrayBufferBackingStore();
+
+  // Provides access to JSArrayBuffer::bit_field() field.
+  static FieldAccess ForJSArrayBufferBitField();
+
+  // Provides access to JSArrayBufferView::buffer() field.
+  static FieldAccess ForJSArrayBufferViewBuffer();
 
   // Provides access to JSDate fields.
   static FieldAccess ForJSDateField(JSDate::FieldIndex index);
@@ -99,9 +111,6 @@ class AccessBuilder final : public AllStatic {
   // Provides access to Fixed{type}TypedArray and External{type}Array elements.
   static ElementAccess ForTypedArrayElement(ExternalArrayType type,
                                             bool is_external);
-
-  // Provides access to the characters of sequential strings.
-  static ElementAccess ForSeqStringChar(String::Encoding encoding);
 
   // ===========================================================================
   // Access to global per-isolate variables (based on external reference).

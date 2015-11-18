@@ -1326,6 +1326,11 @@ void InstructionSelector::VisitRoundInt64ToFloat64(Node* node) {
 }
 
 
+void InstructionSelector::VisitRoundUint64ToFloat32(Node* node) {
+  VisitRR(this, kArm64Uint64ToFloat32, node);
+}
+
+
 void InstructionSelector::VisitRoundUint64ToFloat64(Node* node) {
   VisitRR(this, kArm64Uint64ToFloat64, node);
 }
@@ -1463,6 +1468,11 @@ void InstructionSelector::VisitFloat64RoundDown(Node* node) {
 }
 
 
+void InstructionSelector::VisitFloat64RoundUp(Node* node) {
+  VisitRR(this, kArm64Float64RoundUp, node);
+}
+
+
 void InstructionSelector::VisitFloat64RoundTruncate(Node* node) {
   VisitRR(this, kArm64Float64RoundTruncate, node);
 }
@@ -1470,6 +1480,11 @@ void InstructionSelector::VisitFloat64RoundTruncate(Node* node) {
 
 void InstructionSelector::VisitFloat64RoundTiesAway(Node* node) {
   VisitRR(this, kArm64Float64RoundTiesAway, node);
+}
+
+
+void InstructionSelector::VisitFloat64RoundTiesEven(Node* node) {
+  VisitRR(this, kArm64Float64RoundTiesEven, node);
 }
 
 
@@ -2041,8 +2056,10 @@ InstructionSelector::SupportedMachineOperatorFlags() {
          MachineOperatorBuilder::kFloat64Max |
          MachineOperatorBuilder::kFloat64Min |
          MachineOperatorBuilder::kFloat64RoundDown |
+         MachineOperatorBuilder::kFloat64RoundUp |
          MachineOperatorBuilder::kFloat64RoundTruncate |
          MachineOperatorBuilder::kFloat64RoundTiesAway |
+         MachineOperatorBuilder::kFloat64RoundTiesEven |
          MachineOperatorBuilder::kWord32ShiftIsSafe |
          MachineOperatorBuilder::kInt32DivIsSafe |
          MachineOperatorBuilder::kUint32DivIsSafe;

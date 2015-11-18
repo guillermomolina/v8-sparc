@@ -202,11 +202,11 @@ DEFINE_IMPLICATION(es_staging, harmony_destructuring)
   V(harmony_sharedarraybuffer, "harmony sharedarraybuffer")           \
   V(harmony_simd, "harmony simd")                                     \
   V(harmony_do_expressions, "harmony do-expressions")                 \
-  V(harmony_regexp_subclass, "harmony regexp subclassing")
+  V(harmony_regexp_subclass, "harmony regexp subclassing")            \
+  V(harmony_regexp_lookbehind, "harmony regexp lookbehind")
 
 // Features that are complete (but still behind --harmony/es-staging flag).
 #define HARMONY_STAGED(V)                                     \
-  V(harmony_default_parameters, "harmony default parameters") \
   V(harmony_destructuring, "harmony destructuring")           \
   V(harmony_regexps, "harmony regular expression extensions") \
   V(harmony_sloppy, "harmony features in sloppy mode")        \
@@ -215,6 +215,7 @@ DEFINE_IMPLICATION(es_staging, harmony_destructuring)
 // Features that are shipping (turned on by default, but internal flag remains).
 #define HARMONY_SHIPPING(V)                                     \
   V(harmony_array_includes, "harmony Array.prototype.includes") \
+  V(harmony_default_parameters, "harmony default parameters")   \
   V(harmony_object_observe, "harmony Object.observe")           \
   V(harmony_rest_parameters, "harmony rest parameters")         \
   V(harmony_concat_spreadable, "harmony isConcatSpreadable")    \
@@ -288,7 +289,6 @@ DEFINE_BOOL(string_slices, true, "use string slices")
 
 // Flags for Ignition.
 DEFINE_BOOL(ignition, false, "use ignition interpreter")
-DEFINE_IMPLICATION(ignition, vector_stores)
 DEFINE_STRING(ignition_filter, "~~", "filter for ignition interpreter")
 DEFINE_BOOL(ignition_fake_try_catch, false,
             "enable fake try-catch-finally blocks in ignition for testing")
@@ -380,7 +380,7 @@ DEFINE_INT(stress_runs, 0, "number of stress runs")
 DEFINE_BOOL(lookup_sample_by_shared, true,
             "when picking a function to optimize, watch for shared function "
             "info, not JSFunction itself")
-DEFINE_BOOL(flush_optimized_code_cache, true,
+DEFINE_BOOL(flush_optimized_code_cache, false,
             "flushes the cache of optimized code for closures on every GC")
 DEFINE_BOOL(inline_construct, true, "inline constructor calls")
 DEFINE_BOOL(inline_arguments, true, "inline functions with arguments object")
@@ -711,7 +711,6 @@ DEFINE_BOOL(use_idle_notification, true,
 // ic.cc
 DEFINE_BOOL(use_ic, true, "use inline caching")
 DEFINE_BOOL(trace_ic, false, "trace inline cache state transitions")
-DEFINE_BOOL(vector_stores, true, "use vectors for store ics")
 
 // macro-assembler-ia32.cc
 DEFINE_BOOL(native_code_counters, false,
@@ -829,6 +828,7 @@ DEFINE_NEG_IMPLICATION(predictable, concurrent_recompilation)
 DEFINE_NEG_IMPLICATION(predictable, concurrent_osr)
 DEFINE_NEG_IMPLICATION(predictable, concurrent_sweeping)
 DEFINE_NEG_IMPLICATION(predictable, parallel_compaction)
+DEFINE_NEG_IMPLICATION(predictable, memory_reducer)
 
 // mark-compact.cc
 DEFINE_BOOL(force_marking_deque_overflows, false,
@@ -1076,7 +1076,7 @@ DEFINE_IMPLICATION(print_all_code, trace_codegen)
 
 DEFINE_BOOL(verify_predictable, false,
             "this mode is used for checking that V8 behaves predictably")
-DEFINE_INT(dump_allocations_digest_at_alloc, 0,
+DEFINE_INT(dump_allocations_digest_at_alloc, -1,
            "dump allocations digest each n-th allocation")
 
 

@@ -1212,7 +1212,6 @@ void Genesis::InitializeGlobal(Handle<JSGlobalObject> global_object,
                     isolate->initial_object_prototype(), Builtins::kIllegal);
   }
 
-
   {  // -- R e g E x p
     // Builtin functions for RegExp.prototype.
     Handle<JSFunction> regexp_fun =
@@ -2038,7 +2037,6 @@ void Bootstrapper::ExportExperimentalFromRuntime(Isolate* isolate,
 
 EMPTY_INITIALIZE_GLOBAL_FOR_FEATURE(harmony_modules)
 EMPTY_INITIALIZE_GLOBAL_FOR_FEATURE(harmony_array_includes)
-EMPTY_INITIALIZE_GLOBAL_FOR_FEATURE(harmony_proxies)
 EMPTY_INITIALIZE_GLOBAL_FOR_FEATURE(harmony_sloppy)
 EMPTY_INITIALIZE_GLOBAL_FOR_FEATURE(harmony_sloppy_function)
 EMPTY_INITIALIZE_GLOBAL_FOR_FEATURE(harmony_sloppy_let)
@@ -2051,6 +2049,7 @@ EMPTY_INITIALIZE_GLOBAL_FOR_FEATURE(harmony_unicode_regexps)
 EMPTY_INITIALIZE_GLOBAL_FOR_FEATURE(harmony_completion)
 EMPTY_INITIALIZE_GLOBAL_FOR_FEATURE(harmony_tolength)
 EMPTY_INITIALIZE_GLOBAL_FOR_FEATURE(harmony_do_expressions)
+EMPTY_INITIALIZE_GLOBAL_FOR_FEATURE(harmony_regexp_lookbehind)
 
 
 static void SimpleInstallFunction(Handle<JSObject>& base, const char* name,
@@ -2133,6 +2132,8 @@ void Genesis::InitializeGlobal_harmony_reflect() {
                         Builtins::kReflectHas, 2, true);
   SimpleInstallFunction(reflect, "isExtensible",
                         Builtins::kReflectIsExtensible, 1, true);
+  SimpleInstallFunction(reflect, "ownKeys",
+                        Builtins::kReflectOwnKeys, 1, true);
   SimpleInstallFunction(reflect, "preventExtensions",
                         Builtins::kReflectPreventExtensions, 1, true);
   SimpleInstallFunction(reflect, "set",
@@ -2184,6 +2185,16 @@ void Genesis::InitializeGlobal_harmony_simd() {
   type##_function->shared()->set_instance_class_name(*factory->Type##_string());
   SIMD128_TYPES(SIMD128_INSTALL_FUNCTION)
 #undef SIMD128_INSTALL_FUNCTION
+}
+
+
+void Genesis::InitializeGlobal_harmony_proxies() {
+  if (!FLAG_harmony_proxies) return;
+  Handle<JSGlobalObject> global(
+      JSGlobalObject::cast(native_context()->global_object()));
+  Isolate* isolate = global->GetIsolate();
+  InstallFunction(global, "Proxy", JS_PROXY_TYPE, JSProxy::kSize,
+                  isolate->initial_object_prototype(), Builtins::kIllegal);
 }
 
 
@@ -2553,6 +2564,7 @@ bool Genesis::InstallExperimentalNatives() {
   static const char* harmony_completion_natives[] = {nullptr};
   static const char* harmony_do_expressions_natives[] = {nullptr};
   static const char* harmony_regexp_subclass_natives[] = {nullptr};
+  static const char* harmony_regexp_lookbehind_natives[] = {nullptr};
 
   for (int i = ExperimentalNatives::GetDebuggerCount();
        i < ExperimentalNatives::GetBuiltinsCount(); i++) {

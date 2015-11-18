@@ -18,6 +18,7 @@ namespace compiler {
   V(Mips64Dsub)                     \
   V(Mips64Mul)                      \
   V(Mips64MulHigh)                  \
+  V(Mips64DMulHigh)                 \
   V(Mips64MulHighU)                 \
   V(Mips64Dmul)                     \
   V(Mips64Div)                      \
@@ -69,14 +70,17 @@ namespace compiler {
   V(Mips64Float64RoundDown)         \
   V(Mips64Float64RoundTruncate)     \
   V(Mips64Float64RoundUp)           \
+  V(Mips64Float64RoundTiesEven)     \
   V(Mips64CvtSD)                    \
   V(Mips64CvtDS)                    \
   V(Mips64TruncWD)                  \
   V(Mips64TruncUwD)                 \
   V(Mips64CvtDW)                    \
   V(Mips64CvtSL)                    \
+  V(Mips64CvtSUl)                   \
   V(Mips64CvtDL)                    \
   V(Mips64CvtDUw)                   \
+  V(Mips64CvtDUl)                   \
   V(Mips64Lb)                       \
   V(Mips64Lbu)                      \
   V(Mips64Sb)                       \

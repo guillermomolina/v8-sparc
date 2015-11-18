@@ -416,12 +416,6 @@ class MarkCompactCollector {
                      AllocationSpace to_old_space,
                      SlotsBuffer** evacuation_slots_buffer);
 
-  void MigrateObjectTagged(HeapObject* dst, HeapObject* src, int size,
-                           SlotsBuffer** evacuation_slots_buffer);
-  void MigrateObjectMixed(HeapObject* dst, HeapObject* src, int size,
-                          SlotsBuffer** evacuation_slots_buffer);
-  void MigrateObjectRaw(HeapObject* dst, HeapObject* src, int size);
-
   bool TryPromoteObject(HeapObject* object, int object_size);
 
   void InvalidateCode(Code* code);
@@ -570,11 +564,12 @@ class MarkCompactCollector {
   //   After: Live objects are marked and non-live objects are unmarked.
 
   friend class CodeMarkingVisitor;
+  friend class IncrementalMarkingMarkingVisitor;
   friend class MarkCompactMarkingVisitor;
   friend class MarkingVisitor;
+  friend class RecordMigratedSlotVisitor;
   friend class RootMarkingVisitor;
   friend class SharedFunctionInfoMarkingVisitor;
-  friend class IncrementalMarkingMarkingVisitor;
 
   // Mark code objects that are active on the stack to prevent them
   // from being flushed.
@@ -659,7 +654,7 @@ class MarkCompactCollector {
   // We replace them with a null descriptor, with the same key.
   void ClearNonLiveReferences();
   void ClearNonLivePrototypeTransitions(Map* map);
-  void ClearNonLiveMapTransitions(Map* map, MarkBit map_mark);
+  void ClearNonLiveMapTransitions(Map* map);
   void ClearMapTransitions(Map* map, Map* dead_transition);
   bool ClearMapBackPointer(Map* map);
   void TrimDescriptorArray(Map* map, DescriptorArray* descriptors,
@@ -723,7 +718,10 @@ class MarkCompactCollector {
   // The number of parallel compaction tasks, including the main thread.
   int NumberOfParallelCompactionTasks();
 
-  void WaitUntilCompactionCompleted();
+
+  void StartParallelCompaction(CompactionSpaceCollection** compaction_spaces,
+                               uint32_t* task_ids, int len);
+  void WaitUntilCompactionCompleted(uint32_t* task_ids, int len);
 
   void EvacuateNewSpaceAndCandidates();
 
@@ -801,9 +799,6 @@ class MarkCompactCollector {
 
   // Semaphore used to synchronize compaction tasks.
   base::Semaphore pending_compaction_tasks_semaphore_;
-
-  // Number of active compaction tasks (including main thread).
-  intptr_t concurrent_compaction_tasks_active_;
 
   friend class Heap;
 };

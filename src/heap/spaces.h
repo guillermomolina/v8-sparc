@@ -37,7 +37,7 @@ class Isolate;
 // area.
 //
 // There is a separate large object space for objects larger than
-// Page::kMaxHeapObjectSize, so that they do not have to move during
+// Page::kMaxRegularHeapObjectSize, so that they do not have to move during
 // collection. The large object space is paged. Pages in large object space
 // may be larger than the page size.
 //
@@ -1489,8 +1489,6 @@ class AllocationInfo {
   Address* top_address() { return &top_; }
 
   INLINE(void set_limit(Address limit)) {
-    SLOW_DCHECK(limit == NULL ||
-                (reinterpret_cast<intptr_t>(limit) & kHeapObjectTagMask) == 0);
     limit_ = limit;
   }
 
@@ -2995,9 +2993,9 @@ class MapSpace : public PagedSpace {
 
 
 // -----------------------------------------------------------------------------
-// Large objects ( > Page::kMaxHeapObjectSize ) are allocated and managed by
-// the large object space. A large object is allocated from OS heap with
-// extra padding bytes (Page::kPageSize + Page::kObjectStartOffset).
+// Large objects ( > Page::kMaxRegularHeapObjectSize ) are allocated and
+// managed by the large object space. A large object is allocated from OS
+// heap with extra padding bytes (Page::kPageSize + Page::kObjectStartOffset).
 // A large object always starts at Page::kObjectStartOffset to a page.
 // Large objects do not move during garbage collections.
 

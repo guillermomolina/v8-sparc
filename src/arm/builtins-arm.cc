@@ -211,7 +211,7 @@ void Builtins::Generate_StringConstructor_ConstructStub(MacroAssembler* masm) {
   // ----------- S t a t e -------------
   //  -- r0                     : number of arguments
   //  -- r1                     : constructor function
-  //  -- r3                     : original constructor
+  //  -- r3                     : new target
   //  -- lr                     : return address
   //  -- sp[(argc - n - 1) * 4] : arg[n] (zero based)
   //  -- sp[argc * 4]           : receiver
@@ -251,23 +251,20 @@ void Builtins::Generate_StringConstructor_ConstructStub(MacroAssembler* masm) {
     __ bind(&done_convert);
   }
 
-  // 3. Allocate a JSValue wrapper for the string.
+  // 3. Check if new target and constructor differ.
+  Label new_object;
+  __ cmp(r1, r3);
+  __ b(ne, &new_object);
+
+  // 4. Allocate a JSValue wrapper for the string.
   {
     // ----------- S t a t e -------------
     //  -- r2 : the first argument
     //  -- r1 : constructor function
-    //  -- r3 : original constructor
+    //  -- r3 : new target
     //  -- lr : return address
     // -----------------------------------
-
-    Label allocate, done_allocate, rt_call;
-
-    // Fall back to runtime if the original constructor and function differ.
-    __ cmp(r1, r3);
-    __ b(ne, &rt_call);
-
-    __ Allocate(JSValue::kSize, r0, r3, r4, &allocate, TAG_OBJECT);
-    __ bind(&done_allocate);
+    __ Allocate(JSValue::kSize, r0, r4, r5, &new_object, TAG_OBJECT);
 
     // Initialize the JSValue in r0.
     __ LoadGlobalFunctionInitialMap(r1, r3, r4);
@@ -278,30 +275,18 @@ void Builtins::Generate_StringConstructor_ConstructStub(MacroAssembler* masm) {
     __ str(r2, FieldMemOperand(r0, JSValue::kValueOffset));
     STATIC_ASSERT(JSValue::kSize == 4 * kPointerSize);
     __ Ret();
-
-    // Fallback to the runtime to allocate in new space.
-    __ bind(&allocate);
-    {
-      FrameAndConstantPoolScope scope(masm, StackFrame::INTERNAL);
-      __ Move(r3, Smi::FromInt(JSValue::kSize));
-      __ Push(r1, r2, r3);
-      __ CallRuntime(Runtime::kAllocateInNewSpace, 1);
-      __ Pop(r1, r2);
-    }
-    __ b(&done_allocate);
-
-    // Fallback to the runtime to create new object.
-    __ bind(&rt_call);
-    {
-      FrameScope scope(masm, StackFrame::INTERNAL);
-      __ Push(r1, r2);
-      __ Push(r1, r3);  // constructor function, original constructor
-      __ CallRuntime(Runtime::kNewObject, 2);
-      __ Pop(r1, r2);
-    }
-    __ str(r2, FieldMemOperand(r0, JSValue::kValueOffset));
-    __ Ret();
   }
+
+  // 5. Fallback to the runtime to create new object.
+  __ bind(&new_object);
+  {
+    FrameAndConstantPoolScope scope(masm, StackFrame::INTERNAL);
+    __ Push(r2, r1, r3);  // first argument, constructor, new target
+    __ CallRuntime(Runtime::kNewObject, 2);
+    __ Pop(r2);
+  }
+  __ str(r2, FieldMemOperand(r0, JSValue::kValueOffset));
+  __ Ret();
 }
 
 
@@ -358,7 +343,7 @@ static void Generate_JSConstructStubHelper(MacroAssembler* masm,
   //  -- r0     : number of arguments
   //  -- r1     : constructor function
   //  -- r2     : allocation site or undefined
-  //  -- r3     : original constructor
+  //  -- r3     : new target
   //  -- lr     : return address
   //  -- sp[...]: constructor arguments
   // -----------------------------------
@@ -381,19 +366,12 @@ static void Generate_JSConstructStubHelper(MacroAssembler* masm,
     // the preconditions is not met, the code bails out to the runtime call.
     Label rt_call, allocated;
     if (FLAG_inline_new) {
-      ExternalReference debug_step_in_fp =
-          ExternalReference::debug_step_in_fp_address(isolate);
-      __ mov(r2, Operand(debug_step_in_fp));
-      __ ldr(r2, MemOperand(r2));
-      __ tst(r2, r2);
-      __ b(ne, &rt_call);
-
-      // Verify that the original constructor is a JSFunction.
+      // Verify that the new target is a JSFunction.
       __ CompareObjectType(r3, r5, r4, JS_FUNCTION_TYPE);
       __ b(ne, &rt_call);
 
       // Load the initial map and verify that it is in fact a map.
-      // r3: original constructor
+      // r3: new target
       __ ldr(r2, FieldMemOperand(r3, JSFunction::kPrototypeOrInitialMapOffset));
       __ JumpIfSmi(r2, &rt_call);
       __ CompareObjectType(r2, r5, r4, MAP_TYPE);
@@ -514,18 +492,18 @@ static void Generate_JSConstructStubHelper(MacroAssembler* masm,
       // r4: JSObject
       __ jmp(&allocated);
 
-      // Reload the original constructor and fall-through.
+      // Reload the new target and fall-through.
       __ bind(&rt_call_reload_new_target);
       __ ldr(r3, MemOperand(sp, 0 * kPointerSize));
     }
 
     // Allocate the new receiver object using the runtime call.
     // r1: constructor function
-    // r3: original constructor
+    // r3: new target
     __ bind(&rt_call);
 
     __ push(r1);  // constructor function
-    __ push(r3);  // original constructor
+    __ push(r3);  // new target
     __ CallRuntime(Runtime::kNewObject, 2);
     __ mov(r4, r0);
 
@@ -621,7 +599,7 @@ static void Generate_JSConstructStubHelper(MacroAssembler* masm,
     __ bind(&exit);
     // r0: result
     // sp[0]: receiver (newly allocated object)
-    // sp[1]: new.target (original constructor)
+    // sp[1]: new target
     // sp[2]: number of arguments (smi-tagged)
     __ ldr(r1, MemOperand(sp, 2 * kPointerSize));
 
@@ -650,7 +628,7 @@ void Builtins::Generate_JSConstructStubForDerived(MacroAssembler* masm) {
   //  -- r0     : number of arguments
   //  -- r1     : constructor function
   //  -- r2     : allocation site or undefined
-  //  -- r3     : original constructor
+  //  -- r3     : new target
   //  -- lr     : return address
   //  -- sp[...]: constructor arguments
   // -----------------------------------
@@ -691,24 +669,6 @@ void Builtins::Generate_JSConstructStubForDerived(MacroAssembler* masm) {
     __ bind(&entry);
     __ sub(r4, r4, Operand(2), SetCC);
     __ b(ge, &loop);
-
-    // Handle step in.
-    Label skip_step_in;
-    ExternalReference debug_step_in_fp =
-        ExternalReference::debug_step_in_fp_address(masm->isolate());
-    __ mov(r2, Operand(debug_step_in_fp));
-    __ ldr(r2, MemOperand(r2));
-    __ tst(r2, r2);
-    __ b(eq, &skip_step_in);
-
-    __ Push(r0);
-    __ Push(r1);
-    __ Push(r1);
-    __ CallRuntime(Runtime::kHandleStepInForDerivedConstructors, 1);
-    __ Pop(r1);
-    __ Pop(r0);
-
-    __ bind(&skip_step_in);
 
     // Call the function.
     // r0: number of arguments
@@ -1028,7 +988,7 @@ void Builtins::Generate_InterpreterPushArgsAndCall(MacroAssembler* masm) {
 void Builtins::Generate_InterpreterPushArgsAndConstruct(MacroAssembler* masm) {
   // ----------- S t a t e -------------
   // -- r0 : argument count (not including receiver)
-  // -- r3 : original constructor
+  // -- r3 : new target
   // -- r1 : constructor to call
   // -- r2 : address of the first argument
   // -----------------------------------
@@ -1721,7 +1681,7 @@ void Builtins::Generate_ConstructFunction(MacroAssembler* masm) {
   // ----------- S t a t e -------------
   //  -- r0 : the number of arguments (not including the receiver)
   //  -- r1 : the constructor to call (checked to be a JSFunction)
-  //  -- r3 : the original constructor (checked to be a JSFunction)
+  //  -- r3 : the new target (checked to be a JSFunction)
   // -----------------------------------
   __ AssertFunction(r1);
   __ AssertFunction(r3);
@@ -1743,7 +1703,7 @@ void Builtins::Generate_ConstructProxy(MacroAssembler* masm) {
   // ----------- S t a t e -------------
   //  -- r0 : the number of arguments (not including the receiver)
   //  -- r1 : the constructor to call (checked to be a JSFunctionProxy)
-  //  -- r3 : the original constructor (either the same as the constructor or
+  //  -- r3 : the new target (either the same as the constructor or
   //          the JSFunction on which new was invoked initially)
   // -----------------------------------
 
@@ -1758,7 +1718,7 @@ void Builtins::Generate_Construct(MacroAssembler* masm) {
   // ----------- S t a t e -------------
   //  -- r0 : the number of arguments (not including the receiver)
   //  -- r1 : the constructor to call (can be any Object)
-  //  -- r3 : the original constructor (either the same as the constructor or
+  //  -- r3 : the new target (either the same as the constructor or
   //          the JSFunction on which new was invoked initially)
   // -----------------------------------
 

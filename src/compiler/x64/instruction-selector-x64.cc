@@ -971,9 +971,19 @@ void InstructionSelector::VisitRoundInt64ToFloat64(Node* node) {
 }
 
 
+void InstructionSelector::VisitRoundUint64ToFloat32(Node* node) {
+  X64OperandGenerator g(this);
+  InstructionOperand temps[] = {g.TempRegister()};
+  Emit(kSSEUint64ToFloat32, g.DefineAsRegister(node), g.Use(node->InputAt(0)),
+       arraysize(temps), temps);
+}
+
+
 void InstructionSelector::VisitRoundUint64ToFloat64(Node* node) {
   X64OperandGenerator g(this);
-  Emit(kSSEUint64ToFloat64, g.DefineAsRegister(node), g.Use(node->InputAt(0)));
+  InstructionOperand temps[] = {g.TempRegister()};
+  Emit(kSSEUint64ToFloat64, g.DefineAsRegister(node), g.Use(node->InputAt(0)),
+       arraysize(temps), temps);
 }
 
 
@@ -1121,6 +1131,11 @@ void InstructionSelector::VisitFloat64RoundDown(Node* node) {
 }
 
 
+void InstructionSelector::VisitFloat64RoundUp(Node* node) {
+  VisitRR(this, node, kSSEFloat64Round | MiscField::encode(kRoundUp));
+}
+
+
 void InstructionSelector::VisitFloat64RoundTruncate(Node* node) {
   VisitRR(this, node, kSSEFloat64Round | MiscField::encode(kRoundToZero));
 }
@@ -1128,6 +1143,11 @@ void InstructionSelector::VisitFloat64RoundTruncate(Node* node) {
 
 void InstructionSelector::VisitFloat64RoundTiesAway(Node* node) {
   UNREACHABLE();
+}
+
+
+void InstructionSelector::VisitFloat64RoundTiesEven(Node* node) {
+  VisitRR(this, node, kSSEFloat64Round | MiscField::encode(kRoundToNearest));
 }
 
 
@@ -1660,7 +1680,9 @@ InstructionSelector::SupportedMachineOperatorFlags() {
   }
   if (CpuFeatures::IsSupported(SSE4_1)) {
     flags |= MachineOperatorBuilder::kFloat64RoundDown |
-             MachineOperatorBuilder::kFloat64RoundTruncate;
+             MachineOperatorBuilder::kFloat64RoundUp |
+             MachineOperatorBuilder::kFloat64RoundTruncate |
+             MachineOperatorBuilder::kFloat64RoundTiesEven;
   }
   return flags;
 }

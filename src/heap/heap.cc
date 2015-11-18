@@ -102,7 +102,6 @@ Heap::Heap()
       gc_post_processing_depth_(0),
       allocations_count_(0),
       raw_allocations_hash_(0),
-      dump_allocations_hash_countdown_(FLAG_dump_allocations_digest_at_alloc),
       ms_count_(0),
       gc_count_(0),
       remembered_unmapped_pages_index_(0),
@@ -497,27 +496,6 @@ const char* Heap::GetSpaceName(int idx) {
       UNREACHABLE();
   }
   return nullptr;
-}
-
-
-void Heap::ClearAllKeyedStoreICs() {
-  if (FLAG_vector_stores) {
-    TypeFeedbackVector::ClearAllKeyedStoreICs(isolate_);
-    return;
-  }
-
-  // TODO(mvstanton): Remove this function when FLAG_vector_stores is turned on
-  // permanently, and divert all callers to KeyedStoreIC::ClearAllKeyedStoreICs.
-  HeapObjectIterator it(code_space());
-
-  for (Object* object = it.Next(); object != NULL; object = it.Next()) {
-    Code* code = Code::cast(object);
-    Code::Kind current_kind = code->kind();
-    if (current_kind == Code::FUNCTION ||
-        current_kind == Code::OPTIMIZED_FUNCTION) {
-      code->ClearInlineCaches(Code::KEYED_STORE_IC);
-    }
-  }
 }
 
 
@@ -1049,6 +1027,10 @@ int Heap::NotifyContextDisposed(bool dependant_context) {
   if (!dependant_context) {
     tracer()->ResetSurvivalEvents();
     old_generation_size_configured_ = false;
+    MemoryReducer::Event event;
+    event.type = MemoryReducer::kContextDisposed;
+    event.time_ms = MonotonicallyIncreasingTimeInMs();
+    memory_reducer_->NotifyContextDisposed(event);
   }
   if (isolate()->concurrent_recompilation_enabled()) {
     // Flush the queued recompilation tasks.
@@ -1056,11 +1038,7 @@ int Heap::NotifyContextDisposed(bool dependant_context) {
   }
   AgeInlineCaches();
   set_retained_maps(ArrayList::cast(empty_fixed_array()));
-  tracer()->AddContextDisposalTime(base::OS::TimeCurrentMillis());
-  MemoryReducer::Event event;
-  event.type = MemoryReducer::kContextDisposed;
-  event.time_ms = MonotonicallyIncreasingTimeInMs();
-  memory_reducer_->NotifyContextDisposed(event);
+  tracer()->AddContextDisposalTime(MonotonicallyIncreasingTimeInMs());
   return ++contexts_disposed_;
 }
 
@@ -4480,10 +4458,34 @@ void Heap::IterateAndMarkPointersToFromSpace(HeapObject* object, Address start,
 }
 
 
+class IteratePointersToFromSpaceVisitor final : public ObjectVisitor {
+ public:
+  IteratePointersToFromSpaceVisitor(Heap* heap, HeapObject* target,
+                                    bool record_slots,
+                                    ObjectSlotCallback callback)
+      : heap_(heap),
+        target_(target),
+        record_slots_(record_slots),
+        callback_(callback) {}
+
+  V8_INLINE void VisitPointers(Object** start, Object** end) override {
+    heap_->IterateAndMarkPointersToFromSpace(
+        target_, reinterpret_cast<Address>(start),
+        reinterpret_cast<Address>(end), record_slots_, callback_);
+  }
+
+  V8_INLINE void VisitCodeEntry(Address code_entry_slot) override {}
+
+ private:
+  Heap* heap_;
+  HeapObject* target_;
+  bool record_slots_;
+  ObjectSlotCallback callback_;
+};
+
+
 void Heap::IteratePointersToFromSpace(HeapObject* target, int size,
                                       ObjectSlotCallback callback) {
-  Address obj_address = target->address();
-
   // We are not collecting slots on new space objects during mutation
   // thus we have to scan for pointers to evacuation candidates when we
   // promote objects. But we should not record any slots in non-black
@@ -4496,53 +4498,9 @@ void Heap::IteratePointersToFromSpace(HeapObject* target, int size,
     record_slots = Marking::IsBlack(mark_bit);
   }
 
-  // Do not scavenge JSArrayBuffer's contents
-  switch (target->ContentType()) {
-    case HeapObjectContents::kTaggedValues: {
-      IterateAndMarkPointersToFromSpace(target, obj_address, obj_address + size,
-                                        record_slots, callback);
-      break;
-    }
-    case HeapObjectContents::kMixedValues: {
-      if (target->IsFixedTypedArrayBase()) {
-        IterateAndMarkPointersToFromSpace(
-            target, obj_address + FixedTypedArrayBase::kBasePointerOffset,
-            obj_address + FixedTypedArrayBase::kHeaderSize, record_slots,
-            callback);
-      } else if (target->IsBytecodeArray()) {
-        IterateAndMarkPointersToFromSpace(
-            target, obj_address + BytecodeArray::kConstantPoolOffset,
-            obj_address + BytecodeArray::kHeaderSize, record_slots, callback);
-      } else if (target->IsJSArrayBuffer()) {
-        IterateAndMarkPointersToFromSpace(
-            target, obj_address,
-            obj_address + JSArrayBuffer::kByteLengthOffset + kPointerSize,
-            record_slots, callback);
-        IterateAndMarkPointersToFromSpace(
-            target, obj_address + JSArrayBuffer::kSize, obj_address + size,
-            record_slots, callback);
-#if V8_DOUBLE_FIELDS_UNBOXING
-      } else if (FLAG_unbox_double_fields) {
-        LayoutDescriptorHelper helper(target->map());
-        DCHECK(!helper.all_fields_tagged());
-
-        for (int offset = 0; offset < size;) {
-          int end_of_region_offset;
-          if (helper.IsTagged(offset, size, &end_of_region_offset)) {
-            IterateAndMarkPointersToFromSpace(
-                target, obj_address + offset,
-                obj_address + end_of_region_offset, record_slots, callback);
-          }
-          offset = end_of_region_offset;
-        }
-#endif
-      }
-      break;
-    }
-    case HeapObjectContents::kRawValues: {
-      break;
-    }
-  }
+  IteratePointersToFromSpaceVisitor visitor(this, target, record_slots,
+                                            callback);
+  target->IterateBody(target->map()->instance_type(), size, &visitor);
 }
 
 

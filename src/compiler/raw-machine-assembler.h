@@ -464,6 +464,9 @@ class RawMachineAssembler {
   Node* RoundInt64ToFloat64(Node* a) {
     return AddNode(machine()->RoundInt64ToFloat64(), a);
   }
+  Node* RoundUint64ToFloat32(Node* a) {
+    return AddNode(machine()->RoundUint64ToFloat32(), a);
+  }
   Node* RoundUint64ToFloat64(Node* a) {
     return AddNode(machine()->RoundUint64ToFloat64(), a);
   }
@@ -482,11 +485,17 @@ class RawMachineAssembler {
   Node* Float64RoundDown(Node* a) {
     return AddNode(machine()->Float64RoundDown().op(), a);
   }
+  Node* Float64RoundUp(Node* a) {
+    return AddNode(machine()->Float64RoundUp().op(), a);
+  }
   Node* Float64RoundTruncate(Node* a) {
     return AddNode(machine()->Float64RoundTruncate().op(), a);
   }
   Node* Float64RoundTiesAway(Node* a) {
     return AddNode(machine()->Float64RoundTiesAway().op(), a);
+  }
+  Node* Float64RoundTiesEven(Node* a) {
+    return AddNode(machine()->Float64RoundTiesEven().op(), a);
   }
 
   // Float64 bit operations.
