@@ -4465,6 +4465,18 @@ Local<Value> Function::GetInferredName() const {
 }
 
 
+Local<Value> Function::GetDebugName() const {
+  auto self = Utils::OpenHandle(this);
+  if (!self->IsJSFunction()) {
+    return ToApiHandle<Primitive>(
+        self->GetIsolate()->factory()->undefined_value());
+  }
+  auto func = i::Handle<i::JSFunction>::cast(self);
+  i::Handle<i::String> name = i::JSFunction::GetDebugName(func);
+  return Utils::ToLocal(i::Handle<i::Object>(*name, name->GetIsolate()));
+}
+
+
 Local<Value> Function::GetDisplayName() const {
   i::Isolate* isolate = Utils::OpenHandle(this)->GetIsolate();
   ENTER_V8(isolate);
@@ -6109,11 +6121,13 @@ void v8::Date::DateTimeConfigurationChangeNotification(Isolate* isolate) {
 
 static i::Handle<i::String> RegExpFlagsToString(RegExp::Flags flags) {
   i::Isolate* isolate = i::Isolate::Current();
-  uint8_t flags_buf[3];
+  uint8_t flags_buf[5];
   int num_flags = 0;
   if ((flags & RegExp::kGlobal) != 0) flags_buf[num_flags++] = 'g';
   if ((flags & RegExp::kMultiline) != 0) flags_buf[num_flags++] = 'm';
   if ((flags & RegExp::kIgnoreCase) != 0) flags_buf[num_flags++] = 'i';
+  if ((flags & RegExp::kSticky) != 0) flags_buf[num_flags++] = 'y';
+  if ((flags & RegExp::kUnicode) != 0) flags_buf[num_flags++] = 'u';
   DCHECK(num_flags <= static_cast<int>(arraysize(flags_buf)));
   return isolate->factory()->InternalizeOneByteString(
       i::Vector<const uint8_t>(flags_buf, num_flags));
@@ -6124,10 +6138,9 @@ MaybeLocal<v8::RegExp> v8::RegExp::New(Local<Context> context,
                                        Local<String> pattern, Flags flags) {
   PREPARE_FOR_EXECUTION(context, "RegExp::New", RegExp);
   Local<v8::RegExp> result;
-  has_pending_exception =
-      !ToLocal<RegExp>(i::Execution::NewJSRegExp(Utils::OpenHandle(*pattern),
-                                                 RegExpFlagsToString(flags)),
-                       &result);
+  has_pending_exception = !ToLocal<RegExp>(
+      i::JSRegExp::New(Utils::OpenHandle(*pattern), RegExpFlagsToString(flags)),
+      &result);
   RETURN_ON_FAILED_EXECUTION(RegExp);
   RETURN_ESCAPED(result);
 }

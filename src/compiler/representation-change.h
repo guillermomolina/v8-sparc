@@ -52,7 +52,7 @@ class RepresentationChanger {
     if (use_type & kRepTagged) {
       return GetTaggedRepresentationFor(node, output_type);
     } else if (use_type & kRepFloat32) {
-      return GetFloat32RepresentationFor(node, output_type);
+      return GetFloat32RepresentationFor(node, output_type, use_type);
     } else if (use_type & kRepFloat64) {
       return GetFloat64RepresentationFor(node, output_type, use_type);
     } else if (use_type & kRepBit) {
@@ -115,7 +115,8 @@ class RepresentationChanger {
     return jsgraph()->graph()->NewNode(op, node);
   }
 
-  Node* GetFloat32RepresentationFor(Node* node, MachineTypeUnion output_type) {
+  Node* GetFloat32RepresentationFor(Node* node, MachineTypeUnion output_type,
+                                    MachineTypeUnion truncation) {
     // Eagerly fold representation changes for constants.
     switch (node->opcode()) {
       case IrOpcode::kFloat64Constant:
@@ -143,6 +144,10 @@ class RepresentationChanger {
       if (output_type & kTypeUint32) {
         op = machine()->ChangeUint32ToFloat64();
       } else {
+        // Either the output is int32 or the uses only care about the
+        // low 32 bits (so we can pick int32 safely).
+        DCHECK(output_type & kTypeInt32 ||
+               !(truncation & ~(kTypeInt32 | kTypeUint32 | kRepMask)));
         op = machine()->ChangeInt32ToFloat64();
       }
       // int32 -> float64 -> float32
@@ -206,16 +211,8 @@ class RepresentationChanger {
     return jsgraph()->graph()->NewNode(op, node);
   }
 
-  Node* MakeInt32Constant(double value) {
-    if (value < 0) {
-      DCHECK(IsInt32Double(value));
-      int32_t iv = static_cast<int32_t>(value);
-      return jsgraph()->Int32Constant(iv);
-    } else {
-      DCHECK(IsUint32Double(value));
-      int32_t iv = static_cast<int32_t>(static_cast<uint32_t>(value));
-      return jsgraph()->Int32Constant(iv);
-    }
+  Node* MakeTruncatedInt32Constant(double value) {
+    return jsgraph()->Int32Constant(DoubleToInt32(value));
   }
 
   Node* GetTruncatedWord32For(Node* node, MachineTypeUnion output_type) {
@@ -255,10 +252,10 @@ class RepresentationChanger {
       case IrOpcode::kInt32Constant:
         return node;  // No change necessary.
       case IrOpcode::kFloat32Constant:
-        return MakeInt32Constant(OpParameter<float>(node));
+        return MakeTruncatedInt32Constant(OpParameter<float>(node));
       case IrOpcode::kNumberConstant:
       case IrOpcode::kFloat64Constant:
-        return MakeInt32Constant(OpParameter<double>(node));
+        return MakeTruncatedInt32Constant(OpParameter<double>(node));
       default:
         break;
     }

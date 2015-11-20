@@ -64,6 +64,7 @@ class BytecodeGraphTester {
       : isolate_(isolate), zone_(zone), script_(script) {
     i::FLAG_ignition = true;
     i::FLAG_always_opt = false;
+    i::FLAG_allow_natives_syntax = true;
     // Set ignition filter flag via SetFlagsFromString to avoid double-free
     // (or potential leak with StrDup() based on ownership confusion).
     ScopedVector<char> ignition_filter(64);
@@ -334,6 +335,172 @@ TEST(BytecodeGraphBuilderNamedLoad) {
 }
 
 
+TEST(BytecodeGraphBuilderKeyedLoad) {
+  HandleAndZoneScope scope;
+  Isolate* isolate = scope.main_isolate();
+  Zone* zone = scope.main_zone();
+  Factory* factory = isolate->factory();
+
+  ExpectedSnippet<2> snippets[] = {
+      {"return p1[p2];",
+       {factory->NewNumberFromInt(10),
+        BytecodeGraphTester::NewObject("({val : 10})"),
+        factory->NewStringFromStaticChars("val")}},
+      {"return p1[100];",
+       {factory->NewStringFromStaticChars("abc"),
+        BytecodeGraphTester::NewObject("({100 : 'abc'})"),
+        factory->NewNumberFromInt(0)}},
+      {"var b = 100; return p1[b];",
+       {factory->NewStringFromStaticChars("abc"),
+        BytecodeGraphTester::NewObject("({100 : 'abc'})"),
+        factory->NewNumberFromInt(0)}},
+      {"'use strict'; return p1[p2];",
+       {factory->NewNumberFromInt(10),
+        BytecodeGraphTester::NewObject("({val : 10 })"),
+        factory->NewStringFromStaticChars("val")}},
+      {"'use strict'; return p1[100];",
+       {factory->NewNumberFromInt(10),
+        BytecodeGraphTester::NewObject("({100 : 10})"),
+        factory->NewNumberFromInt(0)}},
+      {"'use strict'; var b = p2; return p1[b];",
+       {factory->NewStringFromStaticChars("abc"),
+        BytecodeGraphTester::NewObject("({100 : 'abc'})"),
+        factory->NewNumberFromInt(100)}},
+      {"var b;\n" REPEAT_127(SPACE, " b = p1[p2]; ") " return p1[p2];\n",
+       {factory->NewStringFromStaticChars("abc"),
+        BytecodeGraphTester::NewObject("({100 : 'abc'})"),
+        factory->NewNumberFromInt(100)}},
+      {"'use strict'; var b;\n" REPEAT_127(SPACE,
+                                           " b = p1[p2]; ") "return p1[p2];\n",
+       {factory->NewStringFromStaticChars("abc"),
+        BytecodeGraphTester::NewObject("({ 100 : 'abc'})"),
+        factory->NewNumberFromInt(100)}},
+  };
+
+  size_t num_snippets = sizeof(snippets) / sizeof(snippets[0]);
+  for (size_t i = 0; i < num_snippets; i++) {
+    ScopedVector<char> script(2048);
+    SNPrintF(script, "function %s(p1, p2) { %s };\n%s(0);", kFunctionName,
+             snippets[i].code_snippet, kFunctionName);
+
+    BytecodeGraphTester tester(isolate, zone, script.start());
+    auto callable = tester.GetCallable<Handle<Object>, Handle<Object>>();
+    Handle<Object> return_value =
+        callable(snippets[i].parameter(0), snippets[i].parameter(1))
+            .ToHandleChecked();
+    CHECK(return_value->SameValue(*snippets[i].return_value()));
+  }
+}
+
+
+TEST(BytecodeGraphBuilderNamedStore) {
+  HandleAndZoneScope scope;
+  Isolate* isolate = scope.main_isolate();
+  Zone* zone = scope.main_zone();
+  Factory* factory = isolate->factory();
+
+  ExpectedSnippet<1> snippets[] = {
+      {"return p1.val = 20;",
+       {factory->NewNumberFromInt(20),
+        BytecodeGraphTester::NewObject("({val : 10})")}},
+      {"p1.type = 'int'; return p1.type;",
+       {factory->NewStringFromStaticChars("int"),
+        BytecodeGraphTester::NewObject("({val : 10})")}},
+      {"p1.name = 'def'; return p1[\"name\"];",
+       {factory->NewStringFromStaticChars("def"),
+        BytecodeGraphTester::NewObject("({name : 'abc'})")}},
+      {"'use strict'; p1.val = 20; return p1.val;",
+       {factory->NewNumberFromInt(20),
+        BytecodeGraphTester::NewObject("({val : 10 })")}},
+      {"'use strict'; return p1.type = 'int';",
+       {factory->NewStringFromStaticChars("int"),
+        BytecodeGraphTester::NewObject("({val : 10})")}},
+      {"'use strict'; p1.val = 20; return p1[\"val\"];",
+       {factory->NewNumberFromInt(20),
+        BytecodeGraphTester::NewObject("({val : 10, name : 'abc'})")}},
+      {"var b = 'abc';\n" REPEAT_127(
+           SPACE, " p1.name = b; ") " p1.name = 'def'; return p1.name;\n",
+       {factory->NewStringFromStaticChars("def"),
+        BytecodeGraphTester::NewObject("({name : 'abc'})")}},
+      {"'use strict'; var b = 'def';\n" REPEAT_127(
+           SPACE, " p1.name = 'abc'; ") "p1.name = b; return p1.name;\n",
+       {factory->NewStringFromStaticChars("def"),
+        BytecodeGraphTester::NewObject("({ name : 'abc'})")}},
+  };
+
+  size_t num_snippets = sizeof(snippets) / sizeof(snippets[0]);
+  for (size_t i = 0; i < num_snippets; i++) {
+    ScopedVector<char> script(3072);
+    SNPrintF(script, "function %s(p1) { %s };\n%s({});", kFunctionName,
+             snippets[i].code_snippet, kFunctionName);
+
+    BytecodeGraphTester tester(isolate, zone, script.start());
+    auto callable = tester.GetCallable<Handle<Object>>();
+    Handle<Object> return_value =
+        callable(snippets[i].parameter(0)).ToHandleChecked();
+    CHECK(return_value->SameValue(*snippets[i].return_value()));
+  }
+}
+
+
+TEST(BytecodeGraphBuilderKeyedStore) {
+  HandleAndZoneScope scope;
+  Isolate* isolate = scope.main_isolate();
+  Zone* zone = scope.main_zone();
+  Factory* factory = isolate->factory();
+
+  ExpectedSnippet<2> snippets[] = {
+      {"p1[p2] = 20; return p1[p2];",
+       {factory->NewNumberFromInt(20),
+        BytecodeGraphTester::NewObject("({val : 10})"),
+        factory->NewStringFromStaticChars("val")}},
+      {"return p1[100] = 'def';",
+       {factory->NewStringFromStaticChars("def"),
+        BytecodeGraphTester::NewObject("({100 : 'abc'})"),
+        factory->NewNumberFromInt(0)}},
+      {"var b = 100; p1[b] = 'def'; return p1[b];",
+       {factory->NewStringFromStaticChars("def"),
+        BytecodeGraphTester::NewObject("({100 : 'abc'})"),
+        factory->NewNumberFromInt(0)}},
+      {"'use strict'; p1[p2] = 20; return p1[p2];",
+       {factory->NewNumberFromInt(20),
+        BytecodeGraphTester::NewObject("({val : 10 })"),
+        factory->NewStringFromStaticChars("val")}},
+      {"'use strict'; return p1[100] = 20;",
+       {factory->NewNumberFromInt(20),
+        BytecodeGraphTester::NewObject("({100 : 10})"),
+        factory->NewNumberFromInt(0)}},
+      {"'use strict'; var b = p2; p1[b] = 'def'; return p1[b];",
+       {factory->NewStringFromStaticChars("def"),
+        BytecodeGraphTester::NewObject("({100 : 'abc'})"),
+        factory->NewNumberFromInt(100)}},
+      {"var b;\n" REPEAT_127(
+           SPACE, " b = p1[p2]; ") " p1[p2] = 'def'; return p1[p2];\n",
+       {factory->NewStringFromStaticChars("def"),
+        BytecodeGraphTester::NewObject("({100 : 'abc'})"),
+        factory->NewNumberFromInt(100)}},
+      {"'use strict'; var b;\n" REPEAT_127(
+           SPACE, " b = p1[p2]; ") " p1[p2] = 'def'; return p1[p2];\n",
+       {factory->NewStringFromStaticChars("def"),
+        BytecodeGraphTester::NewObject("({ 100 : 'abc'})"),
+        factory->NewNumberFromInt(100)}},
+  };
+
+  size_t num_snippets = sizeof(snippets) / sizeof(snippets[0]);
+  for (size_t i = 0; i < num_snippets; i++) {
+    ScopedVector<char> script(2048);
+    SNPrintF(script, "function %s(p1, p2) { %s };\n%s({});", kFunctionName,
+             snippets[i].code_snippet, kFunctionName);
+
+    BytecodeGraphTester tester(isolate, zone, script.start());
+    auto callable = tester.GetCallable<Handle<Object>>();
+    Handle<Object> return_value =
+        callable(snippets[i].parameter(0)).ToHandleChecked();
+    CHECK(return_value->SameValue(*snippets[i].return_value()));
+  }
+}
+
+
 TEST(BytecodeGraphBuilderPropertyCall) {
   HandleAndZoneScope scope;
   Isolate* isolate = scope.main_isolate();
@@ -361,6 +528,74 @@ TEST(BytecodeGraphBuilderPropertyCall) {
              snippets[i].code_snippet, kFunctionName);
 
     BytecodeGraphTester tester(isolate, zone, script.start());
+    auto callable = tester.GetCallable<Handle<Object>>();
+    Handle<Object> return_value =
+        callable(snippets[i].parameter(0)).ToHandleChecked();
+    CHECK(return_value->SameValue(*snippets[i].return_value()));
+  }
+}
+
+
+TEST(BytecodeGraphBuilderCallNew) {
+  HandleAndZoneScope scope;
+  Isolate* isolate = scope.main_isolate();
+  Zone* zone = scope.main_zone();
+  Factory* factory = isolate->factory();
+
+  ExpectedSnippet<0> snippets[] = {
+      {"function counter() { this.count = 20; }\n"
+       "function f() {\n"
+       "  var c = new counter();\n"
+       "  return c.count;\n"
+       "}; f()",
+       {factory->NewNumberFromInt(20)}},
+      {"function counter(arg0) { this.count = 17; this.x = arg0; }\n"
+       "function f() {\n"
+       "  var c = new counter(6);\n"
+       "  return c.count + c.x;\n"
+       "}; f()",
+       {factory->NewNumberFromInt(23)}},
+      {"function counter(arg0, arg1) {\n"
+       "  this.count = 17; this.x = arg0; this.y = arg1;\n"
+       "}\n"
+       "function f() {\n"
+       "  var c = new counter(3, 5);\n"
+       "  return c.count + c.x + c.y;\n"
+       "}; f()",
+       {factory->NewNumberFromInt(25)}},
+  };
+
+  size_t num_snippets = sizeof(snippets) / sizeof(snippets[0]);
+  for (size_t i = 0; i < num_snippets; i++) {
+    BytecodeGraphTester tester(isolate, zone, snippets[i].code_snippet);
+    auto callable = tester.GetCallable<>();
+    Handle<Object> return_value = callable().ToHandleChecked();
+    CHECK(return_value->SameValue(*snippets[i].return_value()));
+  }
+}
+
+
+TEST(BytecodeGraphBuilderCallRuntime) {
+  HandleAndZoneScope scope;
+  Isolate* isolate = scope.main_isolate();
+  Zone* zone = scope.main_zone();
+  Factory* factory = isolate->factory();
+
+  ExpectedSnippet<1> snippets[] = {
+      {"function f(arg0) { return %MaxSmi(); }\nf()",
+       {factory->NewNumberFromInt(Smi::kMaxValue), factory->undefined_value()}},
+      {"function f(arg0) { return %IsArray(arg0) }\nf(undefined)",
+       {factory->true_value(), BytecodeGraphTester::NewObject("[1, 2, 3]")}},
+      {"function f(arg0) { return %Add(arg0, 2) }\nf(1)",
+       {factory->NewNumberFromInt(5), factory->NewNumberFromInt(3)}},
+      {"function f(arg0) { return %spread_arguments(arg0).length }\nf([])",
+       {factory->NewNumberFromInt(3),
+        BytecodeGraphTester::NewObject("[1, 2, 3]")}},
+  };
+
+  size_t num_snippets = sizeof(snippets) / sizeof(snippets[0]);
+  for (size_t i = 0; i < num_snippets; i++) {
+    BytecodeGraphTester tester(isolate, zone, snippets[i].code_snippet);
     auto callable = tester.GetCallable<Handle<Object>>();
     Handle<Object> return_value =
         callable(snippets[i].parameter(0)).ToHandleChecked();
@@ -410,6 +645,119 @@ TEST(BytecodeGraphBuilderGlobals) {
     BytecodeGraphTester tester(isolate, zone, snippets[i].code_snippet);
     auto callable = tester.GetCallable<>();
     Handle<Object> return_value = callable().ToHandleChecked();
+    CHECK(return_value->SameValue(*snippets[i].return_value()));
+  }
+}
+
+
+TEST(BytecodeGraphBuilderLogicalNot) {
+  HandleAndZoneScope scope;
+  Isolate* isolate = scope.main_isolate();
+  Zone* zone = scope.main_zone();
+  Factory* factory = isolate->factory();
+
+  ExpectedSnippet<1> snippets[] = {
+      {"return !p1;",
+       {factory->false_value(),
+        BytecodeGraphTester::NewObject("({val : 10})")}},
+      {"return !p1;", {factory->true_value(), factory->NewNumberFromInt(0)}},
+      {"return !p1;", {factory->true_value(), factory->undefined_value()}},
+      {"return !p1;", {factory->false_value(), factory->NewNumberFromInt(10)}},
+      {"return !p1;", {factory->false_value(), factory->true_value()}},
+      {"return !p1;",
+       {factory->false_value(), factory->NewStringFromStaticChars("abc")}},
+  };
+
+  size_t num_snippets = sizeof(snippets) / sizeof(snippets[0]);
+  for (size_t i = 0; i < num_snippets; i++) {
+    ScopedVector<char> script(1024);
+    SNPrintF(script, "function %s(p1) { %s }\n%s({});", kFunctionName,
+             snippets[i].code_snippet, kFunctionName);
+
+    BytecodeGraphTester tester(isolate, zone, script.start());
+    auto callable = tester.GetCallable<Handle<Object>>();
+    Handle<Object> return_value =
+        callable(snippets[i].parameter(0)).ToHandleChecked();
+    CHECK(return_value->SameValue(*snippets[i].return_value()));
+  }
+}
+
+
+TEST(BytecodeGraphBuilderTypeOf) {
+  HandleAndZoneScope scope;
+  Isolate* isolate = scope.main_isolate();
+  Zone* zone = scope.main_zone();
+  Factory* factory = isolate->factory();
+
+  ExpectedSnippet<1> snippets[] = {
+      {"return typeof p1;",
+       {factory->NewStringFromStaticChars("object"),
+        BytecodeGraphTester::NewObject("({val : 10})")}},
+      {"return typeof p1;",
+       {factory->NewStringFromStaticChars("undefined"),
+        factory->undefined_value()}},
+      {"return typeof p1;",
+       {factory->NewStringFromStaticChars("number"),
+        factory->NewNumberFromInt(10)}},
+      {"return typeof p1;",
+       {factory->NewStringFromStaticChars("boolean"), factory->true_value()}},
+      {"return typeof p1;",
+       {factory->NewStringFromStaticChars("string"),
+        factory->NewStringFromStaticChars("abc")}},
+  };
+
+  size_t num_snippets = sizeof(snippets) / sizeof(snippets[0]);
+  for (size_t i = 0; i < num_snippets; i++) {
+    ScopedVector<char> script(1024);
+    SNPrintF(script, "function %s(p1) { %s }\n%s({});", kFunctionName,
+             snippets[i].code_snippet, kFunctionName);
+
+    BytecodeGraphTester tester(isolate, zone, script.start());
+    auto callable = tester.GetCallable<Handle<Object>>();
+    Handle<Object> return_value =
+        callable(snippets[i].parameter(0)).ToHandleChecked();
+    CHECK(return_value->SameValue(*snippets[i].return_value()));
+  }
+}
+
+
+TEST(BytecodeGraphBuilderDelete) {
+  HandleAndZoneScope scope;
+  Isolate* isolate = scope.main_isolate();
+  Zone* zone = scope.main_zone();
+  Factory* factory = isolate->factory();
+
+  ExpectedSnippet<1> snippets[] = {
+      {"return delete p1.val;",
+       {factory->true_value(), BytecodeGraphTester::NewObject("({val : 10})")}},
+      {"delete p1.val; return p1.val;",
+       {factory->undefined_value(),
+        BytecodeGraphTester::NewObject("({val : 10})")}},
+      {"delete p1.name; return p1.val;",
+       {factory->NewNumberFromInt(10),
+        BytecodeGraphTester::NewObject("({val : 10, name:'abc'})")}},
+      {"'use strict'; return delete p1.val;",
+       {factory->true_value(), BytecodeGraphTester::NewObject("({val : 10})")}},
+      {"'use strict'; delete p1.val; return p1.val;",
+       {factory->undefined_value(),
+        BytecodeGraphTester::NewObject("({val : 10})")}},
+      {"'use strict'; delete p1.name; return p1.val;",
+       {factory->NewNumberFromInt(10),
+        BytecodeGraphTester::NewObject("({val : 10, name:'abc'})")}},
+      // TODO(mythria): Add tests for global and unallocated when we have
+      // support for LdaContextSlot
+  };
+
+  size_t num_snippets = sizeof(snippets) / sizeof(snippets[0]);
+  for (size_t i = 0; i < num_snippets; i++) {
+    ScopedVector<char> script(1024);
+    SNPrintF(script, "function %s(p1) { %s }\n%s({});", kFunctionName,
+             snippets[i].code_snippet, kFunctionName);
+
+    BytecodeGraphTester tester(isolate, zone, script.start());
+    auto callable = tester.GetCallable<Handle<Object>>();
+    Handle<Object> return_value =
+        callable(snippets[i].parameter(0)).ToHandleChecked();
     CHECK(return_value->SameValue(*snippets[i].return_value()));
   }
 }

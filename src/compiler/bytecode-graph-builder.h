@@ -40,11 +40,18 @@ class BytecodeGraphBuilder {
   // Get or create the node that represents the outer function context.
   Node* GetFunctionContext();
 
-  // Builders for accessing an immutable object field.
+  // Builder for accessing a (potentially immutable) object field.
+  Node* BuildLoadObjectField(Node* object, int offset);
   Node* BuildLoadImmutableObjectField(Node* object, int offset);
 
   // Builder for accessing type feedback vector.
   Node* BuildLoadFeedbackVector();
+
+  // Builder for loading the global object.
+  Node* BuildLoadGlobalObject();
+
+  // Builder for loading the a native context field.
+  Node* BuildLoadNativeContextField(int index);
 
   // Helper function for creating a pair containing type feedback vector and
   // a feedback slot.
@@ -77,6 +84,11 @@ class BytecodeGraphBuilder {
     return MakeNode(op, arraysize(buffer), buffer, false);
   }
 
+  Node* NewNode(const Operator* op, Node* n1, Node* n2, Node* n3, Node* n4) {
+    Node* buffer[] = {n1, n2, n3, n4};
+    return MakeNode(op, arraysize(buffer), buffer, false);
+  }
+
   Node* MakeNode(const Operator* op, int value_input_count, Node** value_inputs,
                  bool incomplete);
 
@@ -86,17 +98,26 @@ class BytecodeGraphBuilder {
 
   void UpdateControlDependencyToLeaveFunction(Node* exit);
 
-  Node* ProcessCallArguments(const Operator* call_op,
-                             interpreter::Register callee,
+  Node* ProcessCallArguments(const Operator* call_op, Node* callee,
                              interpreter::Register receiver, size_t arity);
+  Node* ProcessCallNewArguments(const Operator* call_new_op,
+                                interpreter::Register callee,
+                                interpreter::Register first_arg, size_t arity);
+  Node* ProcessCallRuntimeArguments(const Operator* call_runtime_op,
+                                    interpreter::Register first_arg,
+                                    size_t arity);
 
   void BuildLoadGlobal(const interpreter::BytecodeArrayIterator& iterator,
                        TypeofMode typeof_mode);
   void BuildStoreGlobal(const interpreter::BytecodeArrayIterator& iterator);
   void BuildNamedLoad(const interpreter::BytecodeArrayIterator& iterator);
+  void BuildKeyedLoad(const interpreter::BytecodeArrayIterator& iterator);
+  void BuildNamedStore(const interpreter::BytecodeArrayIterator& iterator);
+  void BuildKeyedStore(const interpreter::BytecodeArrayIterator& iterator);
   void BuildCall(const interpreter::BytecodeArrayIterator& iterator);
   void BuildBinaryOp(const Operator* op,
                      const interpreter::BytecodeArrayIterator& iterator);
+  void BuildDelete(const interpreter::BytecodeArrayIterator& iterator);
 
   // Growth increment for the temporary buffer used to construct input lists to
   // new nodes.

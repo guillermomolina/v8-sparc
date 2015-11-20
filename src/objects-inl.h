@@ -2120,6 +2120,8 @@ int JSObject::GetHeaderSize(InstanceType type) {
       return JSWeakMap::kSize;
     case JS_WEAK_SET_TYPE:
       return JSWeakSet::kSize;
+    case JS_PROMISE_TYPE:
+      return JSObject::kHeaderSize;
     case JS_REGEXP_TYPE:
       return JSRegExp::kSize;
     case JS_CONTEXT_EXTENSION_OBJECT_TYPE:
@@ -5718,8 +5720,8 @@ SMI_ACCESSORS(BreakPointInfo, statement_position, kStatementPositionIndex)
 ACCESSORS(BreakPointInfo, break_point_objects, Object, kBreakPointObjectsIndex)
 
 ACCESSORS(SharedFunctionInfo, name, Object, kNameOffset)
-ACCESSORS(SharedFunctionInfo, optimized_code_map, Object,
-                 kOptimizedCodeMapOffset)
+ACCESSORS(SharedFunctionInfo, optimized_code_map, FixedArray,
+          kOptimizedCodeMapOffset)
 ACCESSORS(SharedFunctionInfo, construct_stub, Code, kConstructStubOffset)
 ACCESSORS(SharedFunctionInfo, feedback_vector, TypeFeedbackVector,
           kFeedbackVectorOffset)
@@ -6164,6 +6166,11 @@ bool SharedFunctionInfo::IsBuiltin() {
 
 
 bool SharedFunctionInfo::IsSubjectToDebugging() { return !IsBuiltin(); }
+
+
+bool SharedFunctionInfo::OptimizedCodeMapIsCleared() const {
+  return optimized_code_map() == GetHeap()->cleared_optimized_code_map();
+}
 
 
 bool JSFunction::IsOptimized() {
