@@ -45,6 +45,25 @@ enum PointersToHereCheck {
 enum LinkRegisterStatus { kLRHasNotBeenSaved, kLRHasBeenSaved };
 enum RAStatus { kRAHasNotBeenSaved, kRAHasBeenSaved };
 
+// Class Operand represents a shifter operand in data processing instructions
+class Operand BASE_EMBEDDED {
+ public:
+   INLINE(explicit Operand(Register rm)) { UNIMPLEMENTED(); }
+private:
+ 
+  friend class Assembler;
+  friend class MacroAssembler;
+};
+
+
+// Class MemOperand represents a memory operand in load and store instructions
+class MemOperand BASE_EMBEDDED {
+ public:
+ private:
+ 
+  friend class Assembler;
+};
+
 // MacroAssembler implements a collection of frequently used macros.
 class MacroAssembler : public Assembler {
 public:

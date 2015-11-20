@@ -94,6 +94,7 @@
           <in>instruction.cc</in>
           <in>interpreter-assembler.cc</in>
           <in>js-builtin-reducer.cc</in>
+          <in>js-call-reducer.cc</in>
           <in>js-context-relaxation.cc</in>
           <in>js-context-specialization.cc</in>
           <in>js-frame-specialization.cc</in>
@@ -1203,7 +1204,6 @@
             <Elem>DEBUG</Elem>
             <Elem>ENABLE_HANDLE_ZAPPING</Elem>
             <Elem>V8_DEPRECATION_WARNINGS</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
           </preprocessorList>
         </ccTool>
       </folder>
@@ -1238,39 +1238,28 @@
           <incDir>
             <pElem>out</pElem>
           </incDir>
-          <preprocessorList>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </folder>
       <folder path="0/src/compiler">
         <ccTool>
+          <incDir>
+            <pElem>out</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
-        </ccTool>
-      </folder>
-      <folder path="0/src/compiler/sparc">
-        <ccTool>
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </folder>
       <folder path="0/src/crankshaft">
         <ccTool>
+          <incDir>
+            <pElem>out</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
-        </ccTool>
-      </folder>
-      <folder path="0/src/crankshaft/sparc">
-        <ccTool>
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </folder>
       <folder path="0/src/debug">
@@ -1287,16 +1276,10 @@
       <folder path="0/src/extensions">
         <ccTool>
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -1314,6 +1297,9 @@
       </folder>
       <folder path="0/src/heap">
         <ccTool>
+          <incDir>
+            <pElem>out</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
@@ -1333,6 +1319,9 @@
       </folder>
       <folder path="0/src/interpreter">
         <ccTool>
+          <incDir>
+            <pElem>out</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
@@ -1344,13 +1333,13 @@
           <incDir>
             <pElem>out</pElem>
           </incDir>
-          <preprocessorList>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </folder>
       <folder path="0/src/profiler">
         <ccTool>
+          <incDir>
+            <pElem>out</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
@@ -1359,21 +1348,20 @@
       </folder>
       <folder path="0/src/regexp">
         <ccTool>
+          <incDir>
+            <pElem>out</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
       </folder>
-      <folder path="0/src/regexp/sparc">
+      <folder path="0/src/runtime">
         <ccTool>
           <incDir>
             <pElem>out</pElem>
           </incDir>
-        </ccTool>
-      </folder>
-      <folder path="0/src/runtime">
-        <ccTool>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
@@ -1382,6 +1370,9 @@
       </folder>
       <folder path="0/src/sparc">
         <ccTool>
+          <incDir>
+            <pElem>out</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
@@ -1391,16 +1382,10 @@
       <folder path="0/src/third_party">
         <ccTool>
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -1584,6 +1569,7 @@
             <Elem>U_ENABLE_DYLOAD=0</Elem>
             <Elem>U_STATIC_IMPLEMENTATION</Elem>
             <Elem>U_USING_ICU_NAMESPACE=0</Elem>
+            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -1637,6 +1623,9 @@
             <pElem>include</pElem>
             <pElem>out</pElem>
           </incDir>
+          <preprocessorList>
+            <Elem>V8_I18N_SUPPORT</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="samples/hello-world.cc" ex="false" tool="1" flavor2="8">
@@ -1705,16 +1694,10 @@
       <item path="src/address-map.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -1722,16 +1705,10 @@
       <item path="src/allocation-site-scopes.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -1739,16 +1716,10 @@
       <item path="src/allocation.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -1756,16 +1727,10 @@
       <item path="src/api-natives.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -1784,16 +1749,10 @@
       <item path="src/arguments.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -1812,16 +1771,10 @@
       <item path="src/assert-scope.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -1840,16 +1793,10 @@
       <item path="src/ast-literal-reindexer.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -1857,16 +1804,10 @@
       <item path="src/ast-numbering.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -1874,16 +1815,10 @@
       <item path="src/ast-value-factory.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -1902,16 +1837,10 @@
       <item path="src/background-parsing-task.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -1919,16 +1848,10 @@
       <item path="src/bailout-reason.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -2011,16 +1934,10 @@
       <item path="src/basic-block-profiler.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -2028,16 +1945,10 @@
       <item path="src/bignum-dtoa.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -2045,16 +1956,10 @@
       <item path="src/bignum.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -2062,16 +1967,10 @@
       <item path="src/bit-vector.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -2101,16 +2000,10 @@
       <item path="src/cached-powers.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -2118,16 +2011,10 @@
       <item path="src/cancelable-task.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -2135,16 +2022,10 @@
       <item path="src/char-predicates.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -2196,16 +2077,10 @@
       <item path="src/compilation-cache.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -2213,16 +2088,10 @@
       <item path="src/compilation-dependencies.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -2230,16 +2099,10 @@
       <item path="src/compilation-statistics.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -2257,62 +2120,18 @@
       </item>
       <item path="src/compiler/access-builder.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/access-info.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/all-nodes.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/ast-graph-builder.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/ast-loop-assignment-analyzer.cc"
@@ -2320,17 +2139,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/basic-block-instrumentor.cc"
@@ -2338,17 +2146,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/binary-operator-reducer.cc"
@@ -2356,32 +2153,10 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/branch-elimination.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/bytecode-graph-builder.cc"
@@ -2389,31 +2164,14 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/c-linkage.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/change-lowering.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/coalesced-live-ranges.cc"
@@ -2421,31 +2179,14 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/code-generator.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/common-node-cache.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/common-operator-reducer.cc"
@@ -2453,47 +2194,14 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/common-operator.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/control-builders.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/control-equivalence.cc"
@@ -2501,17 +2209,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/control-flow-optimizer.cc"
@@ -2519,17 +2216,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/dead-code-elimination.cc"
@@ -2537,127 +2223,46 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/frame-elider.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/frame-states.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/frame.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/gap-resolver.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/graph-reducer.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/graph-replay.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/graph-trimmer.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/graph-visualizer.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/graph.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/greedy-allocator.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/instruction-selector.cc"
@@ -2665,16 +2270,10 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/instruction.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/interpreter-assembler.cc"
@@ -2682,24 +2281,14 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/js-builtin-reducer.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
+        </ccTool>
+      </item>
+      <item path="src/compiler/js-call-reducer.cc" ex="false" tool="1" flavor2="8">
+        <ccTool flags="2">
         </ccTool>
       </item>
       <item path="src/compiler/js-context-relaxation.cc"
@@ -2707,17 +2296,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/js-context-specialization.cc"
@@ -2725,17 +2303,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/js-frame-specialization.cc"
@@ -2743,17 +2310,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/js-generic-lowering.cc"
@@ -2761,9 +2317,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/js-global-object-specialization.cc"
@@ -2771,24 +2324,10 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/js-graph.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/js-inlining-heuristic.cc"
@@ -2796,32 +2335,10 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/js-inlining.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/js-intrinsic-lowering.cc"
@@ -2829,9 +2346,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/js-native-context-specialization.cc"
@@ -2839,45 +2353,22 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/js-operator.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/js-typed-lowering.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/jump-threading.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/linkage.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/live-range-separator.cc"
@@ -2885,69 +2376,22 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/liveness-analyzer.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/load-elimination.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/loop-analysis.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/loop-peeling.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/machine-operator-reducer.cc"
@@ -2955,136 +2399,42 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/machine-operator.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/machine-type.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/move-optimizer.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/node-cache.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/node-marker.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/node-matchers.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/node-properties.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/node.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/opcodes.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/operator-properties.cc"
@@ -3092,47 +2442,14 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/operator.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/osr.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/pipeline-statistics.cc"
@@ -3140,24 +2457,10 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/pipeline.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/raw-machine-assembler.cc"
@@ -3165,9 +2468,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/register-allocator-verifier.cc"
@@ -3175,61 +2475,22 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/register-allocator.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/schedule.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/scheduler.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/select-lowering.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/simplified-lowering.cc"
@@ -3237,9 +2498,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/compiler/simplified-operator-reducer.cc"
@@ -3247,17 +2505,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/simplified-operator.cc"
@@ -3265,32 +2512,10 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/source-position.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/sparc/code-generator-sparc.cc"
@@ -3309,17 +2534,6 @@
       </item>
       <item path="src/compiler/state-values-utils.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/tail-call-optimization.cc"
@@ -3327,32 +2541,10 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/typer.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/value-numbering-reducer.cc"
@@ -3360,62 +2552,23 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/verifier.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/compiler/zone-pool.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/context-measure.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -3423,16 +2576,10 @@
       <item path="src/contexts.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -3440,16 +2587,10 @@
       <item path="src/conversions.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -3457,32 +2598,20 @@
       <item path="src/counters.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-bce.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-bch.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-canonicalize.cc"
@@ -3490,9 +2619,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-check-elimination.cc"
@@ -3500,23 +2626,14 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-dce.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-dehoist.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-environment-liveness.cc"
@@ -3524,9 +2641,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-escape-analysis.cc"
@@ -3534,16 +2648,10 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-gvn.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-infer-representation.cc"
@@ -3551,9 +2659,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-infer-types.cc"
@@ -3561,9 +2666,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-instructions.cc"
@@ -3571,9 +2673,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-load-elimination.cc"
@@ -3581,9 +2680,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-mark-deoptimize.cc"
@@ -3591,9 +2687,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-mark-unreachable.cc"
@@ -3601,16 +2694,10 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-osr.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-range-analysis.cc"
@@ -3618,9 +2705,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-redundant-phi.cc"
@@ -3628,9 +2712,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-removable-simulates.cc"
@@ -3638,9 +2719,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-representation-changes.cc"
@@ -3648,16 +2726,10 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-sce.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-store-elimination.cc"
@@ -3665,24 +2737,10 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-types.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen-uint32-analysis.cc"
@@ -3690,16 +2748,10 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/hydrogen.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/lithium-allocator.cc"
@@ -3707,23 +2759,14 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/lithium-codegen.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/lithium.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/crankshaft/sparc/lithium-codegen-sparc.cc"
@@ -3749,17 +2792,6 @@
       </item>
       <item path="src/crankshaft/typing.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/d8-posix.cc" ex="false" tool="1" flavor2="8">
@@ -3799,16 +2831,10 @@
       <item path="src/date.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -3816,16 +2842,10 @@
       <item path="src/dateparser.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -3879,16 +2899,10 @@
       <item path="src/diy-fp.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -3896,16 +2910,10 @@
       <item path="src/dtoa.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -3913,16 +2921,10 @@
       <item path="src/elements-kind.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -3930,16 +2932,10 @@
       <item path="src/elements.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4001,16 +2997,10 @@
       <item path="src/fast-dtoa.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4018,16 +3008,10 @@
       <item path="src/fixed-dtoa.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4035,16 +3019,10 @@
       <item path="src/flags.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4074,16 +3052,10 @@
       <item path="src/func-name-inferrer.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4091,16 +3063,10 @@
       <item path="src/futex-emulation.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4108,16 +3074,10 @@
       <item path="src/gdb-jit.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4125,16 +3085,10 @@
       <item path="src/global-handles.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4142,70 +3096,28 @@
       <item path="src/handles.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/heap/array-buffer-tracker.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/heap/gc-idle-time-handler.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/heap/gc-tracer.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/heap/heap.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/heap/incremental-marking-job.cc"
@@ -4213,127 +3125,46 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/heap/incremental-marking.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/heap/mark-compact.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/heap/memory-reducer.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/heap/object-stats.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/heap/objects-visiting.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/heap/scavenge-job.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/heap/scavenger.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/heap/slots-buffer.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/heap/spaces.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/heap/store-buffer.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/i18n.cc" ex="false" tool="1" flavor2="8">
@@ -4410,16 +3241,10 @@
       <item path="src/icu_util.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4427,16 +3252,10 @@
       <item path="src/identity-map.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4457,17 +3276,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/interpreter/bytecode-array-iterator.cc"
@@ -4475,17 +3283,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/interpreter/bytecode-generator.cc"
@@ -4493,32 +3290,10 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/interpreter/bytecodes.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/interpreter/control-flow-builders.cc"
@@ -4526,24 +3301,10 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/interpreter/interpreter.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/isolate.cc" ex="false" tool="1" flavor2="8">
@@ -4560,16 +3321,10 @@
       <item path="src/key-accumulator.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4577,16 +3332,10 @@
       <item path="src/layout-descriptor.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4609,16 +3358,10 @@
       <item path="src/log-utils.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4648,16 +3391,10 @@
       <item path="src/messages.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4665,16 +3402,10 @@
       <item path="src/modules.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4693,16 +3424,10 @@
       <item path="src/objects-printer.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4735,16 +3460,10 @@
       <item path="src/ostreams.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4755,16 +3474,10 @@
             flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4783,16 +3496,10 @@
       <item path="src/pattern-rewriter.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4803,16 +3510,10 @@
             flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4820,16 +3521,10 @@
       <item path="src/preparse-data.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4837,16 +3532,10 @@
       <item path="src/preparser.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4854,55 +3543,24 @@
       <item path="src/prettyprinter.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/profiler/allocation-tracker.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/profiler/cpu-profiler.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/profiler/heap-profiler.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/profiler/heap-snapshot-generator.cc"
@@ -4910,61 +3568,27 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/profiler/profile-generator.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/profiler/sampler.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/profiler/strings-storage.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/property-descriptor.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -4972,48 +3596,20 @@
       <item path="src/property.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/regexp/interpreter-irregexp.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/regexp/jsregexp.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/regexp/regexp-macro-assembler-irregexp.cc"
@@ -5021,17 +3617,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/regexp/regexp-macro-assembler-tracer.cc"
@@ -5039,17 +3624,6 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/regexp/regexp-macro-assembler.cc"
@@ -5057,32 +3631,10 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/regexp/regexp-stack.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/regexp/sparc/regexp-macro-assembler-sparc.cc"
@@ -5106,16 +3658,10 @@
       <item path="src/rewriter.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -5133,426 +3679,130 @@
       </item>
       <item path="src/runtime/runtime-array.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-atomics.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-classes.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-collections.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-compiler.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-date.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-debug.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-forin.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-function.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-futex.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-generator.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-i18n.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-internal.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-interpreter.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-json.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-literals.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-liveedit.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-maths.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-numbers.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-object.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-observe.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-operators.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-proxy.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-regexp.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-scopes.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-simd.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-strings.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-symbol.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-test.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-typedarray.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime-uri.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/runtime/runtime.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/safepoint-table.cc" ex="false" tool="1" flavor2="8">
@@ -5569,16 +3819,10 @@
       <item path="src/scanner-character-streams.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -5586,16 +3830,10 @@
       <item path="src/scanner.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -5603,16 +3841,10 @@
       <item path="src/scopeinfo.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -5620,16 +3852,10 @@
       <item path="src/scopes.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -5653,16 +3879,10 @@
       <item path="src/snapshot/natives-common.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -5694,9 +3914,6 @@
           <incDir>
             <pElem>out</pElem>
           </incDir>
-          <preprocessorList>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/snapshot/snapshot-source-sink.cc"
@@ -5705,89 +3922,48 @@
             flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/sparc/assembler-sparc.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/sparc/builtins-sparc.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/sparc/code-stubs-sparc.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/sparc/codegen-sparc.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/sparc/constants-sparc.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
-            <pElem>out</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
-          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/sparc/cpu-sparc.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/sparc/deoptimizer-sparc.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/sparc/disasm-sparc.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/sparc/frames-sparc.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/sparc/interface-descriptors-sparc.cc"
@@ -5795,38 +3971,23 @@
             tool="1"
             flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/sparc/macro-assembler-sparc.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/sparc/simulator-sparc.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
-          <incDir>
-            <pElem>out</pElem>
-          </incDir>
         </ccTool>
       </item>
       <item path="src/startup-data-util.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -5834,16 +3995,10 @@
       <item path="src/string-builder.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -5851,16 +4006,10 @@
       <item path="src/string-stream.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -5868,16 +4017,10 @@
       <item path="src/strtod.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -5889,16 +4032,10 @@
       <item path="src/token.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -5906,16 +4043,10 @@
       <item path="src/transitions.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -5923,16 +4054,10 @@
       <item path="src/type-cache.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -5962,16 +4087,10 @@
       <item path="src/types.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -6001,16 +4120,10 @@
       <item path="src/unicode-decoder.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -6018,16 +4131,10 @@
       <item path="src/unicode.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -6035,16 +4142,10 @@
       <item path="src/utils.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -6063,16 +4164,10 @@
       <item path="src/v8threads.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -6080,16 +4175,10 @@
       <item path="src/variables.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -6097,16 +4186,10 @@
       <item path="src/version.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>
@@ -6114,16 +4197,10 @@
       <item path="src/zone.cc" ex="false" tool="1" flavor2="8">
         <ccTool flags="2">
           <incDir>
-            <pElem>third_party/icu/source/i18n</pElem>
-            <pElem>third_party/icu/source/common</pElem>
             <pElem>out</pElem>
           </incDir>
           <preprocessorList>
             <Elem>ICU_UTIL_DATA_IMPL=ICU_UTIL_DATA_STATIC</Elem>
-            <Elem>U_ENABLE_DYLOAD=0</Elem>
-            <Elem>U_STATIC_IMPLEMENTATION</Elem>
-            <Elem>U_USING_ICU_NAMESPACE=0</Elem>
-            <Elem>V8_I18N_SUPPORT</Elem>
             <Elem>V8_IMMINENT_DEPRECATION_WARNINGS</Elem>
           </preprocessorList>
         </ccTool>

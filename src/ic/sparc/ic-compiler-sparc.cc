@@ -22,23 +22,6 @@ void PropertyICCompiler::GenerateRuntimeSetProperty(
 #undef __
 #define __ ACCESS_MASM(masm())
 
-
-Handle<Code> PropertyICCompiler::CompilePolymorphic(MapHandleList* maps,
-                                                    CodeHandleList* handlers,
-                                                    Handle<Name> name,
-                                                    Code::StubType type,
-                                                    IcCheckType check) {
-    UNIMPLEMENTED();
-}
-
-
-Handle<Code> PropertyICCompiler::CompileKeyedStorePolymorphic(
-    MapHandleList* receiver_maps, CodeHandleList* handler_stubs,
-    MapHandleList* transitioned_maps) {
-    UNIMPLEMENTED();
-}
-
-
 #undef __
 }  // namespace internal
 }  // namespace v8

@@ -301,6 +301,11 @@ void InstructionSelector::VisitRoundUint64ToFloat64(Node* node) {
 }
 
 
+void InstructionSelector::VisitRoundUint64ToFloat32(Node* node) {
+  UNIMPLEMENTED();
+}
+
+
 void InstructionSelector::VisitBitcastFloat32ToInt32(Node* node) {
       UNIMPLEMENTED();
 }
@@ -410,6 +415,9 @@ void InstructionSelector::VisitFloat64RoundDown(Node* node) {
       UNIMPLEMENTED();
 }
 
+void InstructionSelector::VisitFloat64RoundUp(Node* node) {
+      UNIMPLEMENTED();
+}
 
 void InstructionSelector::VisitFloat64RoundTruncate(Node* node) {
       UNIMPLEMENTED();
@@ -417,6 +425,11 @@ void InstructionSelector::VisitFloat64RoundTruncate(Node* node) {
 
 
 void InstructionSelector::VisitFloat64RoundTiesAway(Node* node) {
+      UNIMPLEMENTED();
+}
+
+
+void InstructionSelector::VisitFloat64RoundTiesEven(Node* node) {
       UNIMPLEMENTED();
 }
 

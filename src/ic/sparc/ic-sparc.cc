@@ -159,7 +159,7 @@ void StoreIC::GenerateNormal(MacroAssembler* masm) {
 
 Condition CompareIC::ComputeCondition(Token::Value op) {
      WARNING("CompareIC::ComputeCondition");
-     return Condition::al;
+     return always;
 }
 
 

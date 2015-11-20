@@ -72,7 +72,8 @@ Assembler::Assembler(Isolate* isolate, void* buffer, int buffer_size)
     : AssemblerBase(isolate, buffer, buffer_size),
        recorded_ast_id_(TypeFeedbackId::None()),
       positions_recorder_(this) {
-   reloc_info_writer.Reposition(buffer_ + buffer_size_, pc_);
+  reloc_info_writer.Reposition(buffer_ + buffer_size_, pc_);
+  last_bound_pos_ = 0;
 }
 
 void Assembler::GetCode(CodeDesc* desc) {
@@ -94,11 +95,193 @@ void Assembler::Align(int m) {
   }
 }
 
-    
-void Assembler::bind(Label* L) {
-  DCHECK(!L->is_bound());  // Label can only be bound once.
-  UNIMPLEMENTED();
+// Labels refer to positions in the (to be) generated code.
+// There are bound, linked, and unused labels.
+//
+// Bound labels refer to known positions in the already
+// generated code. pos() is the position the label refers to.
+//
+// Linked labels refer to unknown positions in the code
+// to be generated; pos() is the position of the last
+// instruction using the label.
+
+
+// The link chain is terminated by a negative code position (must be aligned)
+const int kEndOfChain = -4;
+
+
+// Return the offset of the branch destionation of instruction inst
+// at offset pos.
+// Should have pcs, but since all is relative, it works out.
+int Assembler::target_at(int pos) {
+  int inst = instr_at(pos);
+  int link;
+  switch (inv_op(inst)) {
+  case call_op:        
+      link = inv_wdisp(inst, 30);  
+      break;
+  case branch_op:
+    switch (inv_op2(inst)) {
+      case fbp_op2:    
+          link = inv_wdisp(inst, 19);  
+          break;
+      case bp_op2:    
+          link = inv_wdisp( inst, 19);  
+          break;
+      case fb_op2:     
+          link = inv_wdisp( inst, 22);  
+          break;
+      case br_op2:     
+          link = inv_wdisp( inst, 22);  
+          break;
+      case bpr_op2: 
+        if (is_cbcond(inst))
+          link = inv_wdisp10(inst);
+        else
+          link = inv_wdisp16(inst);
+        break;
+      default: 
+          UNREACHABLE();
+    }
+    break;
+  default:
+   DCHECK(false);
+   return -1;
+ }
+  if (link == 0) return kEndOfChain;
+  return pos + link;
 }
+
+
+// Patch instruction inst at offset pos to refer to target_pos
+// and return the resulting instruction.
+// We should have pcs, not offsets, but since all is relative, it will work out
+// OK.
+void Assembler::target_at_put(int pos, int target_pos) {
+  int inst = instr_at(pos);
+  int offset = target_pos - pos;
+  int m; // mask for displacement field
+  int v; // new value for displacement field
+  const int word_aligned_ones = -4;
+  switch (inv_op(inst)) {
+  case call_op:    
+      m = wdisp(word_aligned_ones, 30);  
+      v = wdisp(offset, 30); 
+      break;
+  case branch_op:
+    switch (inv_op2(inst)) {
+      case fbp_op2:    
+          m = wdisp(  word_aligned_ones, 19);  
+          v = wdisp(  offset, 19); 
+          break;
+      case bp_op2:     
+          m = wdisp(  word_aligned_ones, 19);  
+          v = wdisp(  offset, 19); 
+          break;
+      case fb_op2:     
+          m = wdisp(  word_aligned_ones, 22);  
+          v = wdisp(  offset, 22); 
+          break;
+      case br_op2:     
+          m = wdisp(  word_aligned_ones, 22);  
+          v = wdisp(  offset, 22); 
+          break;
+      case bpr_op2:
+        if (is_cbcond(inst)) {
+          m = wdisp10(word_aligned_ones);
+          v = wdisp10(offset);
+        } else {
+          m = wdisp16(word_aligned_ones);
+          v = wdisp16(offset);
+        }
+        break;
+      default: 
+          UNREACHABLE();
+    }
+    break;
+  default:
+    DCHECK(false);
+    break;
+  }
+  instr_at_put(pos, (inst & ~m)  |  v);
+ }    
+
+
+void Assembler::bind_to(Label* L, int pos) {
+  DCHECK(0 <= pos && pos <= pc_offset());  // must have a valid binding position
+ // int32_t trampoline_pos = kInvalidSlotPos;
+  while (L->is_linked()) {
+    int fixup_pos = L->pos();
+   // int32_t offset = pos - fixup_pos;
+  //  int maxReach = max_reach_from(fixup_pos);
+    next(L);  // call next before overwriting link with target at fixup_pos
+ /*   if (maxReach && is_intn(offset, maxReach) == false) {
+      if (trampoline_pos == kInvalidSlotPos) {
+        trampoline_pos = get_trampoline_entry();
+        CHECK(trampoline_pos != kInvalidSlotPos);
+        target_at_put(trampoline_pos, pos);
+      }
+      target_at_put(fixup_pos, trampoline_pos);
+    } else {*/
+      target_at_put(fixup_pos, pos);
+  //  }
+  }
+  L->bind_to(pos);
+/*
+  if (!trampoline_emitted_ && is_branch) {
+    UntrackBranch();
+  }
+*/
+  // Keep track of the last bound label so we don't eliminate any instructions
+  // before a bound label.
+  if (pos > last_bound_pos_) last_bound_pos_ = pos;
+}
+
+
+void Assembler::bind(Label* L) {
+  DCHECK(!L->is_bound());  // label can only be bound once
+  bind_to(L, pc_offset());
+}
+
+
+void Assembler::next(Label* L) {
+  DCHECK(L->is_linked());
+  int link = target_at(L->pos());
+  if (link == kEndOfChain) {
+    L->Unuse();
+  } else {
+    DCHECK(link >= 0);
+    L->link_to(link);
+  }
+}
+
+
+bool Assembler::is_near(Label* L) {
+  DCHECK(L->is_bound());
+  return true;
+}
+
+
+int Assembler::link(Label* L) {
+  int position;
+  if (L->is_bound()) {
+    position = L->pos();
+  } else {
+    if (L->is_linked()) {
+      position = L->pos();  // L's link
+    } else {
+      // was: target_pos = kEndOfChain;
+      // However, using self to mark the first reference
+      // should avoid most instances of branch offset overflow.  See
+      // target_at() for where this is converted back to kEndOfChain.
+      position = pc_offset();
+    }
+    L->link_to(pc_offset());
+  }
+
+  return position;
+}
+
 
 void Assembler::GrowBuffer(int needed) {
     UNIMPLEMENTED();

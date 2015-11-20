@@ -14,45 +14,336 @@
 namespace v8 {
 namespace internal {
 
+#ifdef  _LP64
+#define LP64_ONLY(code) code
+#define NOT_LP64(code)
+#else  // !_LP64
+#define LP64_ONLY(code)
+#define NOT_LP64(code) code
+#endif // _LP64
+  
+const int wordSize = sizeof(char*);
+
+// On SPARC all instructions are 32 bits.
+typedef int32_t Instr;
+
 const unsigned kInstructionSize = 4;
 const unsigned kInstructionSizeLog2 = 2;
 
 const unsigned kFixedFrameSize = 176;
 
-// CHECK_NEXT
-enum Condition {
-  kNoCondition = -1,
-  al = 0,
-   z = 1,         // Integer Register Zero.
-  lez = 2,       // Integer Register Less Than or Equal to Zero .
-  lz = 3,        // Integer Register Less Than Zero.
-  nz = 5,       //  Integer Register Not Zero.
-  gz = 6,       //  Integer Register Greater Than Zero
-  gez = 7     //  Integer Register Greater Than or Equal to Zeror
- };
+ enum ops {
+    call_op   = 1, // fmt 1
+    branch_op = 0, // also sethi (fmt2)
+    arith_op  = 2, // fmt 3, arith & misc
+    ldst_op   = 3  // fmt 3, load/store
+  };
 
- // CHECK_NEXT
+  enum op2s {
+    bpr_op2   = 3,
+    fb_op2    = 6,
+    fbp_op2   = 5,
+    br_op2    = 2,
+    bp_op2    = 1,
+    sethi_op2 = 4
+  };
+
+  enum op3s {
+    // selected op3s
+    add_op3      = 0x00,
+    and_op3      = 0x01,
+    or_op3       = 0x02,
+    xor_op3      = 0x03,
+    sub_op3      = 0x04,
+    andn_op3     = 0x05,
+    orn_op3      = 0x06,
+    xnor_op3     = 0x07,
+    addc_op3     = 0x08,
+    mulx_op3     = 0x09,
+    umul_op3     = 0x0a,
+    smul_op3     = 0x0b,
+    subc_op3     = 0x0c,
+    udivx_op3    = 0x0d,
+    udiv_op3     = 0x0e,
+    sdiv_op3     = 0x0f,
+
+    addcc_op3    = 0x10,
+    andcc_op3    = 0x11,
+    orcc_op3     = 0x12,
+    xorcc_op3    = 0x13,
+    subcc_op3    = 0x14,
+    andncc_op3   = 0x15,
+    orncc_op3    = 0x16,
+    xnorcc_op3   = 0x17,
+    addccc_op3   = 0x18,
+    aes4_op3     = 0x19,
+    umulcc_op3   = 0x1a,
+    smulcc_op3   = 0x1b,
+    subccc_op3   = 0x1c,
+    udivcc_op3   = 0x1e,
+    sdivcc_op3   = 0x1f,
+
+    taddcc_op3   = 0x20,
+    tsubcc_op3   = 0x21,
+    taddcctv_op3 = 0x22,
+    tsubcctv_op3 = 0x23,
+    mulscc_op3   = 0x24,
+    sll_op3      = 0x25,
+    sllx_op3     = 0x25,
+    srl_op3      = 0x26,
+    srlx_op3     = 0x26,
+    sra_op3      = 0x27,
+    srax_op3     = 0x27,
+    rdreg_op3    = 0x28,
+    membar_op3   = 0x28,
+
+    flushw_op3   = 0x2b,
+    movcc_op3    = 0x2c,
+    sdivx_op3    = 0x2d,
+    popc_op3     = 0x2e,
+    movr_op3     = 0x2f,
+
+    sir_op3      = 0x30,
+    wrreg_op3    = 0x30,
+    saved_op3    = 0x31,
+
+    fpop1_op3    = 0x34,
+    fpop2_op3    = 0x35,
+    impdep1_op3  = 0x36,
+    aes3_op3     = 0x36,
+    sha_op3      = 0x36,
+    alignaddr_op3  = 0x36,
+    faligndata_op3 = 0x36,
+    flog3_op3    = 0x36,
+    edge_op3     = 0x36,
+    fzero_op3    = 0x36,
+    fsrc_op3     = 0x36,
+    fnot_op3     = 0x36,
+    xmulx_op3    = 0x36,
+    crc32c_op3   = 0x36,
+    impdep2_op3  = 0x37,
+    stpartialf_op3 = 0x37,
+    jmpl_op3     = 0x38,
+    rett_op3     = 0x39,
+    trap_op3     = 0x3a,
+    flush_op3    = 0x3b,
+    save_op3     = 0x3c,
+    restore_op3  = 0x3d,
+    done_op3     = 0x3e,
+    retry_op3    = 0x3e,
+
+    lduw_op3     = 0x00,
+    ldub_op3     = 0x01,
+    lduh_op3     = 0x02,
+    ldd_op3      = 0x03,
+    stw_op3      = 0x04,
+    stb_op3      = 0x05,
+    sth_op3      = 0x06,
+    std_op3      = 0x07,
+    ldsw_op3     = 0x08,
+    ldsb_op3     = 0x09,
+    ldsh_op3     = 0x0a,
+    ldx_op3      = 0x0b,
+
+    stx_op3      = 0x0e,
+    swap_op3     = 0x0f,
+
+    stwa_op3     = 0x14,
+    stxa_op3     = 0x1e,
+
+    ldf_op3      = 0x20,
+    ldfsr_op3    = 0x21,
+    ldqf_op3     = 0x22,
+    lddf_op3     = 0x23,
+    stf_op3      = 0x24,
+    stfsr_op3    = 0x25,
+    stqf_op3     = 0x26,
+    stdf_op3     = 0x27,
+
+    prefetch_op3 = 0x2d,
+
+    casa_op3     = 0x3c,
+    casxa_op3    = 0x3e,
+
+    mftoi_op3    = 0x36,
+
+    alt_bit_op3  = 0x10,
+     cc_bit_op3  = 0x10
+  };
+
+  enum opfs {
+    // selected opfs
+    edge8n_opf         = 0x01,
+
+    fmovs_opf          = 0x01,
+    fmovd_opf          = 0x02,
+
+    fnegs_opf          = 0x05,
+    fnegd_opf          = 0x06,
+
+    alignaddr_opf      = 0x18,
+
+    fadds_opf          = 0x41,
+    faddd_opf          = 0x42,
+    fsubs_opf          = 0x45,
+    fsubd_opf          = 0x46,
+
+    faligndata_opf     = 0x48,
+
+    fmuls_opf          = 0x49,
+    fmuld_opf          = 0x4a,
+    fdivs_opf          = 0x4d,
+    fdivd_opf          = 0x4e,
+
+    fcmps_opf          = 0x51,
+    fcmpd_opf          = 0x52,
+
+    fstox_opf          = 0x81,
+    fdtox_opf          = 0x82,
+    fxtos_opf          = 0x84,
+    fxtod_opf          = 0x88,
+    fitos_opf          = 0xc4,
+    fdtos_opf          = 0xc6,
+    fitod_opf          = 0xc8,
+    fstod_opf          = 0xc9,
+    fstoi_opf          = 0xd1,
+    fdtoi_opf          = 0xd2,
+
+    mdtox_opf          = 0x110,
+    mstouw_opf         = 0x111,
+    mstosw_opf         = 0x113,
+    xmulx_opf          = 0x115,
+    xmulxhi_opf        = 0x116,
+    mxtod_opf          = 0x118,
+    mwtos_opf          = 0x119,
+
+    aes_kexpand0_opf   = 0x130,
+    aes_kexpand2_opf   = 0x131,
+
+    sha1_opf           = 0x141,
+    sha256_opf         = 0x142,
+    sha512_opf         = 0x143,
+
+    crc32c_opf         = 0x147
+  };
+
+  enum op5s {
+    aes_eround01_op5     = 0x00,
+    aes_eround23_op5     = 0x01,
+    aes_dround01_op5     = 0x02,
+    aes_dround23_op5     = 0x03,
+    aes_eround01_l_op5   = 0x04,
+    aes_eround23_l_op5   = 0x05,
+    aes_dround01_l_op5   = 0x06,
+    aes_dround23_l_op5   = 0x07,
+    aes_kexpand1_op5     = 0x08
+  };
+
+  enum RCondition {  rc_z = 1,  rc_lez = 2,  rc_lz = 3, rc_nz = 5, rc_gz = 6, rc_gez = 7, rc_last = rc_gez  };
+
+     // for FBfcc & FBPfcc instruction
 enum FPUCondition {
-  kNoFPUCondition = -1,
-
-  F = 0x00,    // False.
-  UN = 0x01,   // Unordered.
-  EQ = 0x02,   // Equal.
-  UEQ = 0x03,  // Unordered or Equal.
-  OLT = 0x04,  // Ordered or Less Than, on Mips release < 6.
-  LT = 0x04,   // Ordered or Less Than, on Mips release >= 6.
-  ULT = 0x05,  // Unordered or Less Than.
-  OLE = 0x06,  // Ordered or Less Than or Equal, on Mips release < 6.
-  LE = 0x06,   // Ordered or Less Than or Equal, on Mips release >= 6.
-  ULE = 0x07,  // Unordered or Less Than or Equal.
-
-  // Following constants are available on Mips release >= 6 only.
-  ORD = 0x11,  // Ordered, on Mips release >= 6.
-  UNE = 0x12,  // Not equal, on Mips release >= 6.
-  NE = 0x13,   // Ordered Greater Than or Less Than. on Mips >= 6 only.
+  f_never                     = 0,
+  f_notEqual                  = 1,
+  f_notZero                   = 1,
+  f_lessOrGreater             = 2,
+  f_unorderedOrLess           = 3,
+  f_less                      = 4,
+  f_unorderedOrGreater        = 5,
+  f_greater                   = 6,
+  f_unordered                 = 7,
+  f_always                    = 8,
+  f_equal                     = 9,
+  f_zero                      = 9,
+  f_unorderedOrEqual          = 10,
+  f_greaterOrEqual            = 11,
+  f_unorderedOrGreaterOrEqual = 12,
+  f_lessOrEqual               = 13,
+  f_unorderedOrLessOrEqual    = 14,
+  f_ordered                   = 15,
 };
 
+    // for integers
+ enum Condition {
+  never                 =  0,
+  equal                 =  1,
+  zero                  =  1,
+  lessEqual             =  2,
+  less                  =  3,
+  lessEqualUnsigned     =  4,
+  lessUnsigned          =  5,
+  carrySet              =  5,
+  negative              =  6,
+  overflowSet           =  7,
+  always                =  8,
+  notEqual              =  9,
+  notZero               =  9,
+  greater               =  10,
+  greaterEqual          =  11,
+  greaterUnsigned       =  12,
+  greaterEqualUnsigned  =  13,
+  carryClear            =  13,
+  positive              =  14,
+  overflowClear         =  15
+};
 
+  enum CC {
+    icc  = 0,  xcc  = 2,
+    // ptr_cc is the correct condition code for a pointer or int:
+    ptr_cc = NOT_LP64(icc) LP64_ONLY(xcc),
+    fcc0 = 0,  fcc1 = 1, fcc2 = 2, fcc3 = 3
+  };
+
+  enum PrefetchFcn {
+    severalReads = 0,  oneRead = 1,  severalWritesAndPossiblyReads = 2, oneWrite = 3, page = 4
+  };
+
+  enum Predict { pt = 1, pn = 0 }; // pt = predict taken
+
+  enum Membar_mask_bits { // page 184, v9
+    StoreStore = 1 << 3,
+    LoadStore  = 1 << 2,
+    StoreLoad  = 1 << 1,
+    LoadLoad   = 1 << 0,
+
+    Sync       = 1 << 6,
+    MemIssue   = 1 << 5,
+    Lookaside  = 1 << 4
+  };
+
+  enum ASIs { // page 72, v9
+    ASI_PRIMARY            = 0x80,
+    ASI_PRIMARY_NOFAULT    = 0x82,
+    ASI_PRIMARY_LITTLE     = 0x88,
+    // 8x8-bit partial store
+    ASI_PST8_PRIMARY       = 0xC0,
+    // Block initializing store
+    ASI_ST_BLKINIT_PRIMARY = 0xE2,
+    // Most-Recently-Used (MRU) BIS variant
+    ASI_ST_BLKINIT_MRU_PRIMARY = 0xF2
+    // add more from book as needed
+  };
+
+
+class Instruction {
+ public:
+ 
+  // Instructions are read of out a code stream. The only way to get a
+  // reference to an instruction is to convert a pointer. There is no way
+  // to allocate or create instances of class Instruction.
+  // Use the At(pc) function to create references to Instruction.
+  static Instruction* At(byte* pc) {
+    return reinterpret_cast<Instruction*>(pc);
+  }
+
+  template<typename T> V8_INLINE static Instruction* Cast(T src) {
+    return reinterpret_cast<Instruction*>(src);
+  }
+
+ private:
+  // We need to prevent the creation of instances of class Instruction.
+  DISALLOW_IMPLICIT_CONSTRUCTORS(Instruction);
+};
 
 }  // namespace internal
 }  // namespace v8

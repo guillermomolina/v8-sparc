@@ -34,8 +34,16 @@ int main(int argc, char* argv[]) {
   byte* buffer = static_cast<byte*>(base::OS::Allocate(1024, &actual_size, true));
   Assembler assm(NULL, buffer, static_cast<int>(actual_size));
 
+  __ save(sp, -176, sp); // Make room in stack
+  Label func;
+  __ call(&func);
+  __ delayed()->nop();
+  __ ret(); 
+  __ delayed()->restore(); // free the stack
+  __ bind(&func);
   __ retl();
-  __ delayed()->nop(); 
+  __ delayed()->add(i0, i1, i0); 
+
  
   CodeDesc desc;
   assm.GetCode(&desc);
@@ -43,8 +51,8 @@ int main(int argc, char* argv[]) {
   Assembler::FlushICacheWithoutIsolate(buffer, actual_size);
   base::OS::ProtectCode(buffer, actual_size);
 
- /* int result = */ FUNCTION_CAST<F0>(buffer)();
-//  CHECK_EQ(1, result);
+ int result = FUNCTION_CAST<F2>(buffer)(10,11);
+ CHECK_EQ(21, result);
   
   V8::Dispose();
   V8::ShutdownPlatform();

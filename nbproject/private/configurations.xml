@@ -8591,6 +8591,8 @@
         </df>
       </df>
       <df name="out">
+        <df name="build">
+        </df>
         <df name="samples">
         </df>
         <df name="sparc.debug">
@@ -8605,13 +8607,137 @@
               <in>resources.cc</in>
             </df>
           </df>
+          <df name="obj.host">
+            <df name="gtest">
+              <df name="testing">
+                <df name="gtest">
+                  <df name="src">
+                  </df>
+                </df>
+              </df>
+            </df>
+            <df name="testing">
+            </df>
+            <df name="third_party">
+              <df name="icu">
+              </df>
+            </df>
+          </df>
           <df name="obj.target">
+            <df name="build">
+            </df>
+            <df name="cctest">
+              <df name="gen">
+              </df>
+              <df name="test">
+                <df name="cctest">
+                  <df name="compiler">
+                  </df>
+                  <df name="interpreter">
+                  </df>
+                </df>
+              </df>
+            </df>
+            <df name="d8">
+              <df name="gen">
+              </df>
+              <df name="src">
+              </df>
+            </df>
+            <df name="gmock">
+              <df name="testing">
+                <df name="gmock">
+                  <df name="src">
+                  </df>
+                </df>
+              </df>
+            </df>
+            <df name="gtest">
+              <df name="testing">
+                <df name="gtest">
+                  <df name="src">
+                  </df>
+                </df>
+              </df>
+            </df>
+            <df name="hello-world">
+              <df name="samples">
+              </df>
+            </df>
+            <df name="icui18n">
+              <df name="third_party">
+                <df name="icu">
+                  <df name="source">
+                    <df name="i18n">
+                    </df>
+                  </df>
+                </df>
+              </df>
+            </df>
+            <df name="icuuc">
+              <df name="third_party">
+                <df name="icu">
+                  <df name="source">
+                    <df name="common">
+                    </df>
+                    <df name="stubdata">
+                    </df>
+                  </df>
+                </df>
+              </df>
+            </df>
+            <df name="parser-shell">
+              <df name="tools">
+              </df>
+            </df>
+            <df name="process">
+              <df name="samples">
+              </df>
+            </df>
             <df name="prueba">
               <df name="samples">
               </df>
             </df>
+            <df name="shell">
+              <df name="samples">
+              </df>
+            </df>
+            <df name="src">
+            </df>
+            <df name="test">
+              <df name="cctest">
+              </df>
+            </df>
+            <df name="testing">
+            </df>
+            <df name="third_party">
+              <df name="icu">
+              </df>
+            </df>
             <df name="tools">
               <df name="gyp">
+              </df>
+            </df>
+            <df name="unittests">
+              <df name="test">
+                <df name="unittests">
+                  <df name="base">
+                    <df name="platform">
+                    </df>
+                    <df name="utils">
+                    </df>
+                  </df>
+                  <df name="compiler">
+                  </df>
+                  <df name="heap">
+                  </df>
+                  <df name="interpreter">
+                  </df>
+                  <df name="libplatform">
+                  </df>
+                  <df name="runtime">
+                  </df>
+                </df>
               </df>
             </df>
             <df name="v8_base">
@@ -8684,6 +8810,20 @@
                 </df>
               </df>
             </df>
+          </df>
+        </df>
+        <df name="src">
+        </df>
+        <df name="test">
+          <df name="cctest">
+          </df>
+          <df name="unittests">
+          </df>
+        </df>
+        <df name="testing">
+        </df>
+        <df name="third_party">
+          <df name="icu">
           </df>
         </df>
         <df name="tools">
@@ -8941,6 +9081,8 @@
           <in>interpreter-assembler.h</in>
           <in>js-builtin-reducer.cc</in>
           <in>js-builtin-reducer.h</in>
+          <in>js-call-reducer.cc</in>
+          <in>js-call-reducer.h</in>
           <in>js-context-relaxation.cc</in>
           <in>js-context-relaxation.h</in>
           <in>js-context-specialization.cc</in>
@@ -9854,6 +9996,8 @@
         <in>layout-descriptor.h</in>
         <in>list-inl.h</in>
         <in>list.h</in>
+        <in>locked-queue-inl.h</in>
+        <in>locked-queue.h</in>
         <in>log-inl.h</in>
         <in>log-utils.cc</in>
         <in>log-utils.h</in>
@@ -9867,6 +10011,8 @@
         <in>modules.cc</in>
         <in>modules.h</in>
         <in>msan.h</in>
+        <in>objects-body-descriptors-inl.h</in>
+        <in>objects-body-descriptors.h</in>
         <in>objects-debug.cc</in>
         <in>objects-inl.h</in>
         <in>objects-printer.cc</in>
@@ -10259,6 +10405,8 @@
             </df>
           </df>
           <df name="harmony">
+            <df name="proxy">
+            </df>
             <df name="regress">
             </df>
           </df>
@@ -11946,8 +12094,10 @@
             <in>runtime-interpreter-unittest.cc</in>
           </df>
           <in>atomic-utils-unittest.cc</in>
+          <in>cancelable-tasks-unittest.cc</in>
           <in>char-predicates-unittest.cc</in>
           <in>counters-unittest.cc</in>
+          <in>locked-queue-unittest.cc</in>
           <in>run-all-unittests.cc</in>
           <in>test-utils.cc</in>
           <in>test-utils.h</in>
@@ -14330,6 +14480,8 @@
         <gdb_interceptlist>
           <gdbinterceptoptions gdb_all="false" gdb_unhandled="true" gdb_unexpected="true"/>
         </gdb_interceptlist>
+        <gdb_signals>
+        </gdb_signals>
         <gdb_options>
           <DebugOptions>
           </DebugOptions>

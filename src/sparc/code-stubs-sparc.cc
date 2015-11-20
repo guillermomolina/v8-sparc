@@ -504,11 +504,6 @@ void RecordWriteStub::CheckNeedsToInformIncrementalMarker(
 }
 
 
-void StoreArrayLiteralElementStub::Generate(MacroAssembler* masm) {
-   UNIMPLEMENTED(); 
-}
-
-
 void StubFailureTrampolineStub::Generate(MacroAssembler* masm) {
    UNIMPLEMENTED(); 
 }

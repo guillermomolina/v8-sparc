@@ -181,7 +181,7 @@ FPUCondition FlagsConditionToConditionCmpFPU(bool& predicate,
 }  // namespace
 
 
-void CodeGenerator::AssembleDeconstructActivationRecord() {
+void CodeGenerator::AssembleDeconstructActivationRecord(int stack_param_delta) {
      UNIMPLEMENTED();
 }
 

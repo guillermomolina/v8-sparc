@@ -1169,6 +1169,16 @@
         ['CXX.host', '<(host_cxx)'],
       ],
     }],
+    ['OS=="solaris" and clang==0', {
+      # Hardcode the compiler names in the Makefile so that
+      # it won't depend on the environment at make time.
+      'make_global_settings': [
+        ['CC', '<!(which gcc)'],
+        ['CXX', '<!(which g++)'],
+        ['CC.host', '<(host_cc)'],
+        ['CXX.host', '<(host_cxx)'],
+      ],
+    }],
     ['clang!=1 and host_clang==1 and target_arch!="ia32" and target_arch!="x64"', {
       'make_global_settings': [
         ['CC.host', '<(clang_dir)/bin/clang'],

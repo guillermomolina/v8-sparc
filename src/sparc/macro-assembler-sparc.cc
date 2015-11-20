@@ -102,7 +102,7 @@ CodePatcher::~CodePatcher() {
 }
 
 
-void CodePatcher::emit_int32(int instr) { masm()->emit_int32(instr); }
+//void CodePatcher::emit_int32(int instr) { masm()->emit_int32(instr); }
 
 
 }  // namespace internal
