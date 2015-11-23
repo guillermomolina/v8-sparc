@@ -74,6 +74,9 @@ Assembler::Assembler(Isolate* isolate, void* buffer, int buffer_size)
       positions_recorder_(this) {
   reloc_info_writer.Reposition(buffer_ + buffer_size_, pc_);
   last_bound_pos_ = 0;
+#ifdef CHECK_DELAY
+    delay_state = no_delay;
+#endif  
 }
 
 void Assembler::GetCode(CodeDesc* desc) {

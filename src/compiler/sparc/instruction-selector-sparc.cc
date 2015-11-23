@@ -262,6 +262,14 @@ void InstructionSelector::VisitChangeFloat64ToUint32(Node* node) {
       UNIMPLEMENTED();
 }
 
+void InstructionSelector::VisitTruncateFloat64ToInt64(Node* node) {
+      UNIMPLEMENTED();
+}
+
+
+void InstructionSelector::VisitTruncateFloat64ToUint64(Node* node) {
+  UNIMPLEMENTED();
+}
 
 void InstructionSelector::VisitChangeInt32ToInt64(Node* node) {
       UNIMPLEMENTED();

@@ -49,6 +49,10 @@
 namespace v8 {
 namespace internal {
 
+#ifdef DEBUG 
+#define CHECK_DELAY
+#endif
+    
 // clang-format off
 #define GENERAL_REGISTERS(V)                              \
   V(g0)  V(g1)  V(g2)  V(g3)  V(g4)  V(g5)  V(g6)  V(g7)  \
@@ -215,6 +219,7 @@ struct DoubleRegister {
 
   int encoding() const { 
       DCHECK(is_valid());
+	  return reg_code;
   }
 
   int encoding(Width w) const {
@@ -822,7 +827,7 @@ private:
   static void v9_only() { } // do nothing
 
   // instruction deprecated in v9
-  static void v9_dep()  { } // do nothing for now
+  static void v9_dep()  { DCHECK(false); } // do nothing for now
 
   // v8 has no CC field
   static void v8_no_cc(CC cc)  { if (cc)  v9_only(); }
@@ -836,9 +841,6 @@ private:
   // delay-slot instructions.
   // To implement this, we use a simple FSA
 
-#ifdef ASSERT
-  #define CHECK_DELAY
-#endif
 #ifdef CHECK_DELAY
   enum Delay_state { no_delay, at_delay_slot, filling_delay_slot } delay_state;
 #endif
@@ -846,16 +848,9 @@ private:
  public:
   // Tells assembler next instruction must NOT be in delay slot.
   // Use at start of multinstruction macros.
-  void assert_not_delayed() {
-    // This is a separate overloading to avoid creation of string constants
-    // in non-asserted code--with some compilers this pollutes the object code.
+   void assert_not_delayed() {
 #ifdef CHECK_DELAY
-    assert_not_delayed("next instruction should not be a delay slot");
-#endif
-  }
-  void assert_not_delayed(const char* msg) {
-#ifdef CHECK_DELAY
-    assert(delay_state == no_delay, msg);
+    DCHECK(delay_state == no_delay);//, msg);
 #endif
   }
 
@@ -875,14 +870,14 @@ private:
     // instruction introduces pipeline stalls, we need to avoid that.
     no_cbcond_before();
 #ifdef CHECK_DELAY
-    assert_not_delayed("cti should not be in delay slot");
+    assert_not_delayed();  //"cti should not be in delay slot"
 #endif
   }
 
   // called when emitting cti with a delay slot, AFTER emitting
   void has_delay_slot() {
 #ifdef CHECK_DELAY
-    assert_not_delayed("just checking");
+    assert_not_delayed();
     delay_state = at_delay_slot;
 #endif
   }
@@ -910,7 +905,7 @@ public:
   // Tells assembler you know that next instruction is delayed
   Assembler* delayed() {
 #ifdef CHECK_DELAY
-    assert ( delay_state == at_delay_slot, "delayed instruction is not in delay slot");
+    DCHECK( delay_state == at_delay_slot); //, "delayed instruction is not in delay slot");
     delay_state = filling_delay_slot;
 #endif
     return this;
@@ -1026,6 +1021,7 @@ public:
 
   void fadd( FloatRegister::Width w, FloatRegister s1, FloatRegister s2, FloatRegister d ) { Emit( op(arith_op) | fd(d, w) | op3(fpop1_op3) | fs1(s1, w) | opf(0x40 + w) | fs2(s2, w)); }
   void fsub( FloatRegister::Width w, FloatRegister s1, FloatRegister s2, FloatRegister d ) { Emit( op(arith_op) | fd(d, w) | op3(fpop1_op3) | fs1(s1, w) | opf(0x44 + w) | fs2(s2, w)); }
+ 
 
   // pp 157
 
@@ -1035,7 +1031,7 @@ public:
   // pp 159
 
   void ftox( FloatRegister::Width w, FloatRegister s, FloatRegister d ) { v9_only();  Emit( op(arith_op) | fd(d, FloatRegister::D) | op3(fpop1_op3) | opf(0x80 + w) | fs2(s, w)); }
-  void ftoi( FloatRegister::Width w, FloatRegister s, FloatRegister d ) {             Emit( op(arith_op) | fd(d, FloatRegister::S) | op3(fpop1_op3) | opf(0xd0 + w) | fs2(s, w)); }
+  void ftoi( FloatRegister::Width w, FloatRegister s, FloatRegister d ) {  Emit( op(arith_op) | fd(d, FloatRegister::S) | op3(fpop1_op3) | opf(0xd0 + w) | fs2(s, w)); }
 
   // pp 160
 
@@ -1056,9 +1052,9 @@ public:
 
   // pp 163
 
-  void fmul( FloatRegister::Width w,                            FloatRegister s1, FloatRegister s2, FloatRegister d ) { Emit( op(arith_op) | fd(d, w)  | op3(fpop1_op3) | fs1(s1, w)  | opf(0x48 + w)         | fs2(s2, w)); }
+  void fmul( FloatRegister::Width w, FloatRegister s1, FloatRegister s2, FloatRegister d ) { Emit( op(arith_op) | fd(d, w)  | op3(fpop1_op3) | fs1(s1, w)  | opf(0x48 + w)         | fs2(s2, w)); }
   void fmul( FloatRegister::Width sw, FloatRegister::Width dw,  FloatRegister s1, FloatRegister s2, FloatRegister d ) { Emit( op(arith_op) | fd(d, dw) | op3(fpop1_op3) | fs1(s1, sw) | opf(0x60 + sw + dw*4) | fs2(s2, sw)); }
-  void fdiv( FloatRegister::Width w,                            FloatRegister s1, FloatRegister s2, FloatRegister d ) { Emit( op(arith_op) | fd(d, w)  | op3(fpop1_op3) | fs1(s1, w)  | opf(0x4c + w)         | fs2(s2, w)); }
+  void fdiv( FloatRegister::Width w, FloatRegister s1, FloatRegister s2, FloatRegister d ) { Emit( op(arith_op) | fd(d, w)  | op3(fpop1_op3) | fs1(s1, w)  | opf(0x4c + w)         | fs2(s2, w)); }
 
   // FXORs/FXORd instructions
 
@@ -1090,12 +1086,12 @@ public:
   // pp 170
 
   void jmpl( Register s1, Register s2, Register d );
-  void jmpl( Register s1, int simm13a, Register d/*, RelocationHolder const& rspec = RelocationHolder()*/ );
+  void jmpl( Register s1, int simm13a, Register d );
 
   // 171
 
   inline void ldf(FloatRegister::Width w, Register s1, Register s2, FloatRegister d);
-  inline void ldf(FloatRegister::Width w, Register s1, int simm13a, FloatRegister d/*, RelocationHolder const& rspec = RelocationHolder()*/);
+  inline void ldf(FloatRegister::Width w, Register s1, int simm13a, FloatRegister d);
 
 
   inline void ldfsr(  Register s1, Register s2 );
@@ -1105,8 +1101,8 @@ public:
 
   // 173
 
-  void ldfa(  FloatRegister::Width w, Register s1, Register s2, int ia, FloatRegister d ) { v9_only();  Emit( op(ldst_op) | fd(d, w) | alt_op3(ldf_op3 | alt_bit_op3, w) | rs1(s1) | imm_asi(ia) | rs2(s2) ); }
-  void ldfa(  FloatRegister::Width w, Register s1, int simm13a,         FloatRegister d ) { v9_only();  Emit( op(ldst_op) | fd(d, w) | alt_op3(ldf_op3 | alt_bit_op3, w) | rs1(s1) | immed(true) | simm(simm13a, 13) ); }
+  void ldfa( FloatRegister::Width w, Register s1, Register s2, int ia, FloatRegister d ) { v9_only();  Emit( op(ldst_op) | fd(d, w) | alt_op3(ldf_op3 | alt_bit_op3, w) | rs1(s1) | imm_asi(ia) | rs2(s2) ); }
+  void ldfa( FloatRegister::Width w, Register s1, int simm13a, FloatRegister d ) { v9_only();  Emit( op(ldst_op) | fd(d, w) | alt_op3(ldf_op3 | alt_bit_op3, w) | rs1(s1) | immed(true) | simm(simm13a, 13) ); }
 
   // pp 175, lduw is ld on v8
 
@@ -1178,7 +1174,7 @@ public:
   // pp 185
 
   void fmov( FloatRegister::Width w, FPUCondition c,  bool floatCC, CC cca, FloatRegister s2, FloatRegister d ) { v9_only();  Emit( op(arith_op) | fd(d, w) | op3(fpop2_op3) | cond_mov(c) | opf_cc(cca, floatCC) | opf_low6(w) | fs2(s2, w)); }
-
+  
   // pp 189
 
   void fmov( FloatRegister::Width w, RCondition c, Register s1,  FloatRegister s2, FloatRegister d ) { v9_only();  Emit( op(arith_op) | fd(d, w) | op3(fpop2_op3) | rs1(s1) | rcond(c) | opf_low5(4 + w) | fs2(s2, w)); }
@@ -1308,6 +1304,10 @@ public:
 
   void stfa(  FloatRegister::Width w, FloatRegister d, Register s1, Register s2, int ia ) { v9_only();  Emit( op(ldst_op) | fd(d, w) | alt_op3(stf_op3 | alt_bit_op3, w) | rs1(s1) | imm_asi(ia) | rs2(s2) ); }
   void stfa(  FloatRegister::Width w, FloatRegister d, Register s1, int simm13a         ) { v9_only();  Emit( op(ldst_op) | fd(d, w) | alt_op3(stf_op3 | alt_bit_op3, w) | rs1(s1) | immed(true) | simm(simm13a, 13) ); }
+  void stdf( FloatRegister d, Register s1, Register s2) { stf(FloatRegister::D, d, s1, s2); }
+  void stdf( FloatRegister d, Register s1, int simm13a ) { stf(FloatRegister::D, d, s1, simm13a); }
+  void stdfa( FloatRegister d, Register s1, Register s2, int ia ) { stfa(FloatRegister::D, d, s1, s2, ia); }
+  void stdfa( FloatRegister d, Register s1, int simm13a ) { stfa(FloatRegister::D, d, s1, simm13a); }
 
   // p 226
 
@@ -1466,7 +1466,7 @@ public:
 
   void faligndata( FloatRegister s1, FloatRegister s2, FloatRegister d ) { vis1_only(); Emit( op(arith_op) | fd(d, FloatRegister::D) | op3(faligndata_op3) | fs1(s1, FloatRegister::D) | opf(faligndata_opf) | fs2(s2, FloatRegister::D)); }
 
- void fzero( FloatRegister::Width w, FloatRegister d ) { vis1_only(); Emit( op(arith_op) | fd(d, w) | op3(fzero_op3) | opf(0x62 - w)); }
+  void fzero( FloatRegister::Width w, FloatRegister d ) { vis1_only(); Emit( op(arith_op) | fd(d, w) | op3(fzero_op3) | opf(0x62 - w)); }
 
   void fsrc2( FloatRegister::Width w, FloatRegister s2, FloatRegister d ) { vis1_only(); Emit( op(arith_op) | fd(d, w) | op3(fsrc_op3) | opf(0x7A - w) | fs2(s2, w)); }
 

@@ -90,13 +90,12 @@ void Builtins::Generate_JSConstructStubGeneric(MacroAssembler* masm) {
 }
 
 
-void Builtins::Generate_JSConstructStubApi(MacroAssembler* masm) {
-    WARNING("Builtins::Generate_JSConstructStubApi");
+void Builtins::Generate_JSBuiltinsConstructStub(MacroAssembler* masm) {
+     WARNING("Builtins::Generate_JSBuiltinsConstructStub");
 }
 
-
-void Builtins::Generate_JSConstructStubForDerived(MacroAssembler* masm) {
-    WARNING("Builtins::Generate_JSConstructStubForDerived");
+void Builtins::Generate_JSConstructStubApi(MacroAssembler* masm) {
+    WARNING("Builtins::Generate_JSConstructStubApi");
 }
 
 

@@ -17,9 +17,11 @@ namespace internal {
 #ifdef  _LP64
 #define LP64_ONLY(code) code
 #define NOT_LP64(code)
+#define STACK_BIAS	0x3FF
 #else  // !_LP64
 #define LP64_ONLY(code)
 #define NOT_LP64(code) code
+#define STACK_BIAS	0x0
 #endif // _LP64
   
 const int wordSize = sizeof(char*);

@@ -982,12 +982,12 @@
       ['OS=="solaris" and v8_target_arch=="sparc"', {
         'target_conditions': [
           ['_toolset=="host"', {
-                'cflags': [ '-m64' ],
-                'ldflags': [ '-m64' ]
+                'cflags': [ '-m64 -mcbcond' ],
+                'ldflags': [ '-m64 -mcbcond' ]
            }],
            ['_toolset=="target"', {
-                 'cflags': [ '-m64' ],
-                 'ldflags': [ '-m64' ],
+                 'cflags': [ '-m64 -mcbcond' ],
+                 'ldflags': [ '-m64 -mcbcond' ],
            }],
          ],
       }],

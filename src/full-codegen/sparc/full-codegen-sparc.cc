@@ -77,12 +77,250 @@ class JumpPatchSite BASE_EMBEDDED {
 //   o cp: our context
 //   o fp: our caller's frame pointer
 //   o sp: stack pointer
-//   o ra: return address
+
 //
 // The function builds a JS frame.  Please see JavaScriptFrameConstants in
-// frames-mips.h for its layout.
+// sparc-mips.h for its layout.
 void FullCodeGenerator::Generate() {
-    WARNING("FullCodeGenerator::Generate");
+  CompilationInfo* info = info_;
+  profiling_counter_ = isolate()->factory()->NewCell(
+      Handle<Smi>(Smi::FromInt(FLAG_interrupt_budget), isolate()));
+  SetFunctionPosition(literal());
+  Comment cmnt(masm_, "[ function compiled by full code generator");
+
+  ProfileEntryHookStub::MaybeCallEntryHook(masm_);
+
+#ifdef DEBUG
+  if (strlen(FLAG_stop_at) > 0 &&
+      info->literal()->name()->IsUtf8EqualTo(CStrVector(FLAG_stop_at))) {
+    UNIMPLEMENTED();
+  }
+#endif
+
+  if (FLAG_debug_code && info->ExpectsJSReceiverAsReceiver()) {
+    UNIMPLEMENTED();
+  }
+
+  // Open a frame scope to indicate that there is a frame on the stack.  The
+  // MANUAL indicates that the scope shouldn't actually generate code to set up
+  // the frame (that is done below).
+  FrameScope frame_scope(masm_, StackFrame::MANUAL);
+
+  info->set_prologue_offset(masm_->pc_offset());
+  __ Prologue(info->IsCodePreAgingActive());
+
+  { Comment cmnt(masm_, "[ Allocate locals");
+    int locals_count = info->scope()->num_stack_slots();
+    // Generators allocate locals, if any, in context slots.
+    DCHECK(!IsGeneratorFunction(info->literal()->kind()) || locals_count == 0);
+    if (locals_count > 0) {
+      if (locals_count >= 128) {
+		UNIMPLEMENTED();
+      }
+      __ LoadRoot(g2, Heap::kUndefinedValueRootIndex);
+	  
+	  
+	 /* 
+	  kMaxPushes = 18 en SPARC
+      if (locals_count >= kMaxPushes) {
+        int loop_iterations = locals_count / kMaxPushes;
+        __ mov(loop_iterations, l1);
+        Label loop_header;
+        __ bind(&loop_header);
+        // Do pushes.
+        __ sub(sp, Operand(kMaxPushes * kPointerSize), sp);
+        for (int i = 0; i < kMaxPushes; i++) {
+          __ stdx(l0, MemOperand(sp, i * kPointerSize));
+        }
+        // Continue loop if not done.
+        __ Dsubu(l1, l1, Operand(1));
+        __ Branch(&loop_header, ne, l1, Operand(zero_reg));
+      }
+      int remaining = locals_count % kMaxPushes;
+      // Emit the remaining pushes.
+      __ Dsubu(sp, sp, Operand(remaining * kPointerSize));
+      for (int i  = 0; i < remaining; i++) {
+        __ sd(l0, MemOperand(sp, i * kPointerSize));
+      }*/
+    }
+  }
+/*
+  bool function_in_register = true;
+
+  // Possibly allocate a local context.
+  if (info->scope()->num_heap_slots() > 0) {
+    Comment cmnt(masm_, "[ Allocate context");
+    bool need_write_barrier = true;
+    int slots = info->scope()->num_heap_slots() - Context::MIN_CONTEXT_SLOTS;
+    // Argument to NewContext is the function, which is still in rdi.
+    if (info->scope()->is_script_scope()) {
+      __ Push(rdi);
+      __ Push(info->scope()->GetScopeInfo(info->isolate()));
+      __ CallRuntime(Runtime::kNewScriptContext, 2);
+      PrepareForBailoutForId(BailoutId::ScriptContext(), TOS_REG);
+    } else if (slots <= FastNewContextStub::kMaximumSlots) {
+      FastNewContextStub stub(isolate(), slots);
+      __ CallStub(&stub);
+      // Result of FastNewContextStub is always in new space.
+      need_write_barrier = false;
+    } else {
+      __ Push(rdi);
+      __ CallRuntime(Runtime::kNewFunctionContext, 1);
+    }
+    function_in_register = false;
+    // Context is returned in rax.  It replaces the context passed to us.
+    // It's saved in the stack and kept live in rsi.
+    __ movp(rsi, rax);
+    __ movp(Operand(rbp, StandardFrameConstants::kContextOffset), rax);
+
+    // Copy any necessary parameters into the context.
+    int num_parameters = info->scope()->num_parameters();
+    int first_parameter = info->scope()->has_this_declaration() ? -1 : 0;
+    for (int i = first_parameter; i < num_parameters; i++) {
+      Variable* var = (i == -1) ? scope()->receiver() : scope()->parameter(i);
+      if (var->IsContextSlot()) {
+        int parameter_offset = StandardFrameConstants::kCallerSPOffset +
+            (num_parameters - 1 - i) * kPointerSize;
+        // Load parameter from stack.
+        __ movp(rax, Operand(rbp, parameter_offset));
+        // Store it in the context.
+        int context_offset = Context::SlotOffset(var->index());
+        __ movp(Operand(rsi, context_offset), rax);
+        // Update the write barrier.  This clobbers rax and rbx.
+        if (need_write_barrier) {
+          __ RecordWriteContextSlot(
+              rsi, context_offset, rax, rbx, kDontSaveFPRegs);
+        } else if (FLAG_debug_code) {
+          Label done;
+          __ JumpIfInNewSpace(rsi, rax, &done, Label::kNear);
+          __ Abort(kExpectedNewSpaceObject);
+          __ bind(&done);
+        }
+      }
+    }
+  }
+  PrepareForBailoutForId(BailoutId::FunctionContext(), NO_REGISTERS);
+
+  // Function register is trashed in case we bailout here. But since that
+  // could happen only when we allocate a context the value of
+  // |function_in_register| is correct.
+
+  // Possibly set up a local binding to the this function which is used in
+  // derived constructors with super calls.
+  Variable* this_function_var = scope()->this_function_var();
+  if (this_function_var != nullptr) {
+    Comment cmnt(masm_, "[ This function");
+    if (!function_in_register) {
+      __ movp(rdi, Operand(rbp, JavaScriptFrameConstants::kFunctionOffset));
+      // The write barrier clobbers register again, keep it marked as such.
+    }
+    SetVar(this_function_var, rdi, rbx, rdx);
+  }
+
+  Variable* new_target_var = scope()->new_target_var();
+  if (new_target_var != nullptr) {
+    Comment cmnt(masm_, "[ new.target");
+
+    __ movp(rax, Operand(rbp, StandardFrameConstants::kCallerFPOffset));
+    Label non_adaptor_frame;
+    __ Cmp(Operand(rax, StandardFrameConstants::kContextOffset),
+           Smi::FromInt(StackFrame::ARGUMENTS_ADAPTOR));
+    __ j(not_equal, &non_adaptor_frame);
+    __ movp(rax, Operand(rax, StandardFrameConstants::kCallerFPOffset));
+
+    __ bind(&non_adaptor_frame);
+    __ Cmp(Operand(rax, StandardFrameConstants::kMarkerOffset),
+           Smi::FromInt(StackFrame::CONSTRUCT));
+
+    Label non_construct_frame, done;
+    __ j(not_equal, &non_construct_frame);
+
+    // Construct frame
+    __ movp(rax, Operand(rax, ConstructFrameConstants::kNewTargetOffset));
+    __ jmp(&done);
+
+    // Non-construct frame
+    __ bind(&non_construct_frame);
+    __ LoadRoot(rax, Heap::kUndefinedValueRootIndex);
+
+    __ bind(&done);
+    SetVar(new_target_var, rax, rbx, rdx);
+  }
+
+  // Possibly allocate an arguments object.
+  Variable* arguments = scope()->arguments();
+  if (arguments != NULL) {
+    // Arguments object must be allocated after the context object, in
+    // case the "arguments" or ".arguments" variables are in the context.
+    Comment cmnt(masm_, "[ Allocate arguments object");
+    DCHECK(rdi.is(ArgumentsAccessNewDescriptor::function()));
+    if (!function_in_register) {
+      __ movp(rdi, Operand(rbp, JavaScriptFrameConstants::kFunctionOffset));
+    }
+    // The receiver is just before the parameters on the caller's stack.
+    int num_parameters = info->scope()->num_parameters();
+    int offset = num_parameters * kPointerSize;
+    __ Move(ArgumentsAccessNewDescriptor::parameter_count(),
+            Smi::FromInt(num_parameters));
+    __ leap(ArgumentsAccessNewDescriptor::parameter_pointer(),
+            Operand(rbp, StandardFrameConstants::kCallerSPOffset + offset));
+
+    // Arguments to ArgumentsAccessStub:
+    //   function, parameter pointer, parameter count.
+    // The stub will rewrite parameter pointer and parameter count if the
+    // previous stack frame was an arguments adapter frame.
+    bool is_unmapped = is_strict(language_mode()) || !has_simple_parameters();
+    ArgumentsAccessStub::Type type = ArgumentsAccessStub::ComputeType(
+        is_unmapped, literal()->has_duplicate_parameters());
+    ArgumentsAccessStub stub(isolate(), type);
+    __ CallStub(&stub);
+
+    SetVar(arguments, rax, rbx, rdx);
+  }
+
+  if (FLAG_trace) {
+    __ CallRuntime(Runtime::kTraceEnter, 0);
+  }
+
+  // Visit the declarations and body unless there is an illegal
+  // redeclaration.
+  if (scope()->HasIllegalRedeclaration()) {
+    Comment cmnt(masm_, "[ Declarations");
+    VisitForEffect(scope()->GetIllegalRedeclaration());
+
+  } else {
+    PrepareForBailoutForId(BailoutId::FunctionEntry(), NO_REGISTERS);
+    { Comment cmnt(masm_, "[ Declarations");
+      VisitDeclarations(scope()->declarations());
+    }
+
+    // Assert that the declarations do not use ICs. Otherwise the debugger
+    // won't be able to redirect a PC at an IC to the correct IC in newly
+    // recompiled code.
+    DCHECK_EQ(0, ic_total_count_);
+
+    { Comment cmnt(masm_, "[ Stack check");
+      PrepareForBailoutForId(BailoutId::Declarations(), NO_REGISTERS);
+       Label ok;
+       __ CompareRoot(rsp, Heap::kStackLimitRootIndex);
+       __ j(above_equal, &ok, Label::kNear);
+       __ call(isolate()->builtins()->StackCheck(), RelocInfo::CODE_TARGET);
+       __ bind(&ok);
+    }
+
+    { Comment cmnt(masm_, "[ Body");
+      DCHECK(loop_depth() == 0);
+      VisitStatements(literal()->body());
+      DCHECK(loop_depth() == 0);
+    }
+  }
+
+  // Always emit a 'return undefined' in case control fell off the end of
+  // the body.
+  { Comment cmnt(masm_, "[ return <undefined>;");
+    __ LoadRoot(rax, Heap::kUndefinedValueRootIndex);
+    EmitReturnSequence();
+  }*/
 }
 
 

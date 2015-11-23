@@ -10289,6 +10289,7 @@
           <in>test-macro-assembler-ia32.cc</in>
           <in>test-macro-assembler-mips.cc</in>
           <in>test-macro-assembler-mips64.cc</in>
+          <in>test-macro-assembler-sparc.cc</in>
           <in>test-macro-assembler-x64.cc</in>
           <in>test-macro-assembler-x87.cc</in>
           <in>test-mark-compact.cc</in>

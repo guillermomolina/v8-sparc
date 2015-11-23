@@ -226,6 +226,7 @@
         ['v8_target_arch=="sparc"', {
           'sources': [  ### gcmole(arch:sparc) ###
             'test-assembler-sparc.cc',
+            'test-macro-assembler-sparc.cc',
             'test-code-stubs-sparc.cc',
             'test-disasm-sparc.cc',
             'test-fuzz-sparc.cc',

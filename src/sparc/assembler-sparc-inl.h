@@ -227,7 +227,7 @@ Address Assembler::target_address_from_return_address(Address pc) {
 
 inline void Assembler::check_delay() {
 # ifdef CHECK_DELAY
-  guarantee( delay_state != at_delay_slot, "must say delayed() when filling delay slot");
+  DCHECK( delay_state != at_delay_slot);//, "must say delayed() when filling delay slot");
   delay_state = no_delay;
 # endif
 }

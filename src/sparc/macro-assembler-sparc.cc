@@ -19,6 +19,65 @@
 
 namespace v8 {
 namespace internal {
+    
+MemOperand::MemOperand(Register base, int offset)
+  : base_(base), regoffset_(NoReg), offset_(offset) {
+	  DCHECK(Assembler::is_simm13(offset_));
+}
+
+::MemOperand(Register base, Register regoffset)
+  : base_(base), regoffset_(regoffset), offset_(0) {
+}
+
+void MacroAssembler::set64(int64_t value, Register d, Register tmp) {
+  assert_not_delayed();
+  v9_dep();
+
+  int hi = (int)(value >> 32);
+  int lo = (int)(value & ~0);
+  int bits_33to2 = (int)((value >> 2) & ~0);
+  // (Matcher::isSimpleConstant64 knows about the following optimizations.)
+  if (Assembler::is_simm13(lo) && value == lo) {
+    or3(g0, lo, d);
+  } else if (hi == 0) {
+    Assembler::sethi(lo, d);   // hardware version zero-extends to upper 32
+    if (low10(lo) != 0)
+      or3(d, low10(lo), d);
+  }
+  else if ((hi >> 2) == 0) {
+    Assembler::sethi(bits_33to2, d);  // hardware version zero-extends to upper 32
+    sllx(d, 2, d);
+    if (low12(lo) != 0)
+      or3(d, low12(lo), d);
+  }
+  else if (hi == -1) {
+    Assembler::sethi(~lo, d);  // hardware version zero-extends to upper 32
+    xor3(d, low10(lo) ^ ~low10(~0), d);
+  }
+  else if (lo == 0) {
+    if (Assembler::is_simm13(hi)) {
+      or3(g0, hi, d);
+    } else {
+      Assembler::sethi(hi, d);   // hardware version zero-extends to upper 32
+      if (low10(hi) != 0)
+        or3(d, low10(hi), d);
+    }
+    sllx(d, 32, d);
+  }
+  else {
+    Assembler::sethi(hi, tmp);
+    Assembler::sethi(lo,   d); // macro assembler version sign-extends
+    if (low10(hi) != 0)
+      or3 (tmp, low10(hi), tmp);
+    if (low10(lo) != 0)
+      or3 (  d, low10(lo),   d);
+    sllx(tmp, 32, tmp);
+    or3 (d, tmp, d);
+  }
+}
+    
+    
+    
 MacroAssembler::MacroAssembler(Isolate* arg_isolate, void* buffer, int size)
     : Assembler(arg_isolate, buffer, size),
       generating_stub_(false),
@@ -58,6 +117,9 @@ bool MacroAssembler::AllowThisStubCall(CodeStub* stub) {
     UNIMPLEMENTED();
 }
 
+void MacroAssembler::Prologue(bool code_pre_aging) {
+	UNIMPLEMENTED();
+}
 
 // Clobbers object, address, value, and ra, if (ra_status == kRAHasBeenSaved)
 // The register 'object' contains a heap object pointer.  The heap object

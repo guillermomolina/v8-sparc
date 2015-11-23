@@ -24,9 +24,10 @@ const Register kInterpreterBytecodeOffsetRegister = {Register::kCode_l2};
 const Register kInterpreterBytecodeArrayRegister = {Register::kCode_l3};
 const Register kInterpreterDispatchTableRegister = {Register::kCode_l4};
 const Register kJavaScriptCallArgCountRegister = {Register::kCode_i0};
+const Register kJavaScriptCallNewTargetRegister = {Register::kCode_i2};
 const Register kRuntimeCallFunctionRegister = {Register::kCode_i1};
 const Register kRuntimeCallArgCountRegister = {Register::kCode_i0};
-   
+
 
 // Flags used for AllocateHeapNumber
 enum TaggingMode {
@@ -59,7 +60,19 @@ private:
 // Class MemOperand represents a memory operand in load and store instructions
 class MemOperand BASE_EMBEDDED {
  public:
- private:
+  inline explicit MemOperand(Register base, int offset);
+  inline explicit MemOperand(Register base, Register regoffset = g0);
+
+  const Register& base() const { return base_; }
+  const Register& regoffset() const { return regoffset_; }
+  int64_t offset() const { return offset_; }
+  bool IsImmediateOffset() const { return regoffset_.is(no_reg); }
+  bool IsRegisterOffset() const { return !regoffset_.is(no_reg); }
+
+private:
+  Register base_;
+  Register regoffset_;
+  int offset_;
  
   friend class Assembler;
 };
@@ -72,9 +85,136 @@ public:
   // responsibility of the caller to never invoke such function on the
   // macro assembler.
   MacroAssembler(Isolate* isolate, void* buffer, int size);
+ 
+  // support for delayed instructions
+  MacroAssembler* delayed() { Assembler::delayed();  return this; }
+ 
+  void set64(int64_t value, Register d, Register tmp);
+
+  // Double only float instructions
+  void faddd(FloatRegister s1, FloatRegister s2, FloatRegister d ) { fadd(FloatRegister::D, s1, s2, d); }
+  void fsubd(FloatRegister s1, FloatRegister s2, FloatRegister d ) { fsub(FloatRegister::D, s1, s2, d); }
+  void fcmpd(  CC cc, FloatRegister s1, FloatRegister s2) { fcmp(FloatRegister::D, cc, s1, s2); }
+  void fcmped(  CC cc, FloatRegister s1, FloatRegister s2) { fcmpe(FloatRegister::D, cc, s1, s2); }
+  void fdtox( FloatRegister s, FloatRegister d ) {  ftox(FloatRegister::D, s, d); }
+  void fdtoi( FloatRegister s, FloatRegister d ) {  ftoi(FloatRegister::D, s, d); }
+  void fxtod( FloatRegister s, FloatRegister d ) { fxtof(FloatRegister::D, s, d); }
+  void fitod( FloatRegister s, FloatRegister d ) { fitof(FloatRegister::D, s, d); }
+  void fmovd( FloatRegister s, FloatRegister d ) { fmov(FloatRegister::D, s, d); }
+  void fmovd( FPUCondition c,  bool floatCC, CC cca, FloatRegister s2, FloatRegister d ) { fmov(FloatRegister::D, c, floatCC, cca, s2, d); }
+  void fmovd( RCondition c,  Register s1, FloatRegister s2, FloatRegister d ) { fmov(FloatRegister::D, c, s1, s2, d); }
+  void fnegd( FloatRegister s, FloatRegister d ) { fneg(FloatRegister::D, s, d); }
+  void fabsd( FloatRegister s, FloatRegister d ) { fabs(FloatRegister::D, s, d); }
+  void fmuld(FloatRegister s1, FloatRegister s2, FloatRegister d ) { fmul(FloatRegister::D, s1, s2, d); }
+  void fdivd(FloatRegister s1, FloatRegister s2, FloatRegister d ) { fdiv(FloatRegister::D, s1, s2, d); }
+  void fxord(FloatRegister s1, FloatRegister s2, FloatRegister d ) { fxor(FloatRegister::D, s1, s2, d); }
+  void fsqrtd(FloatRegister s, FloatRegister d ) { fsqrt(FloatRegister::D, s, d); }
+  void lddf(Register s1, Register s2, FloatRegister d ) { ldf(FloatRegister::D, s1, s2, d); }
+  void lddf(Register s1, int simm13a, FloatRegister d ) { ldf(FloatRegister::D, s1, simm13a, d); }
+  void lddfa( Register s1, Register s2, int ia, FloatRegister d ) { ldfa(FloatRegister::D, s1, s2, ia, d); }
+  void lddfa( Register s1, int simm13a, FloatRegister d ) { ldf(FloatRegister::D, s1, simm13a, d); }
+  void stdf( FloatRegister d, Register s1, Register s2) { stf(FloatRegister::D, d, s1, s2); }
+  void stdf( FloatRegister d, Register s1, int simm13a ) { stf(FloatRegister::D, d, s1, simm13a); }
+  void stdfa( FloatRegister d, Register s1, Register s2, int ia ) { stfa(FloatRegister::D, d, s1, s2, ia); }
+  void stdfa( FloatRegister d, Register s1, int simm13a ) { stfa(FloatRegister::D, d, s1, simm13a); }
+
+  // pp 297 Synthetic Instructions
+  inline void cmp(  Register s1, Register s2 ) { subcc( s1, s2, g0 ); }
+  inline void cmp(  Register s1, int simm13a ) { subcc( s1, simm13a, g0 ); }
+
+  inline void tst( Register s ) { orcc( g0, s, g0 ); }
+
+  inline void ret()   { jmpl( i7, 2 * kInstructionSize, g0 ); }
+  inline void retl()  { jmpl( o7, 2 * kInstructionSize, g0 ); }
+ 
+  // sign-extend 32 to 64
+  inline void signx( Register s, Register d ) { sra( s, g0, d); }
+  inline void signx( Register d )             { sra( d, g0, d); }
+
+  inline void not1( Register s, Register d ) { xnor( s, g0, d ); }
+  inline void not1( Register d )             { xnor( d, g0, d ); }
+
+  inline void neg( Register s, Register d ) { sub( g0, s, d ); }
+  inline void neg( Register d )             { sub( g0, d, d ); }
+
+  inline void cas(  Register s1, Register s2, Register d) { casa( s1, s2, d, ASI_PRIMARY); }
+  inline void casx( Register s1, Register s2, Register d) { casxa(s1, s2, d, ASI_PRIMARY); }
+  inline void cas_ptr(  Register s1, Register s2, Register d) { casx( s1, s2, d ); }
+
+  // little-endian
+  inline void casl(  Register s1, Register s2, Register d) { casa( s1, s2, d, ASI_PRIMARY_LITTLE); }
+  inline void casxl( Register s1, Register s2, Register d) { casxa(s1, s2, d, ASI_PRIMARY_LITTLE); }
+
+  inline void inc(   Register d,  int const13 = 1 ) { add(   d, const13, d); }
+  inline void inccc( Register d,  int const13 = 1 ) { addcc( d, const13, d); }
+
+  inline void dec(   Register d,  int const13 = 1 ) { sub(   d, const13, d); }
+  inline void deccc( Register d,  int const13 = 1 ) { subcc( d, const13, d); }
+
+  inline void btst( Register s1,  Register s2 ) { andcc( s1, s2, g0 ); }
+  inline void btst( int simm13a,  Register s )  { andcc( s,  simm13a, g0 ); }
+
+  inline void bset( Register s1,  Register s2 ) { or3( s1, s2, s2 ); }
+  inline void bset( int simm13a,  Register s )  { or3( s,  simm13a, s ); }
+
+  inline void bclr( Register s1,  Register s2 ) { andn( s1, s2, s2 ); }
+  inline void bclr( int simm13a,  Register s )  { andn( s,  simm13a, s ); }
+
+  inline void btog( Register s1,  Register s2 ) { xor3( s1, s2, s2 ); }
+  inline void btog( int simm13a,  Register s )  { xor3( s,  simm13a, s ); }
+
+  inline void clr( Register d ) { or3( g0, g0, d ); }
+
+  inline void clrb( Register s1, Register s2);
+  inline void clrh( Register s1, Register s2);
+  inline void clr(  Register s1, Register s2);
+  inline void clrx( Register s1, Register s2);
+
+  inline void clrb( Register s1, int simm13a);
+  inline void clrh( Register s1, int simm13a);
+  inline void clr(  Register s1, int simm13a);
+  inline void clrx( Register s1, int simm13a);
+
+  // Generates function and stub prologue code.
+  void Prologue(bool code_pre_aging);
+  
+  // copy & clear upper word
+  inline void clruw( Register s, Register d ) { srl( s, g0, d); }
+  // clear upper word
+  inline void clruwu( Register d ) { srl( d, g0, d); }
+
+   inline void mov( Register s,  Register d) {
+    if ( !s.is(d) )
+        or3( g0, s, d);
+    else
+        assert_not_delayed();  // Put something useful in the delay slot!
+  }
+  inline void mov( int simm13a, Register d) { or3( g0, simm13a, d); }
+  
+  // MemOperand based Loads and Stores
+  inline void ldsb(const MemOperand& s, Register d);
+  inline void ldsh(const MemOperand& s, Register d);
+  inline void ldsw(const MemOperand& s, Register d);
+  inline void ldub(const MemOperand& s, Register d);
+  inline void lduh(const MemOperand& s, Register d);
+  inline void lduw(const MemOperand& s, Register d);
+  inline void ldx(const MemOperand& s, Register d);
+  inline void ldd(const MemOperand& s, Register d);
+  inline void lddf(const MemOperand& s, FloatRegister d);
+  inline void stb(Register d, const MemOperand& s);
+  inline void sth(Register d, const MemOperand& s);
+  inline void stw(Register d, const MemOperand& s);
+  inline void stx(Register d, const MemOperand& s) {
+	  if(s.IsImmediateOffset())
+		  Assembler::stx(d, s.base(), s.offset());
+	  else
+		  Assembler::stx(d, s.base(), s.regoffset());
+  }
+  inline void std(Register d, const MemOperand& s);
+  inline void stdf(FloatRegister d, const MemOperand& s);
   
   
- // Returns the size of a call in instructions. Note, the value returned is
+  // Returns the size of a call in instructions. Note, the value returned is
   // only valid as long as no entries are added to the constant pool between
   // checking the call size and emitting the actual call.
   static int CallSize(Register target)  { UNIMPLEMENTED(); }
