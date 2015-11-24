@@ -2408,35 +2408,25 @@ void RegExpExecStub::Generate(MacroAssembler* masm) {
 }
 
 
-static void CallStubInRecordCallTarget(MacroAssembler* masm, CodeStub* stub,
-                                       bool is_super) {
+static void CallStubInRecordCallTarget(MacroAssembler* masm, CodeStub* stub) {
   // r3 : number of arguments to the construct function
   // r4 : the function to call
   // r5 : feedback vector
   // r6 : slot in feedback vector (Smi)
-  // r7 : new target (for IsSuperConstructorCall)
   FrameAndConstantPoolScope scope(masm, StackFrame::INTERNAL);
 
   // Number-of-arguments register must be smi-tagged to call out.
   __ SmiTag(r3);
-  if (is_super) {
-    __ Push(r6, r5, r4, r3, r7);
-  } else {
-    __ Push(r6, r5, r4, r3);
-  }
+  __ Push(r6, r5, r4, r3);
 
   __ CallStub(stub);
 
-  if (is_super) {
-    __ Pop(r6, r5, r4, r3, r7);
-  } else {
-    __ Pop(r6, r5, r4, r3);
-  }
+  __ Pop(r6, r5, r4, r3);
   __ SmiUntag(r3);
 }
 
 
-static void GenerateRecordCallTarget(MacroAssembler* masm, bool is_super) {
+static void GenerateRecordCallTarget(MacroAssembler* masm) {
   // Cache the called function in a feedback vector slot.  Cache states
   // are uninitialized, monomorphic (indicated by a JSFunction), and
   // megamorphic.
@@ -2444,7 +2434,6 @@ static void GenerateRecordCallTarget(MacroAssembler* masm, bool is_super) {
   // r4 : the function to call
   // r5 : feedback vector
   // r6 : slot in feedback vector (Smi)
-  // r7 : new target (for IsSuperConstructorCall)
   Label initialize, done, miss, megamorphic, not_array_function;
 
   DCHECK_EQ(*TypeFeedbackVector::MegamorphicSentinel(masm->isolate()),
@@ -2518,13 +2507,13 @@ static void GenerateRecordCallTarget(MacroAssembler* masm, bool is_super) {
   // Create an AllocationSite if we don't already have it, store it in the
   // slot.
   CreateAllocationSiteStub create_stub(masm->isolate());
-  CallStubInRecordCallTarget(masm, &create_stub, is_super);
+  CallStubInRecordCallTarget(masm, &create_stub);
   __ b(&done);
 
   __ bind(&not_array_function);
 
   CreateWeakCellStub weak_cell_stub(masm->isolate());
-  CallStubInRecordCallTarget(masm, &weak_cell_stub, is_super);
+  CallStubInRecordCallTarget(masm, &weak_cell_stub);
   __ bind(&done);
 }
 
@@ -2534,7 +2523,6 @@ void CallConstructStub::Generate(MacroAssembler* masm) {
   // r4 : the function to call
   // r5 : feedback vector
   // r6 : slot in feedback vector (Smi, for RecordCallTarget)
-  // r7 : new target (for IsSuperConstructorCall)
 
   Label non_function;
   // Check that the function is not a smi.
@@ -2543,34 +2531,28 @@ void CallConstructStub::Generate(MacroAssembler* masm) {
   __ CompareObjectType(r4, r8, r8, JS_FUNCTION_TYPE);
   __ bne(&non_function);
 
-  if (RecordCallTarget()) {
-    GenerateRecordCallTarget(masm, IsSuperConstructorCall());
+  GenerateRecordCallTarget(masm);
 
-    __ SmiToPtrArrayOffset(r8, r6);
-    __ add(r8, r5, r8);
-    // Put the AllocationSite from the feedback vector into r5, or undefined.
-    __ LoadP(r5, FieldMemOperand(r8, FixedArray::kHeaderSize));
-    __ LoadP(r8, FieldMemOperand(r5, AllocationSite::kMapOffset));
-    __ CompareRoot(r8, Heap::kAllocationSiteMapRootIndex);
-    if (CpuFeatures::IsSupported(ISELECT)) {
-      __ LoadRoot(r8, Heap::kUndefinedValueRootIndex);
-      __ isel(eq, r5, r5, r8);
-    } else {
-      Label feedback_register_initialized;
-      __ beq(&feedback_register_initialized);
-      __ LoadRoot(r5, Heap::kUndefinedValueRootIndex);
-      __ bind(&feedback_register_initialized);
-    }
-
-    __ AssertUndefinedOrAllocationSite(r5, r8);
+  __ SmiToPtrArrayOffset(r8, r6);
+  __ add(r8, r5, r8);
+  // Put the AllocationSite from the feedback vector into r5, or undefined.
+  __ LoadP(r5, FieldMemOperand(r8, FixedArray::kHeaderSize));
+  __ LoadP(r8, FieldMemOperand(r5, AllocationSite::kMapOffset));
+  __ CompareRoot(r8, Heap::kAllocationSiteMapRootIndex);
+  if (CpuFeatures::IsSupported(ISELECT)) {
+    __ LoadRoot(r8, Heap::kUndefinedValueRootIndex);
+    __ isel(eq, r5, r5, r8);
+  } else {
+    Label feedback_register_initialized;
+    __ beq(&feedback_register_initialized);
+    __ LoadRoot(r5, Heap::kUndefinedValueRootIndex);
+    __ bind(&feedback_register_initialized);
   }
+
+  __ AssertUndefinedOrAllocationSite(r5, r8);
 
   // Pass function as new target.
-  if (IsSuperConstructorCall()) {
-    __ mr(r6, r7);
-  } else {
-    __ mr(r6, r4);
-  }
+  __ mr(r6, r4);
 
   // Tail call to the function-specific construct stub (still in the caller
   // context at this point).
@@ -2619,7 +2601,7 @@ void CallICStub::Generate(MacroAssembler* masm) {
       FixedArray::OffsetOfElementAt(TypeFeedbackVector::kWithTypesIndex);
   const int generic_offset =
       FixedArray::OffsetOfElementAt(TypeFeedbackVector::kGenericCountIndex);
-  Label extra_checks_or_miss, call;
+  Label extra_checks_or_miss, call, call_function;
   int argc = arg_count();
   ParameterCount actual(argc);
 
@@ -2656,9 +2638,10 @@ void CallICStub::Generate(MacroAssembler* masm) {
   __ AddSmiLiteral(r6, r6, Smi::FromInt(CallICNexus::kCallCountIncrement), r0);
   __ StoreP(r6, FieldMemOperand(r9, count_offset), r0);
 
-  __ bind(&call);
+  __ bind(&call_function);
   __ mov(r3, Operand(argc));
-  __ Jump(masm->isolate()->builtins()->Call(), RelocInfo::CODE_TARGET);
+  __ Jump(masm->isolate()->builtins()->CallFunction(convert_mode()),
+          RelocInfo::CODE_TARGET);
 
   __ bind(&extra_checks_or_miss);
   Label uninitialized, miss, not_allocation_site;
@@ -2699,7 +2682,11 @@ void CallICStub::Generate(MacroAssembler* masm) {
   __ LoadP(r7, FieldMemOperand(r5, generic_offset));
   __ AddSmiLiteral(r7, r7, Smi::FromInt(1), r0);
   __ StoreP(r7, FieldMemOperand(r5, generic_offset), r0);
-  __ b(&call);
+
+  __ bind(&call);
+  __ mov(r3, Operand(argc));
+  __ Jump(masm->isolate()->builtins()->Call(convert_mode()),
+          RelocInfo::CODE_TARGET);
 
   __ bind(&uninitialized);
 
@@ -2745,7 +2732,7 @@ void CallICStub::Generate(MacroAssembler* masm) {
     __ Pop(r4);
   }
 
-  __ b(&call);
+  __ b(&call_function);
 
   // We are here because tracing is on or we encountered a MISS case we can't
   // handle here.
@@ -5053,25 +5040,25 @@ void ArrayConstructorStub::Generate(MacroAssembler* masm) {
   GenerateDispatchToArrayStub(masm, DISABLE_ALLOCATION_SITES);
 
   __ bind(&subclassing);
-  __ push(r4);
-  __ push(r6);
-
-  // Adjust argc.
   switch (argument_count()) {
     case ANY:
     case MORE_THAN_ONE:
-      __ addi(r3, r3, Operand(2));
+      __ ShiftLeftImm(r0, r3, Operand(kPointerSizeLog2));
+      __ StorePX(r4, MemOperand(sp, r0));
+      __ addi(r3, r3, Operand(3));
       break;
     case NONE:
-      __ li(r3, Operand(2));
+      __ StoreP(r4, MemOperand(sp, 0 * kPointerSize));
+      __ li(r3, Operand(3));
       break;
     case ONE:
-      __ li(r3, Operand(3));
+      __ StoreP(r4, MemOperand(sp, 1 * kPointerSize));
+      __ li(r3, Operand(4));
       break;
   }
 
-  __ JumpToExternalReference(
-      ExternalReference(Runtime::kArrayConstructorWithSubclassing, isolate()));
+  __ Push(r6, r5);
+  __ JumpToExternalReference(ExternalReference(Runtime::kNewArray, isolate()));
 }
 
 
