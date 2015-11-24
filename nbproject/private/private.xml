@@ -10,11 +10,16 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/export/home/admin/v8/src/base/platform/platform-posix.cc</file>
+            <file>file:/export/home/admin/v8/src/assembler.cc</file>
             <file>file:/export/home/admin/v8/src/sparc/macro-assembler-sparc.h</file>
+            <file>file:/export/home/admin/v8/src/base/platform/platform-posix.cc</file>
+            <file>file:/export/home/admin/v8/src/assembler.h</file>
             <file>file:/export/home/admin/v8/src/sparc/constants-sparc.h</file>
             <file>file:/export/home/admin/v8/src/sparc/assembler-sparc.h</file>
             <file>file:/export/home/admin/v8/samples/prueba.cc</file>
+            <file>file:/export/home/admin/v8/src/allocation.h</file>
+            <file>file:/export/home/admin/v8/src/sparc/assembler-sparc.cc</file>
+            <file>file:/export/home/admin/v8/src/sparc/macro-assembler-sparc.cc</file>
             <file>file:/export/home/admin/v8/src/sparc/assembler-sparc-inl.h</file>
         </group>
     </open-files>

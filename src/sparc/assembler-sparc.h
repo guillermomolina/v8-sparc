@@ -46,12 +46,13 @@
 #include "src/assembler.h"
 #include "src/sparc/constants-sparc.h"
 
+#ifdef DEBUG
+#define CHECK_DELAY
+#endif
+
 namespace v8 {
 namespace internal {
 
-#ifdef DEBUG 
-#define CHECK_DELAY
-#endif
     
 // clang-format off
 #define GENERAL_REGISTERS(V)                              \
@@ -366,6 +367,8 @@ public:
 
   // Difference between address of current opcode and target address offset.
   static const int kBranchPCOffset = 4;
+  
+  static const bool UseCBCond = false;
 
   // Here we are patching the address in the LUI/ORI instruction pair.
   // These values are used in the serialization process and must be zero for
@@ -634,7 +637,7 @@ private:
   static int opf(      int         x)  { return  u_field(x,             13,  5); }
 
   static bool is_cbcond( int x ) {
-    return (/*VM_Version::has_cbcond() &&*/ (inv_cond(x) > rc_last) &&
+    return (/*VM_Version::has_cbcond() */false && (inv_cond(x) > rc_last) &&
             inv_op(x) == branch_op && inv_op2(x) == bpr_op2);
   }
   static bool is_cxb( int x ) {
@@ -749,6 +752,7 @@ private:
   // word offset for cbcond, 8 bits at [B12,B5], 2 bits at [B20,B19]
   static int wdisp10(int offset) {
    /* assert(VM_Version::has_cbcond(), "This CPU does not have CBCOND instruction");*/
+    DCHECK(false); //Do no use cbond
     assert_signed_word_disp_range(offset, 10);
     int r =  ( ( (offset >>  2   ) & ((1 << 8) - 1) ) <<  5 )
            | ( ( (offset >> (2+8)) & 3              ) << 19 );
@@ -804,30 +808,30 @@ private:
   }
 
   // AES crypto instructions supported only on certain processors
-  static void aes_only() { /*assert( VM_Version::has_aes(), "This instruction only works on SPARC with AES instructions support");*/ }
+  static void aes_only() { DCHECK(false);/*assert( VM_Version::has_aes(), "This instruction only works on SPARC with AES instructions support");*/ }
 
   // SHA crypto instructions supported only on certain processors
-  static void sha1_only()   { /*assert( VM_Version::has_sha1(),   "This instruction only works on SPARC with SHA1"); */}
-  static void sha256_only() { /*assert( VM_Version::has_sha256(), "This instruction only works on SPARC with SHA256"); */}
-  static void sha512_only() { /*assert( VM_Version::has_sha512(), "This instruction only works on SPARC with SHA512"); */}
+  static void sha1_only()   { DCHECK(false);/*assert( VM_Version::has_sha1(),   "This instruction only works on SPARC with SHA1"); */}
+  static void sha256_only() { DCHECK(false);/*assert( VM_Version::has_sha256(), "This instruction only works on SPARC with SHA256"); */}
+  static void sha512_only() { DCHECK(false);/*assert( VM_Version::has_sha512(), "This instruction only works on SPARC with SHA512"); */}
 
   // CRC32C instruction supported only on certain processors
-  static void crc32c_only() { /*assert( VM_Version::has_crc32c(), "This instruction only works on SPARC with CRC32C"); */}
+  static void crc32c_only() { DCHECK(false);/*assert( VM_Version::has_crc32c(), "This instruction only works on SPARC with CRC32C"); */}
 
   // instruction only in VIS1
-  static void vis1_only() { /*assert( VM_Version::has_vis1(), "This instruction only works on SPARC with VIS1");*/ }
+  static void vis1_only() { DCHECK(false);/*assert( VM_Version::has_vis1(), "This instruction only works on SPARC with VIS1");*/ }
 
   // instruction only in VIS2
-  static void vis2_only() { /*assert( VM_Version::has_vis2(), "This instruction only works on SPARC with VIS2"); */}
+  static void vis2_only() { DCHECK(false);/*assert( VM_Version::has_vis2(), "This instruction only works on SPARC with VIS2"); */}
 
   // instruction only in VIS3
-  static void vis3_only() {/* assert( VM_Version::has_vis3(), "This instruction only works on SPARC with VIS3");*/ }
+  static void vis3_only() {DCHECK(false);/* assert( VM_Version::has_vis3(), "This instruction only works on SPARC with VIS3");*/ }
 
   // instruction only in v9
   static void v9_only() { } // do nothing
 
   // instruction deprecated in v9
-  static void v9_dep()  { DCHECK(false); } // do nothing for now
+  static void v9_dep()  { DCHECK(false); } 
 
   // v8 has no CC field
   static void v8_no_cc(CC cc)  { if (cc)  v9_only(); }
@@ -857,7 +861,7 @@ private:
  protected:
   // Insert a nop if the previous is cbcond
   void insert_nop_after_cbcond() {
-    if (/*UseCBCond &&*/ cbcond_before()) {
+    if (UseCBCond && cbcond_before()) {
       nop();
     }
   }
@@ -896,7 +900,7 @@ private:
 public:
 
   bool use_cbcond(Label* L) {
-    if (/*!UseCBCond ||*/ cbcond_before()) return false;
+    if (!UseCBCond || cbcond_before()) return false;
     int x = branch_offset(L);;
     DCHECK( (x & 3) == 0);//, "not word aligned");
     return is_simm12(x);
@@ -977,10 +981,10 @@ public:
   inline void fbp( FPUCondition c, bool a, CC cc, Predict p, Label* L );
 
   // pp 144
-/*
+
   inline void br( Condition c, bool a, int disp22 );
   inline void br( Condition c, bool a, Label* L );
-*/
+
   // pp 146
 
   inline void bp( Condition c, bool a, CC cc, Predict p, int disp19 );
@@ -1507,6 +1511,7 @@ private:
  
   // Emit the instruction at pc_.
   void Emit(Instr instruction) {
+    check_delay();
     STATIC_ASSERT(sizeof(*pc_) == 1);
     STATIC_ASSERT(sizeof(instruction) == kInstructionSize);
     DCHECK((pc_ + sizeof(instruction)) <= (buffer_ + buffer_size_));
@@ -1518,6 +1523,7 @@ private:
 
   // Emit data inline in the instruction stream.
   void EmitData(void const * data, unsigned size) {
+    check_delay();
     DCHECK(sizeof(*pc_) == 1);
     DCHECK((pc_ + size) <= (buffer_ + buffer_size_));
 

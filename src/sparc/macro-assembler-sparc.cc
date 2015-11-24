@@ -19,16 +19,7 @@
 
 namespace v8 {
 namespace internal {
-    
-MemOperand::MemOperand(Register base, int offset)
-  : base_(base), regoffset_(NoReg), offset_(offset) {
-	  DCHECK(Assembler::is_simm13(offset_));
-}
-
-::MemOperand(Register base, Register regoffset)
-  : base_(base), regoffset_(regoffset), offset_(0) {
-}
-
+ 
 void MacroAssembler::set64(int64_t value, Register d, Register tmp) {
   assert_not_delayed();
   v9_dep();
@@ -86,6 +77,177 @@ MacroAssembler::MacroAssembler(Isolate* arg_isolate, void* buffer, int size)
     code_object_ =
         Handle<Object>::New(isolate()->heap()->undefined_value(), isolate());
   }
+}
+
+// Use the right branch for the platform
+
+void MacroAssembler::br( Condition c, bool a, Predict p, int d ) {
+  Assembler::bp(c, a, icc, p, d);
+}
+
+void MacroAssembler::br( Condition c, bool a, Predict p, Label* L ) {
+  insert_nop_after_cbcond();
+  br(c, a, p, branch_offset(L));
+}
+
+
+// Branch that tests either xcc or icc depending on the
+// architecture compiled (LP64 or not)
+void MacroAssembler::brx( Condition c, bool a, Predict p, int d ) {
+#ifdef _LP64
+    Assembler::bp(c, a, xcc, p, d);
+#else
+    MacroAssembler::br(c, a, p, d);
+#endif
+}
+
+void MacroAssembler::brx( Condition c, bool a, Predict p, Label* L ) {
+  insert_nop_after_cbcond();
+  brx(c, a, p, branch_offset(L));
+}
+
+void MacroAssembler::ba( Label* L ) {
+  br(always, false, pt, L);
+}
+
+// Warning: V9 only functions
+void MacroAssembler::bp( Condition c, bool a, CC cc, Predict p, int d ) {
+  Assembler::bp(c, a, cc, p, d);
+}
+
+void MacroAssembler::bp( Condition c, bool a, CC cc, Predict p, Label* L ) {
+  Assembler::bp(c, a, cc, p, L);
+}
+
+void MacroAssembler::fb( FPUCondition c, bool a, Predict p, int d ) {
+  fbp(c, a, fcc0, p, d);
+}
+
+void MacroAssembler::fb( FPUCondition c, bool a, Predict p, Label* L ) {
+  insert_nop_after_cbcond();
+  fb(c, a, p, branch_offset(L));
+}
+
+void MacroAssembler::fbp( FPUCondition c, bool a, CC cc, Predict p, int d ) {
+  Assembler::fbp(c, a, cc, p, d);
+}
+
+void MacroAssembler::fbp( FPUCondition c, bool a, CC cc, Predict p, Label* L ) {
+  Assembler::fbp(c, a, cc, p, L);
+}
+
+// compares (32 bit) register with zero and branches.  NOT FOR USE WITH 64-bit POINTERS
+void MacroAssembler::cmp_zero_and_br(Condition c, Register s1, Label* L, bool a, Predict p) {
+  tst(s1);
+  br (c, a, p, L);
+}
+
+// Compares a pointer register with zero and branches on null.
+// Does a test & branch on 32-bit systems and a register-branch on 64-bit.
+void MacroAssembler::br_null( Register s1, bool a, Predict p, Label* L ) {
+  assert_not_delayed();
+#ifdef _LP64
+  bpr( rc_z, a, p, s1, L );
+#else
+  tst(s1);
+  br ( zero, a, p, L );
+#endif
+}
+
+void MacroAssembler::br_notnull( Register s1, bool a, Predict p, Label* L ) {
+  assert_not_delayed();
+#ifdef _LP64
+  bpr( rc_nz, a, p, s1, L );
+#else
+  tst(s1);
+  br ( notZero, a, p, L );
+#endif
+}
+
+// Compare registers and branch with nop in delay slot or cbcond without delay slot.
+
+// Compare integer (32 bit) values (icc only).
+void MacroAssembler::cmp_and_br_short(Register s1, Register s2, Condition c,
+                                      Predict p, Label* L) {
+  assert_not_delayed();
+  if (use_cbcond(L)) {
+    Assembler::cbcond(c, icc, s1, s2, L);
+  } else {
+    cmp(s1, s2);
+    br(c, false, p, L);
+    delayed()->nop();
+  }
+}
+
+// Compare integer (32 bit) values (icc only).
+void MacroAssembler::cmp_and_br_short(Register s1, int simm13a, Condition c,
+                                      Predict p, Label* L) {
+  assert_not_delayed();
+  if (is_simm(simm13a,5) && use_cbcond(L)) {
+    Assembler::cbcond(c, icc, s1, simm13a, L);
+  } else {
+    cmp(s1, simm13a);
+    br(c, false, p, L);
+    delayed()->nop();
+  }
+}
+
+// Branch that tests xcc in LP64 and icc in !LP64
+void MacroAssembler::cmp_and_brx_short(Register s1, Register s2, Condition c,
+                                       Predict p, Label* L) {
+  assert_not_delayed();
+  if (use_cbcond(L)) {
+    Assembler::cbcond(c, ptr_cc, s1, s2, L);
+  } else {
+    cmp(s1, s2);
+    brx(c, false, p, L);
+    delayed()->nop();
+  }
+}
+
+// Branch that tests xcc in LP64 and icc in !LP64
+void MacroAssembler::cmp_and_brx_short(Register s1, int simm13a, Condition c,
+                                       Predict p, Label* L) {
+  assert_not_delayed();
+  if (is_simm(simm13a,5) && use_cbcond(L)) {
+    Assembler::cbcond(c, ptr_cc, s1, simm13a, L);
+  } else {
+    cmp(s1, simm13a);
+    brx(c, false, p, L);
+    delayed()->nop();
+  }
+}
+
+// Short branch version for compares a pointer with zero.
+
+void MacroAssembler::br_null_short(Register s1, Predict p, Label* L) {
+  assert_not_delayed();
+  if (use_cbcond(L)) {
+    Assembler::cbcond(zero, ptr_cc, s1, 0, L);
+    return;
+  }
+  br_null(s1, false, p, L);
+  delayed()->nop();
+}
+
+void MacroAssembler::br_notnull_short(Register s1, Predict p, Label* L) {
+  assert_not_delayed();
+  if (use_cbcond(L)) {
+    Assembler::cbcond(notZero, ptr_cc, s1, 0, L);
+    return;
+  }
+  br_notnull(s1, false, p, L);
+  delayed()->nop();
+}
+
+// Unconditional short branch
+void MacroAssembler::ba_short(Label* L) {
+  if (use_cbcond(L)) {
+    Assembler::cbcond(equal, icc, g0, g0, L);
+    return;
+  }
+  br(always, false, pt, L);
+  delayed()->nop();
 }
 
  void MacroAssembler::EnterFrame(StackFrame::Type type,

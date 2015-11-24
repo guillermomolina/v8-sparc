@@ -60,8 +60,15 @@ private:
 // Class MemOperand represents a memory operand in load and store instructions
 class MemOperand BASE_EMBEDDED {
  public:
-  inline explicit MemOperand(Register base, int offset);
-  inline explicit MemOperand(Register base, Register regoffset = g0);
+   
+  MemOperand(Register base, int offset)
+    : base_(base), regoffset_(no_reg), offset_(offset) {
+      DCHECK(is_int13(offset_));
+  }
+
+  MemOperand(Register base, Register regoffset = g0)
+    : base_(base), regoffset_(regoffset), offset_(0) {
+  }
 
   const Register& base() const { return base_; }
   const Register& regoffset() const { return regoffset_; }
@@ -117,6 +124,55 @@ public:
   void stdf( FloatRegister d, Register s1, int simm13a ) { stf(FloatRegister::D, d, s1, simm13a); }
   void stdfa( FloatRegister d, Register s1, Register s2, int ia ) { stfa(FloatRegister::D, d, s1, s2, ia); }
   void stdfa( FloatRegister d, Register s1, int simm13a ) { stfa(FloatRegister::D, d, s1, simm13a); }
+
+
+  // branches that use right instruction for v8 vs. v9
+  void br( Condition c, bool a, Predict p, int d );
+  void br( Condition c, bool a, Predict p, Label* L );
+
+  void fb( FPUCondition c, bool a, Predict p, int d );
+  void fb( FPUCondition c, bool a, Predict p, Label* L );
+
+  // compares register with zero (32 bit) and branches (V9 and V8 instructions)
+  void cmp_zero_and_br( Condition c, Register s1, Label* L, bool a = false, Predict p = pn );
+  // Compares a pointer register with zero and branches on (not)null.
+  // Does a test & branch on 32-bit systems and a register-branch on 64-bit.
+  void br_null   ( Register s1, bool a, Predict p, Label* L );
+  void br_notnull( Register s1, bool a, Predict p, Label* L );
+
+  //
+  // Compare registers and branch with nop in delay slot or cbcond without delay slot.
+  //
+  // ATTENTION: use these instructions with caution because cbcond instruction
+  //            has very short distance: 512 instructions (2Kbyte).
+
+  // Compare integer (32 bit) values (icc only).
+  void cmp_and_br_short(Register s1, Register s2, Condition c, Predict p, Label* L);
+  void cmp_and_br_short(Register s1, int simm13a, Condition c, Predict p, Label* L);
+  // Platform depending version for pointer compare (icc on !LP64 and xcc on LP64).
+  void cmp_and_brx_short(Register s1, Register s2, Condition c, Predict p, Label* L);
+  void cmp_and_brx_short(Register s1, int simm13a, Condition c, Predict p, Label* L);
+
+  // Short branch version for compares a pointer pwith zero.
+  void br_null_short   ( Register s1, Predict p, Label* L );
+  void br_notnull_short( Register s1, Predict p, Label* L );
+
+  // unconditional short branch
+  void ba_short(Label* L);
+
+  void bp( Condition c, bool a, CC cc, Predict p, int d );
+  void bp( Condition c, bool a, CC cc, Predict p, Label* L );
+
+  // Branch that tests xcc in LP64 and icc in !LP64
+  void brx( Condition c, bool a, Predict p, int d );
+  void brx( Condition c, bool a, Predict p, Label* L );
+
+  // unconditional branch
+  void ba( Label* L );
+
+  // Branch that tests fp condition codes
+  void fbp( FPUCondition c, bool a, CC cc, Predict p, int d );
+  void fbp( FPUCondition c, bool a, CC cc, Predict p, Label* L );
 
   // pp 297 Synthetic Instructions
   inline void cmp(  Register s1, Register s2 ) { subcc( s1, s2, g0 ); }

@@ -8607,137 +8607,13 @@
               <in>resources.cc</in>
             </df>
           </df>
-          <df name="obj.host">
-            <df name="gtest">
-              <df name="testing">
-                <df name="gtest">
-                  <df name="src">
-                  </df>
-                </df>
-              </df>
-            </df>
-            <df name="testing">
-            </df>
-            <df name="third_party">
-              <df name="icu">
-              </df>
-            </df>
-          </df>
           <df name="obj.target">
-            <df name="build">
-            </df>
-            <df name="cctest">
-              <df name="gen">
-              </df>
-              <df name="test">
-                <df name="cctest">
-                  <df name="compiler">
-                  </df>
-                  <df name="interpreter">
-                  </df>
-                </df>
-              </df>
-            </df>
-            <df name="d8">
-              <df name="gen">
-              </df>
-              <df name="src">
-              </df>
-            </df>
-            <df name="gmock">
-              <df name="testing">
-                <df name="gmock">
-                  <df name="src">
-                  </df>
-                </df>
-              </df>
-            </df>
-            <df name="gtest">
-              <df name="testing">
-                <df name="gtest">
-                  <df name="src">
-                  </df>
-                </df>
-              </df>
-            </df>
-            <df name="hello-world">
-              <df name="samples">
-              </df>
-            </df>
-            <df name="icui18n">
-              <df name="third_party">
-                <df name="icu">
-                  <df name="source">
-                    <df name="i18n">
-                    </df>
-                  </df>
-                </df>
-              </df>
-            </df>
-            <df name="icuuc">
-              <df name="third_party">
-                <df name="icu">
-                  <df name="source">
-                    <df name="common">
-                    </df>
-                    <df name="stubdata">
-                    </df>
-                  </df>
-                </df>
-              </df>
-            </df>
-            <df name="parser-shell">
-              <df name="tools">
-              </df>
-            </df>
-            <df name="process">
-              <df name="samples">
-              </df>
-            </df>
             <df name="prueba">
               <df name="samples">
               </df>
             </df>
-            <df name="shell">
-              <df name="samples">
-              </df>
-            </df>
-            <df name="src">
-            </df>
-            <df name="test">
-              <df name="cctest">
-              </df>
-            </df>
-            <df name="testing">
-            </df>
-            <df name="third_party">
-              <df name="icu">
-              </df>
-            </df>
             <df name="tools">
               <df name="gyp">
-              </df>
-            </df>
-            <df name="unittests">
-              <df name="test">
-                <df name="unittests">
-                  <df name="base">
-                    <df name="platform">
-                    </df>
-                    <df name="utils">
-                    </df>
-                  </df>
-                  <df name="compiler">
-                  </df>
-                  <df name="heap">
-                  </df>
-                  <df name="interpreter">
-                  </df>
-                  <df name="libplatform">
-                  </df>
-                  <df name="runtime">
-                  </df>
-                </df>
               </df>
             </df>
             <df name="v8_base">

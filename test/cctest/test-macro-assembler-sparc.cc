@@ -50,6 +50,7 @@ typedef int (*F2)(int64_t x, int64_t y);
 typedef unsigned (*F3)(double x);
 typedef uint64_t (*F4)(uint64_t* x, uint64_t* y);
 typedef uint64_t (*F5)(uint64_t x);
+typedef double (*F6)(double x, double y);
 
 #define __ masm.
 

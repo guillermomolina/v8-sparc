@@ -40,17 +40,6 @@
 
 using namespace v8::internal;
 
-// Test the SPARC assembler by compiling some simple functions into
-// a buffer and executing them.  These tests do not initialize the
-// V8 library, create a context, or use any V8 objects.
-
-typedef int (*F0)();
-typedef int (*F1)(int64_t x);
-typedef int (*F2)(int64_t x, int64_t y);
-typedef unsigned (*F3)(double x);
-typedef uint64_t (*F4)(uint64_t* x, uint64_t* y);
-typedef uint64_t (*F5)(uint64_t x);
-typedef double (*F6)(double x, double y);
 
 #define __ assm.
 

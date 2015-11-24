@@ -280,7 +280,7 @@ inline void Assembler::fbp( FPUCondition c, bool a, CC cc, Predict p, Label* L )
     fbp(c, a, cc, p, branch_offset(L)); 
 }
 
-/*
+
 inline void Assembler::br( Condition c, bool a, int disp22 ) {
     v9_dep(); 
     insert_nop_after_cbcond(); 
@@ -293,7 +293,7 @@ inline void Assembler::br( Condition c, bool a, Label* L ) {
  insert_nop_after_cbcond(); 
   br(c, a, branch_offset(L));
 }
-*/
+
 
 inline void Assembler::bp( Condition c, bool a, CC cc, Predict p,int disp19 ) { 
     v9_only();  

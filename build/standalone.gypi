@@ -375,11 +375,11 @@
     'configurations': {
       'DebugBaseCommon': {
         'conditions': [
-          ['OS=="aix"', {
+         ['OS=="aix"', {
             'cflags': [ '-g', '-Og', '-gxcoff' ],
           }, {
-            'cflags': [ '-g', '-O0' ],
-          }],
+           'cflags': [ '-g', '-O0' ],
+         }],
         ],
       },
       'Optdebug': {

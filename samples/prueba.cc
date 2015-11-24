@@ -102,16 +102,17 @@ int main(int argc, char* argv[]) {
   int locals_count = 18;
   int Root=1;
   __ save(sp, -176, sp); // Make room in stack
-  __ add(sp, g2, sp); //Make Room in stack
-  __ add(fp, STACK_BIAS - kPointerSize, g1);
-  __ add(fp, STACK_BIAS - (locals_count + 1) * kPointerSize, g3);
+  __ add(sp, -locals_count * kPointerSize, sp); //Make Room in stack
   __ mov(Root, g2);
+  __ add(fp, kStackBias - kPointerSize, g1);
+  __ add(fp, kStackBias - (locals_count + 1) * kPointerSize, g3);
+  __ stx(g2, MemOperand(g1));
   Label loop;
   __ bind(&loop);
-  __ stx(g2, MemOperand(g1));
   __ add(g1, -kPointerSize, g1);
-  __ cbcond(notEqual, xcc, g1, g3, &loop);
-  __ delayed()->nop():
+  __ cmp(g1, g3);
+  __ brx(notEqual, true, pt, &loop);
+  __ delayed()->stx(g2, MemOperand(g1));;
   __ ret(); 
   __ delayed()->restore(); // free the stack
 /*
