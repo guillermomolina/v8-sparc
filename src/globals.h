@@ -695,6 +695,7 @@ struct AccessorDescriptor {
 
 // CPU feature flags.
 enum CpuFeature {
+#if V8_HOST_ARCH_IA32 || V8_HOST_ARCH_X64
   // x86
   SSE4_1,
   SSE3,
@@ -706,6 +707,8 @@ enum CpuFeature {
   LZCNT,
   POPCNT,
   ATOM,
+#endif
+#if V8_HOST_ARCH_ARM || V8_HOST_ARCH_ARM64
   // ARM
   VFP3,
   ARMv7,
@@ -716,19 +719,37 @@ enum CpuFeature {
   MOVW_MOVT_IMMEDIATE_LOADS,
   VFP32DREGS,
   NEON,
+#endif
+#if V8_HOST_ARCH_MIPS || V8_HOST_ARCH_MIPS64
   // MIPS, MIPS64
   FPU,
   FP64FPU,
   MIPSr1,
   MIPSr2,
   MIPSr6,
+#endif
+#ifdef V8_HOST_ARCH_ARM64
   // ARM64
   ALWAYS_ALIGN_CSP,
   COHERENT_CACHE,
+#endif
+#if V8_HOST_ARCH_PPC
   // PPC
   FPR_GPR_MOV,
   LWSYNC,
   ISELECT,
+#endif
+#if V8_HOST_ARCH_SPARC
+  CBCOND,
+  AES,
+  SHA1,
+  SHA256,
+  SHA512,
+  CRC32C,
+  VIS1,
+  VIS2,
+  VIS3,
+#endif
   NUMBER_OF_CPU_FEATURES
 };
 

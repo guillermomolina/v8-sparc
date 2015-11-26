@@ -1442,6 +1442,7 @@
             '../../src/sparc/frames-sparc.h',
             '../../src/sparc/interface-descriptors-sparc.cc',
             '../../src/sparc/interface-descriptors-sparc.h',
+            '../../src/sparc/macro-assembler-sparc-inl.h',
             '../../src/sparc/macro-assembler-sparc.cc',
             '../../src/sparc/macro-assembler-sparc.h',
             '../../src/sparc/simulator-sparc.cc',

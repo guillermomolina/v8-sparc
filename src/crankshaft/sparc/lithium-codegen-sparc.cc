@@ -904,11 +904,6 @@ void LCodeGen::DoCallFunction(LCallFunction* instr) {
 }
 
 
-void LCodeGen::DoCallNew(LCallNew* instr) {
-    UNIMPLEMENTED();
-}
-
-
 void LCodeGen::DoCallNewArray(LCallNewArray* instr) {
     UNIMPLEMENTED();
 }

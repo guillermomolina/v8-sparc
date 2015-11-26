@@ -124,7 +124,7 @@ CodeAgingHelper::CodeAgingHelper() {
   // following boilerplate stack-building prologue that is found both in
   // FUNCTION and OPTIMIZED_FUNCTION code:
   CodePatcher patcher(young_sequence_.start(), young_sequence_.length());
-  patcher.masm()->save(sp, -kFixedFrameSize, sp);
+  patcher.masm()->Save();
 }
 
 

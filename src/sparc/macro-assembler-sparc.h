@@ -13,6 +13,9 @@
 namespace v8 {
 namespace internal {
 
+// <sys/trap.h> promises that the system will not use traps 16-31
+#define ST_RESERVED_FOR_USER_0 0x10
+
 // Give alias names to registers for calling conventions.
 const Register kReturnRegister0 = {Register::kCode_i0};
 const Register kReturnRegister1 = {Register::kCode_i1};
@@ -96,7 +99,14 @@ public:
   // support for delayed instructions
   MacroAssembler* delayed() { Assembler::delayed();  return this; }
  
+  inline void Save(int locals_count = 0);
+ 
   void set64(int64_t value, Register d, Register tmp);
+
+  // traps as per trap.h (SPARC ABI?)
+
+  void breakpoint_trap();
+  void breakpoint_trap(Condition c, CC cc);
 
   // Double only float instructions
   void faddd(FloatRegister s1, FloatRegister s2, FloatRegister d ) { fadd(FloatRegister::D, s1, s2, d); }
@@ -127,11 +137,11 @@ public:
 
 
   // branches that use right instruction for v8 vs. v9
-  void br( Condition c, bool a, Predict p, int d );
-  void br( Condition c, bool a, Predict p, Label* L );
+  inline void br( Condition c, bool a, Predict p, int d );
+  inline void br( Condition c, bool a, Predict p, Label* L );
 
-  void fb( FPUCondition c, bool a, Predict p, int d );
-  void fb( FPUCondition c, bool a, Predict p, Label* L );
+  inline void fb( FPUCondition c, bool a, Predict p, int d );
+  inline void fb( FPUCondition c, bool a, Predict p, Label* L );
 
   // compares register with zero (32 bit) and branches (V9 and V8 instructions)
   void cmp_zero_and_br( Condition c, Register s1, Label* L, bool a = false, Predict p = pn );
@@ -160,18 +170,18 @@ public:
   // unconditional short branch
   void ba_short(Label* L);
 
-  void bp( Condition c, bool a, CC cc, Predict p, int d );
-  void bp( Condition c, bool a, CC cc, Predict p, Label* L );
+  inline void bp( Condition c, bool a, CC cc, Predict p, int d );
+  inline void bp( Condition c, bool a, CC cc, Predict p, Label* L );
 
   // Branch that tests xcc in LP64 and icc in !LP64
-  void brx( Condition c, bool a, Predict p, int d );
-  void brx( Condition c, bool a, Predict p, Label* L );
+  inline void brx( Condition c, bool a, Predict p, int d );
+  inline void brx( Condition c, bool a, Predict p, Label* L );
 
   // unconditional branch
-  void ba( Label* L );
+  inline void ba( Label* L );
 
   // Branch that tests fp condition codes
-  void fbp( FPUCondition c, bool a, CC cc, Predict p, int d );
+  inline void fbp( FPUCondition c, bool a, CC cc, Predict p, int d );
   void fbp( FPUCondition c, bool a, CC cc, Predict p, Label* L );
 
   // pp 297 Synthetic Instructions
@@ -246,6 +256,12 @@ public:
         assert_not_delayed();  // Put something useful in the delay slot!
   }
   inline void mov( int simm13a, Register d) { or3( g0, simm13a, d); }
+
+  using Assembler::stb;
+  using Assembler::sth;
+  using Assembler::stw;
+  using Assembler::stx;
+  using Assembler::std;
   
   // MemOperand based Loads and Stores
   inline void ldsb(const MemOperand& s, Register d);
@@ -260,12 +276,7 @@ public:
   inline void stb(Register d, const MemOperand& s);
   inline void sth(Register d, const MemOperand& s);
   inline void stw(Register d, const MemOperand& s);
-  inline void stx(Register d, const MemOperand& s) {
-	  if(s.IsImmediateOffset())
-		  Assembler::stx(d, s.base(), s.offset());
-	  else
-		  Assembler::stx(d, s.base(), s.regoffset());
-  }
+  inline void stx(Register d, const MemOperand& s);
   inline void std(Register d, const MemOperand& s);
   inline void stdf(FloatRegister d, const MemOperand& s);
   

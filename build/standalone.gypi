@@ -699,6 +699,7 @@
           }],
           [ 'OS=="solaris"', {
              'defines': [ '_GLIBCXX_USE_C99_MATH', ],
+             'libraries': [ '-lkstat' ],
           }],
         ],
       },

@@ -178,6 +178,12 @@ void CallTrampolineDescriptor::InitializePlatformSpecific(
 }
 
 
+void ConstructTrampolineDescriptor::InitializePlatformSpecific(
+    CallInterfaceDescriptorData* data) {
+ UNIMPLEMENTED();
+}
+
+
 void RegExpConstructResultDescriptor::InitializePlatformSpecific(
     CallInterfaceDescriptorData* data) {
  UNIMPLEMENTED();

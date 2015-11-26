@@ -263,7 +263,8 @@ const DoubleRegister no_double_reg = {DoubleRegister::kCode_no_reg};
 typedef DoubleRegister FPURegister;
 typedef DoubleRegister FloatRegister;
 
-// Register aliases.
+// Register aliases
+#define cp g5
 #define kLithiumScratchReg l0
 #define kLithiumScratchReg2 l1
 #define kLithiumScratchDouble f60
@@ -637,7 +638,7 @@ private:
   static int opf(      int         x)  { return  u_field(x,             13,  5); }
 
   static bool is_cbcond( int x ) {
-    return (/*VM_Version::has_cbcond() */false && (inv_cond(x) > rc_last) &&
+    return (CpuFeatures::IsSupported(CBCOND) && (inv_cond(x) > rc_last) &&
             inv_op(x) == branch_op && inv_op2(x) == bpr_op2);
   }
   static bool is_cxb( int x ) {
@@ -751,8 +752,7 @@ private:
 
   // word offset for cbcond, 8 bits at [B12,B5], 2 bits at [B20,B19]
   static int wdisp10(int offset) {
-   /* assert(VM_Version::has_cbcond(), "This CPU does not have CBCOND instruction");*/
-    DCHECK(false); //Do no use cbond
+    DCHECK(CpuFeatures::IsSupported(CBCOND)); 
     assert_signed_word_disp_range(offset, 10);
     int r =  ( ( (offset >>  2   ) & ((1 << 8) - 1) ) <<  5 )
            | ( ( (offset >> (2+8)) & 3              ) << 19 );
@@ -808,24 +808,24 @@ private:
   }
 
   // AES crypto instructions supported only on certain processors
-  static void aes_only() { DCHECK(false);/*assert( VM_Version::has_aes(), "This instruction only works on SPARC with AES instructions support");*/ }
+  static void aes_only() { DCHECK(CpuFeatures::IsSupported(AES)); }
 
   // SHA crypto instructions supported only on certain processors
-  static void sha1_only()   { DCHECK(false);/*assert( VM_Version::has_sha1(),   "This instruction only works on SPARC with SHA1"); */}
-  static void sha256_only() { DCHECK(false);/*assert( VM_Version::has_sha256(), "This instruction only works on SPARC with SHA256"); */}
-  static void sha512_only() { DCHECK(false);/*assert( VM_Version::has_sha512(), "This instruction only works on SPARC with SHA512"); */}
+  static void sha1_only()   {  DCHECK(CpuFeatures::IsSupported(SHA1)); }
+  static void sha256_only() {  DCHECK(CpuFeatures::IsSupported(SHA256)); }
+  static void sha512_only() {  DCHECK(CpuFeatures::IsSupported(SHA512)); }
 
   // CRC32C instruction supported only on certain processors
-  static void crc32c_only() { DCHECK(false);/*assert( VM_Version::has_crc32c(), "This instruction only works on SPARC with CRC32C"); */}
+  static void crc32c_only() { DCHECK(CpuFeatures::IsSupported(CRC32C)); }
 
   // instruction only in VIS1
-  static void vis1_only() { DCHECK(false);/*assert( VM_Version::has_vis1(), "This instruction only works on SPARC with VIS1");*/ }
+  static void vis1_only() { DCHECK(CpuFeatures::IsSupported(VIS1)); }
 
   // instruction only in VIS2
-  static void vis2_only() { DCHECK(false);/*assert( VM_Version::has_vis2(), "This instruction only works on SPARC with VIS2"); */}
+  static void vis2_only() { DCHECK(CpuFeatures::IsSupported(VIS2)); }
 
   // instruction only in VIS3
-  static void vis3_only() {DCHECK(false);/* assert( VM_Version::has_vis3(), "This instruction only works on SPARC with VIS3");*/ }
+  static void vis3_only() {DCHECK(CpuFeatures::IsSupported(VIS3)); }
 
   // instruction only in v9
   static void v9_only() { } // do nothing
@@ -907,7 +907,7 @@ public:
   }
 
   // Tells assembler you know that next instruction is delayed
-  Assembler* delayed() {
+  virtual Assembler* delayed() {
 #ifdef CHECK_DELAY
     DCHECK( delay_state == at_delay_slot); //, "delayed instruction is not in delay slot");
     delay_state = filling_delay_slot;
@@ -977,8 +977,8 @@ public:
 
   // pp 141
 
-  inline void fbp( FPUCondition c, bool a, CC cc, Predict p, int disp19 );
-  inline void fbp( FPUCondition c, bool a, CC cc, Predict p, Label* L );
+  inline virtual void fbp( FPUCondition c, bool a, CC cc, Predict p, int disp19 );
+  inline virtual void fbp( FPUCondition c, bool a, CC cc, Predict p, Label* L );
 
   // pp 144
 
@@ -987,8 +987,8 @@ public:
 
   // pp 146
 
-  inline void bp( Condition c, bool a, CC cc, Predict p, int disp19 );
-  inline void bp( Condition c, bool a, CC cc, Predict p, Label* L );
+  inline virtual void bp( Condition c, bool a, CC cc, Predict p, int disp19 );
+  inline virtual void bp( Condition c, bool a, CC cc, Predict p, Label* L );
 
   // pp 149
 
@@ -1308,10 +1308,6 @@ public:
 
   void stfa(  FloatRegister::Width w, FloatRegister d, Register s1, Register s2, int ia ) { v9_only();  Emit( op(ldst_op) | fd(d, w) | alt_op3(stf_op3 | alt_bit_op3, w) | rs1(s1) | imm_asi(ia) | rs2(s2) ); }
   void stfa(  FloatRegister::Width w, FloatRegister d, Register s1, int simm13a         ) { v9_only();  Emit( op(ldst_op) | fd(d, w) | alt_op3(stf_op3 | alt_bit_op3, w) | rs1(s1) | immed(true) | simm(simm13a, 13) ); }
-  void stdf( FloatRegister d, Register s1, Register s2) { stf(FloatRegister::D, d, s1, s2); }
-  void stdf( FloatRegister d, Register s1, int simm13a ) { stf(FloatRegister::D, d, s1, simm13a); }
-  void stdfa( FloatRegister d, Register s1, Register s2, int ia ) { stfa(FloatRegister::D, d, s1, s2, ia); }
-  void stdfa( FloatRegister d, Register s1, int simm13a ) { stfa(FloatRegister::D, d, s1, simm13a); }
 
   // p 226
 
@@ -1395,74 +1391,64 @@ public:
   inline void wrfprs( Register d) { v9_only(); Emit( op(arith_op) | rs1(d) | op3(wrreg_op3) | u_field(6, 29, 25)); }
 
   // pp 297 Synthetic Instructions
-  inline void cmp(  Register s1, Register s2 ) { subcc( s1, s2, g0 ); }
-  inline void cmp(  Register s1, int simm13a ) { subcc( s1, simm13a, g0 ); }
+  inline virtual void cmp(  Register s1, Register s2 ) { subcc( s1, s2, g0 ); }
+  inline virtual void cmp(  Register s1, int simm13a ) { subcc( s1, simm13a, g0 ); }
 
-  inline void tst( Register s ) { orcc( g0, s, g0 ); }
+  inline virtual void tst( Register s ) { orcc( g0, s, g0 ); }
 
-  inline void ret()   { jmpl( i7, 2 * kInstructionSize, g0 ); }
-  inline void retl()  { jmpl( o7, 2 * kInstructionSize, g0 ); }
+  inline virtual void ret()   { jmpl( i7, 2 * kInstructionSize, g0 ); }
+  inline virtual void retl()  { jmpl( o7, 2 * kInstructionSize, g0 ); }
  
   // sign-extend 32 to 64
-  inline void signx( Register s, Register d ) { sra( s, g0, d); }
-  inline void signx( Register d )             { sra( d, g0, d); }
+  inline virtual void signx( Register s, Register d ) { sra( s, g0, d); }
+  inline virtual void signx( Register d )             { sra( d, g0, d); }
 
-  inline void not1( Register s, Register d ) { xnor( s, g0, d ); }
-  inline void not1( Register d )             { xnor( d, g0, d ); }
+  inline virtual void not1( Register s, Register d ) { xnor( s, g0, d ); }
+  inline virtual void not1( Register d )             { xnor( d, g0, d ); }
 
-  inline void neg( Register s, Register d ) { sub( g0, s, d ); }
-  inline void neg( Register d )             { sub( g0, d, d ); }
+  inline virtual void neg( Register s, Register d ) { sub( g0, s, d ); }
+  inline virtual void neg( Register d )             { sub( g0, d, d ); }
 
-  inline void cas(  Register s1, Register s2, Register d) { casa( s1, s2, d, ASI_PRIMARY); }
-  inline void casx( Register s1, Register s2, Register d) { casxa(s1, s2, d, ASI_PRIMARY); }
-  inline void cas_ptr(  Register s1, Register s2, Register d) { casx( s1, s2, d ); }
+  inline virtual void cas(  Register s1, Register s2, Register d) { casa( s1, s2, d, ASI_PRIMARY); }
+  inline virtual void casx( Register s1, Register s2, Register d) { casxa(s1, s2, d, ASI_PRIMARY); }
+  inline virtual void cas_ptr(  Register s1, Register s2, Register d) { casx( s1, s2, d ); }
 
   // little-endian
-  inline void casl(  Register s1, Register s2, Register d) { casa( s1, s2, d, ASI_PRIMARY_LITTLE); }
-  inline void casxl( Register s1, Register s2, Register d) { casxa(s1, s2, d, ASI_PRIMARY_LITTLE); }
+  inline virtual void casl(  Register s1, Register s2, Register d) { casa( s1, s2, d, ASI_PRIMARY_LITTLE); }
+  inline virtual void casxl( Register s1, Register s2, Register d) { casxa(s1, s2, d, ASI_PRIMARY_LITTLE); }
 
-  inline void inc(   Register d,  int const13 = 1 ) { add(   d, const13, d); }
-  inline void inccc( Register d,  int const13 = 1 ) { addcc( d, const13, d); }
+  inline virtual void inc(   Register d,  int const13 = 1 ) { add(   d, const13, d); }
+  inline virtual void inccc( Register d,  int const13 = 1 ) { addcc( d, const13, d); }
 
-  inline void dec(   Register d,  int const13 = 1 ) { sub(   d, const13, d); }
-  inline void deccc( Register d,  int const13 = 1 ) { subcc( d, const13, d); }
+  inline virtual void dec(   Register d,  int const13 = 1 ) { sub(   d, const13, d); }
+  inline virtual void deccc( Register d,  int const13 = 1 ) { subcc( d, const13, d); }
 
-  inline void btst( Register s1,  Register s2 ) { andcc( s1, s2, g0 ); }
-  inline void btst( int simm13a,  Register s )  { andcc( s,  simm13a, g0 ); }
+  inline virtual void btst( Register s1,  Register s2 ) { andcc( s1, s2, g0 ); }
+  inline virtual void btst( int simm13a,  Register s )  { andcc( s,  simm13a, g0 ); }
 
-  inline void bset( Register s1,  Register s2 ) { or3( s1, s2, s2 ); }
-  inline void bset( int simm13a,  Register s )  { or3( s,  simm13a, s ); }
+  inline virtual void bset( Register s1,  Register s2 ) { or3( s1, s2, s2 ); }
+  inline virtual void bset( int simm13a,  Register s )  { or3( s,  simm13a, s ); }
 
-  inline void bclr( Register s1,  Register s2 ) { andn( s1, s2, s2 ); }
-  inline void bclr( int simm13a,  Register s )  { andn( s,  simm13a, s ); }
+  inline virtual void bclr( Register s1,  Register s2 ) { andn( s1, s2, s2 ); }
+  inline virtual void bclr( int simm13a,  Register s )  { andn( s,  simm13a, s ); }
 
-  inline void btog( Register s1,  Register s2 ) { xor3( s1, s2, s2 ); }
-  inline void btog( int simm13a,  Register s )  { xor3( s,  simm13a, s ); }
+  inline virtual void btog( Register s1,  Register s2 ) { xor3( s1, s2, s2 ); }
+  inline virtual void btog( int simm13a,  Register s )  { xor3( s,  simm13a, s ); }
 
-  inline void clr( Register d ) { or3( g0, g0, d ); }
-
-  inline void clrb( Register s1, Register s2);
-  inline void clrh( Register s1, Register s2);
-  inline void clr(  Register s1, Register s2);
-  inline void clrx( Register s1, Register s2);
-
-  inline void clrb( Register s1, int simm13a);
-  inline void clrh( Register s1, int simm13a);
-  inline void clr(  Register s1, int simm13a);
-  inline void clrx( Register s1, int simm13a);
+  inline virtual void clr( Register d ) { or3( g0, g0, d ); }
 
   // copy & clear upper word
-  inline void clruw( Register s, Register d ) { srl( s, g0, d); }
+  inline virtual void clruw( Register s, Register d ) { srl( s, g0, d); }
   // clear upper word
-  inline void clruwu( Register d ) { srl( d, g0, d); }
+  inline virtual void clruwu( Register d ) { srl( d, g0, d); }
 
-   inline void mov( Register s,  Register d) {
+   inline virtual void mov( Register s,  Register d) {
     if ( !s.is(d) )
         or3( g0, s, d);
     else
         assert_not_delayed();  // Put something useful in the delay slot!
   }
-  inline void mov( int simm13a, Register d) { or3( g0, simm13a, d); }
+  inline virtual void mov( int simm13a, Register d) { or3( g0, simm13a, d); }
   
   //  VIS1 instructions
 
@@ -1536,7 +1522,6 @@ private:
   
   friend class RelocInfo;
   friend class CodePatcher;
-  friend class BlockTrampolinePoolScope;
 
   PositionsRecorder positions_recorder_;
   friend class PositionsRecorder;

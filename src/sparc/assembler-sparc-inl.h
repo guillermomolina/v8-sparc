@@ -51,6 +51,12 @@ namespace internal {
 // CHECK_NEXT
 static const int kNoCodeAgeSequenceLength = 5 * kInstructionSize;
 
+  inline void MacroAssembler::stx(Register d, const MemOperand& s) {
+    if(s.IsImmediateOffset())
+      Assembler::stx(d, s.base(), s.offset());
+    else
+      Assembler::stx(d, s.base(), s.regoffset());
+  }
 
 void RelocInfo::apply(intptr_t delta) {
     UNIMPLEMENTED();

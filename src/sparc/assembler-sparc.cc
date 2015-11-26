@@ -46,7 +46,38 @@
 namespace v8 {
 namespace internal {
    
- void CpuFeatures::ProbeImpl(bool cross_compile) { }
+ // Get the CPU features enabled by the build.
+static unsigned CpuFeaturesImpliedByCompiler() {
+  unsigned answer = 0;
+  return answer;
+}
+
+
+void CpuFeatures::ProbeImpl(bool cross_compile) {
+  supported_ |= CpuFeaturesImpliedByCompiler();
+//  cache_line_size_ = 128;
+
+  // Only use statically determined features for cross compile (snapshot).
+  if (cross_compile) return;
+
+// Detect whether frim instruction is supported (POWER5+)
+// For now we will just check for processors we know do not
+// support it
+#ifndef USE_SIMULATOR
+  // Probe for additional features at runtime.
+  base::CPU cpu;
+  if (cpu.has_cbcond()) supported_ |= 1u << CBCOND;
+  if (cpu.has_aes()) supported_ |= 1u << AES;
+  if (cpu.has_sha1()) supported_ |= 1u << SHA1;
+  if (cpu.has_sha256()) supported_ |= 1u << SHA256;
+  if (cpu.has_sha512()) supported_ |= 1u << SHA512;
+  if (cpu.has_crc32c()) supported_ |= 1u << CRC32C;
+  if (cpu.has_vis1()) supported_ |= 1u << VIS1;
+  if (cpu.has_vis2()) supported_ |= 1u << VIS2;
+  if (cpu.has_vis3()) supported_ |= 1u << VIS3;
+#else  // Simulator
+#endif
+}
 
 
 void CpuFeatures::PrintTarget() { }

@@ -2398,8 +2398,11 @@ class DoubleToIStub : public PlatformCodeStub {
                  DestinationRegisterBits::encode(destination.code()) |
                  OffsetBits::encode(offset) |
                  IsTruncatingBits::encode(is_truncating) |
-                 SkipFastPathBits::encode(skip_fastpath) |
-                 SSE3Bits::encode(CpuFeatures::IsSupported(SSE3) ? 1 : 0);
+                 SkipFastPathBits::encode(skip_fastpath) 
+#if V8_HOST_ARCH_IA32 || V8_HOST_ARCH_X64
+            |    SSE3Bits::encode(CpuFeatures::IsSupported(SSE3) ? 1 : 0)
+#endif
+            ;
   }
 
   bool SometimesSetsUpAFrame() override { return false; }

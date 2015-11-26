@@ -198,8 +198,10 @@ AssemblerBase::~AssemblerBase() {
 
 void AssemblerBase::FlushICache(Isolate* isolate, void* start, size_t size) {
   if (size == 0) return;
+ #if V8_HOST_ARCH_ARM64 
   if (CpuFeatures::IsSupported(COHERENT_CACHE)) return;
-
+#endif
+  
 #if defined(USE_SIMULATOR)
   Simulator::FlushICache(isolate->simulator_i_cache(), start, size);
 #else

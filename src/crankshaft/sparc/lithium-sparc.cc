@@ -174,11 +174,6 @@ void LInvokeFunction::PrintDataTo(StringStream* stream) {
 }
 
 
-void LCallNew::PrintDataTo(StringStream* stream) {
-    UNIMPLEMENTED();
-}
-
-
 void LCallNewArray::PrintDataTo(StringStream* stream) {
     UNIMPLEMENTED();
 }
@@ -587,11 +582,6 @@ LInstruction* LChunkBuilder::DoMathSqrt(HUnaryMathOperation* instr) {
 
 
 LInstruction* LChunkBuilder::DoMathRound(HUnaryMathOperation* instr) {
-    UNIMPLEMENTED();
-}
-
-
-LInstruction* LChunkBuilder::DoCallNew(HCallNew* instr) {
     UNIMPLEMENTED();
 }
 

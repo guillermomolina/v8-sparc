@@ -53,6 +53,10 @@
 #include <unistd.h>  // sysconf()
 #endif
 #if V8_OS_SOLARIS && V8_HOST_ARCH_SPARC
+#include <sys/auxv.h>
+#include <sys/auxv_SPARC.h>
+#include <sys/systeminfo.h>
+#include <kstat.h>
 #endif
 
 #include <ctype.h>
@@ -69,6 +73,178 @@
 
 namespace v8 {
 namespace base {
+    
+    
+#if V8_HOST_ARCH_SPARC
+#ifndef USE_SIMULATOR
+#if V8_OS_SOLARIS
+
+// We need to keep these here as long as we have to build on Solaris
+// versions before 10.
+#ifndef SI_ARCHITECTURE_32
+#define SI_ARCHITECTURE_32      516     /* basic 32-bit SI_ARCHITECTURE */
+#endif
+
+#ifndef SI_ARCHITECTURE_64
+#define SI_ARCHITECTURE_64      517     /* basic 64-bit SI_ARCHITECTURE */
+#endif
+
+static void do_sysinfo(int si, const char* string, int* features, int mask) {
+  char   tmp;
+  long bufsize = sysinfo(si, &tmp, 1);
+
+  // All SI defines used below must be supported.
+  CHECK(bufsize != -1);//, "must be supported");
+
+  char* buf = reinterpret_cast<char*>(malloc(bufsize));
+
+  if (buf == NULL)
+    return;
+
+  if (sysinfo(si, buf, bufsize) == bufsize) {
+    // Compare the string.
+    if (strcmp(buf, string) == 0) {
+      *features |= mask;
+    }
+  }
+
+  free(buf);
+}
+
+int GetSparcPlatformFeatures() {
+  int features;
+  // Check 32-bit architecture.
+  do_sysinfo(SI_ARCHITECTURE_32, "sparc", &features, CPU::v8_instructions_m);
+
+  // Check 64-bit architecture.
+  do_sysinfo(SI_ARCHITECTURE_64, "sparcv9", &features, CPU::generic_v9_m);
+
+  // Extract valid instruction set extensions.
+  uint_t avs[2];
+  uint_t avn = getisax(avs, 2);
+  CHECK(avn <= 2);//, "should return two or less av's");
+  uint_t av = avs[0];
+
+  if (av & AV_SPARC_MUL32)  features |= CPU::hardware_mul32_m;
+  if (av & AV_SPARC_DIV32)  features |= CPU::hardware_div32_m;
+  if (av & AV_SPARC_FSMULD) features |= CPU::hardware_fsmuld_m;
+  if (av & AV_SPARC_V8PLUS) features |= CPU::v9_instructions_m;
+  if (av & AV_SPARC_POPC)   features |= CPU::hardware_popc_m;
+  if (av & AV_SPARC_VIS)    features |= CPU::vis1_instructions_m;
+  if (av & AV_SPARC_VIS2)   features |= CPU::vis2_instructions_m;
+  if (avn > 1) {
+    uint_t av2 = avs[1];
+#ifndef AV2_SPARC_SPARC5
+#define AV2_SPARC_SPARC5 0x00000008 /* The 29 new fp and sub instructions */
+#endif
+    if (av2 & AV2_SPARC_SPARC5)       features |= CPU::sparc5_instructions_m;
+  }
+
+  // We only build on Solaris 10 and up, but some of the values below
+  // are not defined on all versions of Solaris 10, so we define them,
+  // if necessary.
+#ifndef AV_SPARC_ASI_BLK_INIT
+#define AV_SPARC_ASI_BLK_INIT 0x0080  /* ASI_BLK_INIT_xxx ASI */
+#endif
+  if (av & AV_SPARC_ASI_BLK_INIT) features |= CPU::blk_init_instructions_m;
+
+#ifndef AV_SPARC_FMAF
+#define AV_SPARC_FMAF 0x0100        /* Fused Multiply-Add */
+#endif
+  if (av & AV_SPARC_FMAF)         features |= CPU::fmaf_instructions_m;
+
+#ifndef AV_SPARC_FMAU
+#define AV_SPARC_FMAU    0x0200  /* Unfused Multiply-Add */
+#endif
+  if (av & AV_SPARC_FMAU)         features |= CPU::fmau_instructions_m;
+
+#ifndef AV_SPARC_VIS3
+#define AV_SPARC_VIS3    0x0400  /* VIS3 instruction set extensions */
+#endif
+  if (av & AV_SPARC_VIS3)         features |= CPU::vis3_instructions_m;
+
+#ifndef AV_SPARC_CBCOND
+#define AV_SPARC_CBCOND 0x10000000  /* compare and branch instrs supported */
+#endif
+  if (av & AV_SPARC_CBCOND)       features |= CPU::cbcond_instructions_m;
+
+#ifndef AV_SPARC_CRC32C
+#define AV_SPARC_CRC32C 0x20000000  /* crc32c instruction supported */
+#endif
+  if (av & AV_SPARC_CRC32C)       features |= CPU::crc32c_instruction_m;
+
+#ifndef AV_SPARC_AES
+#define AV_SPARC_AES 0x00020000  /* aes instrs supported */
+#endif
+  if (av & AV_SPARC_AES)       features |= CPU::aes_instructions_m;
+
+#ifndef AV_SPARC_SHA1
+#define AV_SPARC_SHA1   0x00400000  /* sha1 instruction supported */
+#endif
+  if (av & AV_SPARC_SHA1)         features |= CPU::sha1_instruction_m;
+
+#ifndef AV_SPARC_SHA256
+#define AV_SPARC_SHA256 0x00800000  /* sha256 instruction supported */
+#endif
+  if (av & AV_SPARC_SHA256)       features |= CPU::sha256_instruction_m;
+
+#ifndef AV_SPARC_SHA512
+#define AV_SPARC_SHA512 0x01000000  /* sha512 instruction supported */
+#endif
+  if (av & AV_SPARC_SHA512)       features |= CPU::sha512_instruction_m;
+
+  // Determine the machine type.
+  do_sysinfo(SI_MACHINE, "sun4v", &features, CPU::sun4v_m);
+
+  {
+    // Using kstat to determine the machine type.
+    kstat_ctl_t* kc = kstat_open();
+    kstat_t* ksp = kstat_lookup(kc, (char*)"cpu_info", -1, NULL);
+    const char* implementation = "UNKNOWN";
+    if (ksp != NULL) {
+      if (kstat_read(kc, ksp, NULL) != -1 && ksp->ks_data != NULL) {
+        kstat_named_t* knm = (kstat_named_t *)ksp->ks_data;
+        for (unsigned int i = 0; i < ksp->ks_ndata; i++) {
+          if (strcmp((const char*)&(knm[i].name),"implementation") == 0) {
+            implementation = KSTAT_NAMED_STR_PTR(&knm[i]);
+
+            // Convert to UPPER case before compare.
+            char* impl = strdup(implementation);
+
+            for (int i = 0; impl[i] != 0; i++)
+              impl[i] = (char)toupper((uint)impl[i]);
+
+            if (strstr(impl, "SPARC64") != NULL) {
+              features |= CPU::sparc64_family_m;
+            } else if (strstr(impl, "SPARC-M") != NULL) {
+              // M-series SPARC is based on T-series.
+              features |= (CPU::M_family_m | CPU::T_family_m);
+            } else if (strstr(impl, "SPARC-T") != NULL) {
+              features |= CPU::T_family_m;
+              if (strstr(impl, "SPARC-T1") != NULL) {
+                features |= CPU::T1_model_m;
+              }
+            } else {
+              if (strstr(impl, "SPARC") == NULL) {
+                implementation = "SPARC";
+              }
+            }
+            free(impl);
+            break;
+          }
+        } // for(
+      }
+    }
+    CHECK(strcmp(implementation, "UNKNOWN") != 0);//,  "unknown cpu info (changed kstat interface?)");
+    kstat_close(kc);
+  }
+  return features;
+}
+
+#endif  // V8_OS_SOLARIS
+#endif  // !USE_SIMULATOR
+#endif  // V8_HOST_ARCH_SPARC    
+    
 
 #if defined(__pnacl__)
 // Portable host shouldn't do feature detection.
@@ -729,11 +905,13 @@ CPU::CPU()
 #elif V8_HOST_ARCH_SPARC
 #ifndef USE_SIMULATOR
 #if V8_OS_SOLARIS
-   
+  features_ = GetSparcPlatformFeatures();  
 #endif  // V8_OS_SOLARIS
 #endif  // !USE_SIMULATOR
-#endif  // V8_HOST_ARCH_SPARC
+#endif  // V8_HOST_ARCH_SPARC      
 }
+
+
 
 }  // namespace base
 }  // namespace v8

@@ -73,10 +73,10 @@ class JumpPatchSite BASE_EMBEDDED {
 // function.
 //
 // The live registers are:
-//   o a1: the JS function object being called (i.e. ourselves)
-//   o cp: our context
-//   o fp: our caller's frame pointer
-//   o sp: stack pointer
+//   o i0: the JS function object being called (i.e. ourselves)
+//   o cp: our context (aka: g5)
+//   o fp: our caller's frame pointer (aka: i6)
+//   o sp: stack pointer (aka: o6)
 
 //
 // The function builds a JS frame.  Please see JavaScriptFrameConstants in
@@ -93,7 +93,8 @@ void FullCodeGenerator::Generate() {
 #ifdef DEBUG
   if (strlen(FLAG_stop_at) > 0 &&
       info->literal()->name()->IsUtf8EqualTo(CStrVector(FLAG_stop_at))) {
-    UNIMPLEMENTED();
+    WARNING("Untested");
+    __ breakpoint_trap();
   }
 #endif
 
@@ -115,63 +116,59 @@ void FullCodeGenerator::Generate() {
     DCHECK(!IsGeneratorFunction(info->literal()->kind()) || locals_count == 0);
     if (locals_count > 0) {
       if (locals_count >= 128) {
-		UNIMPLEMENTED();
+        UNIMPLEMENTED();
       }
+      WARNING("Untested");
       __ LoadRoot(g2, Heap::kUndefinedValueRootIndex);
-	  
-	  
-	 /* 
-	  kMaxPushes = 18 en SPARC
-      if (locals_count >= kMaxPushes) {
-        int loop_iterations = locals_count / kMaxPushes;
-        __ mov(loop_iterations, l1);
-        Label loop_header;
-        __ bind(&loop_header);
-        // Do pushes.
-        __ sub(sp, Operand(kMaxPushes * kPointerSize), sp);
-        for (int i = 0; i < kMaxPushes; i++) {
-          __ stdx(l0, MemOperand(sp, i * kPointerSize));
-        }
-        // Continue loop if not done.
-        __ Dsubu(l1, l1, Operand(1));
-        __ Branch(&loop_header, ne, l1, Operand(zero_reg));
-      }
-      int remaining = locals_count % kMaxPushes;
-      // Emit the remaining pushes.
-      __ Dsubu(sp, sp, Operand(remaining * kPointerSize));
-      for (int i  = 0; i < remaining; i++) {
-        __ sd(l0, MemOperand(sp, i * kPointerSize));
-      }*/
+      __ add(sp, -locals_count * kPointerSize, sp);
+      if(locals_count < 18) {
+        for( int i = 1; i <= locals_count; i++) 
+          __ stx(g2, MemOperand(fp, kStackBias - i * kPointerSize); 
+      } else {
+        __ add(fp, kStackBias - kPointerSize, g1);
+        __ add(fp, kStackBias - (locals_count + 1) * kPointerSize, g3);
+        __ stx(g2, MemOperand(g1));
+        Label loop;
+        __ bind(&loop);
+        __ add(g1, -kPointerSize, g1);
+        __ cmp(g1, g3);
+        __ brx(notEqual, true, pt, &loop);
+        __ delayed()->stx(g2, MemOperand(g1));;	  
+      }  
     }
   }
-/*
-  bool function_in_register = true;
+
+  bool function_in_register_i0 = true;
 
   // Possibly allocate a local context.
   if (info->scope()->num_heap_slots() > 0) {
     Comment cmnt(masm_, "[ Allocate context");
     bool need_write_barrier = true;
     int slots = info->scope()->num_heap_slots() - Context::MIN_CONTEXT_SLOTS;
-    // Argument to NewContext is the function, which is still in rdi.
+    // Argument to NewContext is the function, which is still in i0.
     if (info->scope()->is_script_scope()) {
-      __ Push(rdi);
-      __ Push(info->scope()->GetScopeInfo(info->isolate()));
+      WARNING("Untested");
+      __ mov(i0, o0);
+      __ mov(info->scope()->GetScopeInfo(info->isolate()), o1);
       __ CallRuntime(Runtime::kNewScriptContext, 2);
       PrepareForBailoutForId(BailoutId::ScriptContext(), TOS_REG);
     } else if (slots <= FastNewContextStub::kMaximumSlots) {
+      WARNING("Untested");
       FastNewContextStub stub(isolate(), slots);
       __ CallStub(&stub);
       // Result of FastNewContextStub is always in new space.
       need_write_barrier = false;
     } else {
-      __ Push(rdi);
+      WARNING("Untested");
+      __ mov(i0, o0);
       __ CallRuntime(Runtime::kNewFunctionContext, 1);
     }
-    function_in_register = false;
-    // Context is returned in rax.  It replaces the context passed to us.
-    // It's saved in the stack and kept live in rsi.
-    __ movp(rsi, rax);
-    __ movp(Operand(rbp, StandardFrameConstants::kContextOffset), rax);
+    function_in_register_i0 = false;
+    // Context is returned in o0.  It replaces the context passed to us.
+    // It's saved in the stack and kept live in cp.
+      WARNING("Untested");
+    __ mov(o0, cp);
+    __ stx(o0, MemOperand(fp, StandardFrameConstants::kContextOffset));
 
     // Copy any necessary parameters into the context.
     int num_parameters = info->scope()->num_parameters();
@@ -180,37 +177,38 @@ void FullCodeGenerator::Generate() {
       Variable* var = (i == -1) ? scope()->receiver() : scope()->parameter(i);
       if (var->IsContextSlot()) {
         int parameter_offset = StandardFrameConstants::kCallerSPOffset +
-            (num_parameters - 1 - i) * kPointerSize;
+                                 (num_parameters - 1 - i) * kPointerSize;
         // Load parameter from stack.
-        __ movp(rax, Operand(rbp, parameter_offset));
+        __ ldx(MemOperand(fp, parameter_offset), l0);
         // Store it in the context.
-        int context_offset = Context::SlotOffset(var->index());
-        __ movp(Operand(rsi, context_offset), rax);
-        // Update the write barrier.  This clobbers rax and rbx.
+        MemOperand target = ContextOperand(cp, var->index());
+        __ stx(l0, target);
+
+        // Update the write barrier.
         if (need_write_barrier) {
           __ RecordWriteContextSlot(
-              rsi, context_offset, rax, rbx, kDontSaveFPRegs);
+              cp, target.offset(), l0, l1, kDontSaveFPRegs);
         } else if (FLAG_debug_code) {
           Label done;
-          __ JumpIfInNewSpace(rsi, rax, &done, Label::kNear);
+          __ JumpIfInNewSpace(cp, l0, &done);
           __ Abort(kExpectedNewSpaceObject);
           __ bind(&done);
         }
       }
     }
   }
-  PrepareForBailoutForId(BailoutId::FunctionContext(), NO_REGISTERS);
+/*  PrepareForBailoutForId(BailoutId::FunctionContext(), NO_REGISTERS);
 
   // Function register is trashed in case we bailout here. But since that
   // could happen only when we allocate a context the value of
-  // |function_in_register| is correct.
+  // |function_in_register_i0| is correct.
 
   // Possibly set up a local binding to the this function which is used in
   // derived constructors with super calls.
   Variable* this_function_var = scope()->this_function_var();
   if (this_function_var != nullptr) {
     Comment cmnt(masm_, "[ This function");
-    if (!function_in_register) {
+    if (!function_in_register_i0) {
       __ movp(rdi, Operand(rbp, JavaScriptFrameConstants::kFunctionOffset));
       // The write barrier clobbers register again, keep it marked as such.
     }
@@ -254,7 +252,7 @@ void FullCodeGenerator::Generate() {
     // case the "arguments" or ".arguments" variables are in the context.
     Comment cmnt(masm_, "[ Allocate arguments object");
     DCHECK(rdi.is(ArgumentsAccessNewDescriptor::function()));
-    if (!function_in_register) {
+    if (!function_in_register_i0) {
       __ movp(rdi, Operand(rbp, JavaScriptFrameConstants::kFunctionOffset));
     }
     // The receiver is just before the parameters on the caller's stack.

@@ -15,10 +15,20 @@
 #include "src/register-configuration.h"
 #include "src/runtime/runtime.h"
 
-#include "src/sparc/macro-assembler-sparc.h"
+#include "src/sparc/macro-assembler-sparc-inl.h"
 
 namespace v8 {
 namespace internal {
+
+// Conditional breakpoint (for assertion checks in assembly code)
+void MacroAssembler::breakpoint_trap(Condition c, CC cc) {
+  trap(c, cc, g0, ST_RESERVED_FOR_USER_0);
+}
+
+// We want to use ST_BREAKPOINT here, but the debugger is confused by it.
+void MacroAssembler::breakpoint_trap() {
+  trap(ST_RESERVED_FOR_USER_0);
+}
  
 void MacroAssembler::set64(int64_t value, Register d, Register tmp) {
   assert_not_delayed();
@@ -79,62 +89,6 @@ MacroAssembler::MacroAssembler(Isolate* arg_isolate, void* buffer, int size)
   }
 }
 
-// Use the right branch for the platform
-
-void MacroAssembler::br( Condition c, bool a, Predict p, int d ) {
-  Assembler::bp(c, a, icc, p, d);
-}
-
-void MacroAssembler::br( Condition c, bool a, Predict p, Label* L ) {
-  insert_nop_after_cbcond();
-  br(c, a, p, branch_offset(L));
-}
-
-
-// Branch that tests either xcc or icc depending on the
-// architecture compiled (LP64 or not)
-void MacroAssembler::brx( Condition c, bool a, Predict p, int d ) {
-#ifdef _LP64
-    Assembler::bp(c, a, xcc, p, d);
-#else
-    MacroAssembler::br(c, a, p, d);
-#endif
-}
-
-void MacroAssembler::brx( Condition c, bool a, Predict p, Label* L ) {
-  insert_nop_after_cbcond();
-  brx(c, a, p, branch_offset(L));
-}
-
-void MacroAssembler::ba( Label* L ) {
-  br(always, false, pt, L);
-}
-
-// Warning: V9 only functions
-void MacroAssembler::bp( Condition c, bool a, CC cc, Predict p, int d ) {
-  Assembler::bp(c, a, cc, p, d);
-}
-
-void MacroAssembler::bp( Condition c, bool a, CC cc, Predict p, Label* L ) {
-  Assembler::bp(c, a, cc, p, L);
-}
-
-void MacroAssembler::fb( FPUCondition c, bool a, Predict p, int d ) {
-  fbp(c, a, fcc0, p, d);
-}
-
-void MacroAssembler::fb( FPUCondition c, bool a, Predict p, Label* L ) {
-  insert_nop_after_cbcond();
-  fb(c, a, p, branch_offset(L));
-}
-
-void MacroAssembler::fbp( FPUCondition c, bool a, CC cc, Predict p, int d ) {
-  Assembler::fbp(c, a, cc, p, d);
-}
-
-void MacroAssembler::fbp( FPUCondition c, bool a, CC cc, Predict p, Label* L ) {
-  Assembler::fbp(c, a, cc, p, L);
-}
 
 // compares (32 bit) register with zero and branches.  NOT FOR USE WITH 64-bit POINTERS
 void MacroAssembler::cmp_zero_and_br(Condition c, Register s1, Label* L, bool a, Predict p) {
@@ -280,7 +234,12 @@ bool MacroAssembler::AllowThisStubCall(CodeStub* stub) {
 }
 
 void MacroAssembler::Prologue(bool code_pre_aging) {
-	UNIMPLEMENTED();
+  PredictableCodeSizeScope predictible_code_size_scope(this, kNoCodeAgeSequenceLength);
+  if (code_pre_aging) {
+    UNIMPLEMENTED();
+  } else {
+      Save();
+  }
 }
 
 // Clobbers object, address, value, and ra, if (ra_status == kRAHasBeenSaved)

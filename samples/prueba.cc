@@ -101,9 +101,8 @@ int main(int argc, char* argv[]) {
   // Assemble a simple function that copies argument 2 and returns it.
   int locals_count = 18;
   int Root=1;
-  __ save(sp, -176, sp); // Make room in stack
-  __ add(sp, -locals_count * kPointerSize, sp); //Make Room in stack
-  __ mov(Root, g2);
+  __ Save(locals_count); // Make room in stack
+   __ mov(Root, g2);
   __ add(fp, kStackBias - kPointerSize, g1);
   __ add(fp, kStackBias - (locals_count + 1) * kPointerSize, g3);
   __ stx(g2, MemOperand(g1));

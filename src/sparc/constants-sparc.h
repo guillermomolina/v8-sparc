@@ -18,10 +18,12 @@ namespace internal {
 #define LP64_ONLY(code) code
 #define NOT_LP64(code)
     const unsigned kStackBias = 2047;
+    const unsigned kFixedFrameSize = 176;
 #else  // !_LP64
 #define LP64_ONLY(code)
 #define NOT_LP64(code) code
     const unsigned kStackBias = 0;
+    const unsigned kFixedFrameSize = 96;
 #endif // _LP64
   
 const int wordSize = sizeof(char*);
@@ -31,8 +33,6 @@ typedef int32_t Instr;
 
 const unsigned kInstructionSize = 4;
 const unsigned kInstructionSizeLog2 = 2;
-
-const unsigned kFixedFrameSize = 176;
 
  enum ops {
     call_op   = 1, // fmt 1
