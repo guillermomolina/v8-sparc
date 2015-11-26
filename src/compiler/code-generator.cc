@@ -34,14 +34,14 @@ class CodeGenerator::JumpTable final : public ZoneObject {
 
 CodeGenerator::CodeGenerator(Frame* frame, Linkage* linkage,
                              InstructionSequence* code, CompilationInfo* info)
-    : frame_(frame),
+    : frame_access_state_(new (code->zone()) FrameAccessState(frame)),
       linkage_(linkage),
       code_(code),
       info_(info),
       labels_(zone()->NewArray<Label>(code->InstructionBlockCount())),
       current_block_(RpoNumber::Invalid()),
       current_source_position_(SourcePosition::Unknown()),
-      masm_(info->isolate(), NULL, 0),
+      masm_(info->isolate(), NULL, 0, CodeObjectRequired::kYes),
       resolver_(this),
       safepoints_(code->zone()),
       handlers_(code->zone()),
@@ -52,10 +52,12 @@ CodeGenerator::CodeGenerator(Frame* frame, Linkage* linkage,
       last_lazy_deopt_pc_(0),
       jump_tables_(nullptr),
       ools_(nullptr),
-      osr_pc_offset_(-1),
-      needs_frame_(frame->GetSpillSlotCount() > 0 || code->ContainsCall()) {
+      osr_pc_offset_(-1) {
   for (int i = 0; i < code->InstructionBlockCount(); ++i) {
     new (&labels_[i]) Label;
+  }
+  if (code->ContainsCall()) {
+    frame->MarkNeedsFrame();
   }
 }
 

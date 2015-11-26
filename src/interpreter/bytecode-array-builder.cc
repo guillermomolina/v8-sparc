@@ -463,10 +463,11 @@ BytecodeArrayBuilder& BytecodeArrayBuilder::CreateArguments(
 
 
 BytecodeArrayBuilder& BytecodeArrayBuilder::CreateRegExpLiteral(
-    int literal_index, Register flags) {
+    int literal_index, int flags) {
+  DCHECK(FitsInImm8Operand(flags));  // Flags should fit in 8 bits.
   if (FitsInIdx8Operand(literal_index)) {
     Output(Bytecode::kCreateRegExpLiteral, static_cast<uint8_t>(literal_index),
-           flags.ToOperand());
+           static_cast<uint8_t>(flags));
   } else {
     UNIMPLEMENTED();
   }
@@ -967,7 +968,8 @@ bool BytecodeArrayBuilder::OperandIsValid(Bytecode bytecode, int operand_index,
     // Fall-through to kReg8 case.
     case OperandType::kReg8: {
       Register reg = Register::FromOperand(static_cast<uint8_t>(operand_value));
-      if (reg.is_function_context() || reg.is_function_closure()) {
+      if (reg.is_function_context() || reg.is_function_closure() ||
+          reg.is_new_target()) {
         return true;
       } else if (reg.is_parameter()) {
         int parameter_index = reg.ToParameterIndex(parameter_count_);

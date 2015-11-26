@@ -272,6 +272,7 @@ void Assembler::GetCode(CodeDesc* desc) {
   desc->reloc_size =
       static_cast<int>((buffer_ + buffer_size_) - reloc_info_writer.pos());
   desc->origin = this;
+  desc->constant_pool_size = 0;
 }
 
 
@@ -3273,7 +3274,7 @@ void Assembler::set_target_address_at(Address pc,
       | (itarget & kImm16Mask);
 
   if (icache_flush_mode != SKIP_ICACHE_FLUSH) {
-    CpuFeatures::FlushICache(pc, 4 * Assembler::kInstrSize);
+    Assembler::FlushICacheWithoutIsolate(pc, 4 * Assembler::kInstrSize);
   }
 }
 

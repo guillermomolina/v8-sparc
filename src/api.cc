@@ -996,7 +996,8 @@ void FunctionTemplate::Inherit(v8::Local<FunctionTemplate> value) {
 
 
 static Local<FunctionTemplate> FunctionTemplateNew(
-    i::Isolate* isolate, FunctionCallback callback, v8::Local<Value> data,
+    i::Isolate* isolate, FunctionCallback callback,
+    v8::Local<Value> fast_handler, v8::Local<Value> data,
     v8::Local<Signature> signature, int length, bool do_not_cache) {
   i::Handle<i::Struct> struct_obj =
       isolate->factory()->NewStruct(i::FUNCTION_TEMPLATE_INFO_TYPE);
@@ -1014,7 +1015,7 @@ static Local<FunctionTemplate> FunctionTemplateNew(
     if (data.IsEmpty()) {
       data = v8::Undefined(reinterpret_cast<v8::Isolate*>(isolate));
     }
-    Utils::ToLocal(obj)->SetCallHandler(callback, data);
+    Utils::ToLocal(obj)->SetCallHandler(callback, data, fast_handler);
   }
   obj->set_length(length);
   obj->set_undetectable(false);
@@ -1024,6 +1025,7 @@ static Local<FunctionTemplate> FunctionTemplateNew(
     obj->set_signature(*Utils::OpenHandle(*signature));
   return Utils::ToLocal(obj);
 }
+
 
 Local<FunctionTemplate> FunctionTemplate::New(Isolate* isolate,
                                               FunctionCallback callback,
@@ -1036,8 +1038,22 @@ Local<FunctionTemplate> FunctionTemplate::New(Isolate* isolate,
   DCHECK(!i_isolate->serializer_enabled());
   LOG_API(i_isolate, "FunctionTemplate::New");
   ENTER_V8(i_isolate);
-  return FunctionTemplateNew(
-      i_isolate, callback, data, signature, length, false);
+  return FunctionTemplateNew(i_isolate, callback, v8::Local<Value>(), data,
+                             signature, length, false);
+}
+
+
+Local<FunctionTemplate> FunctionTemplate::NewWithFastHandler(
+    Isolate* isolate, FunctionCallback callback, v8::Local<Value> fast_handler,
+    v8::Local<Value> data, v8::Local<Signature> signature, int length) {
+  // TODO(vogelheim): 'fast_handler' should have a more specific type than
+  // Local<Value>.
+  i::Isolate* i_isolate = reinterpret_cast<i::Isolate*>(isolate);
+  DCHECK(!i_isolate->serializer_enabled());
+  LOG_API(i_isolate, "FunctionTemplate::NewWithFastHandler");
+  ENTER_V8(i_isolate);
+  return FunctionTemplateNew(i_isolate, callback, fast_handler, data, signature,
+                             length, false);
 }
 
 
@@ -1095,7 +1111,8 @@ int TypeSwitch::match(v8::Local<Value> value) {
 
 
 void FunctionTemplate::SetCallHandler(FunctionCallback callback,
-                                      v8::Local<Value> data) {
+                                      v8::Local<Value> data,
+                                      v8::Local<Value> fast_handler) {
   auto info = Utils::OpenHandle(this);
   EnsureNotInstantiated(info, "v8::FunctionTemplate::SetCallHandler");
   i::Isolate* isolate = info->GetIsolate();
@@ -1106,6 +1123,11 @@ void FunctionTemplate::SetCallHandler(FunctionCallback callback,
   i::Handle<i::CallHandlerInfo> obj =
       i::Handle<i::CallHandlerInfo>::cast(struct_obj);
   SET_FIELD_WRAPPED(obj, set_callback, callback);
+  if (!fast_handler.IsEmpty()) {
+    i::Handle<i::Object> code = Utils::OpenHandle(*fast_handler);
+    CHECK(code->IsCode());
+    obj->set_fast_handler(*code);
+  }
   if (data.IsEmpty()) {
     data = v8::Undefined(reinterpret_cast<v8::Isolate*>(isolate));
   }
@@ -4368,8 +4390,9 @@ MaybeLocal<Function> Function::New(Local<Context> context,
   i::Isolate* isolate = Utils::OpenHandle(*context)->GetIsolate();
   LOG_API(isolate, "Function::New");
   ENTER_V8(isolate);
-  return FunctionTemplateNew(isolate, callback, data, Local<Signature>(),
-                             length, true)->GetFunction(context);
+  return FunctionTemplateNew(isolate, callback, Local<Value>(), data,
+                             Local<Signature>(), length, true)
+      ->GetFunction(context);
 }
 
 
@@ -6119,28 +6142,14 @@ void v8::Date::DateTimeConfigurationChangeNotification(Isolate* isolate) {
 }
 
 
-static i::Handle<i::String> RegExpFlagsToString(RegExp::Flags flags) {
-  i::Isolate* isolate = i::Isolate::Current();
-  uint8_t flags_buf[5];
-  int num_flags = 0;
-  if ((flags & RegExp::kGlobal) != 0) flags_buf[num_flags++] = 'g';
-  if ((flags & RegExp::kMultiline) != 0) flags_buf[num_flags++] = 'm';
-  if ((flags & RegExp::kIgnoreCase) != 0) flags_buf[num_flags++] = 'i';
-  if ((flags & RegExp::kSticky) != 0) flags_buf[num_flags++] = 'y';
-  if ((flags & RegExp::kUnicode) != 0) flags_buf[num_flags++] = 'u';
-  DCHECK(num_flags <= static_cast<int>(arraysize(flags_buf)));
-  return isolate->factory()->InternalizeOneByteString(
-      i::Vector<const uint8_t>(flags_buf, num_flags));
-}
-
-
 MaybeLocal<v8::RegExp> v8::RegExp::New(Local<Context> context,
                                        Local<String> pattern, Flags flags) {
   PREPARE_FOR_EXECUTION(context, "RegExp::New", RegExp);
   Local<v8::RegExp> result;
-  has_pending_exception = !ToLocal<RegExp>(
-      i::JSRegExp::New(Utils::OpenHandle(*pattern), RegExpFlagsToString(flags)),
-      &result);
+  has_pending_exception =
+      !ToLocal<RegExp>(i::JSRegExp::New(Utils::OpenHandle(*pattern),
+                                        static_cast<i::JSRegExp::Flags>(flags)),
+                       &result);
   RETURN_ON_FAILED_EXECUTION(RegExp);
   RETURN_ESCAPED(result);
 }
@@ -6161,20 +6170,20 @@ Local<v8::String> v8::RegExp::GetSource() const {
 
 
 // Assert that the static flags cast in GetFlags is valid.
-#define REGEXP_FLAG_ASSERT_EQ(api_flag, internal_flag)          \
-  STATIC_ASSERT(static_cast<int>(v8::RegExp::api_flag) ==       \
-                static_cast<int>(i::JSRegExp::internal_flag))
-REGEXP_FLAG_ASSERT_EQ(kNone, NONE);
-REGEXP_FLAG_ASSERT_EQ(kGlobal, GLOBAL);
-REGEXP_FLAG_ASSERT_EQ(kIgnoreCase, IGNORE_CASE);
-REGEXP_FLAG_ASSERT_EQ(kMultiline, MULTILINE);
-REGEXP_FLAG_ASSERT_EQ(kSticky, STICKY);
-REGEXP_FLAG_ASSERT_EQ(kUnicode, UNICODE_ESCAPES);
+#define REGEXP_FLAG_ASSERT_EQ(flag)                   \
+  STATIC_ASSERT(static_cast<int>(v8::RegExp::flag) == \
+                static_cast<int>(i::JSRegExp::flag))
+REGEXP_FLAG_ASSERT_EQ(kNone);
+REGEXP_FLAG_ASSERT_EQ(kGlobal);
+REGEXP_FLAG_ASSERT_EQ(kIgnoreCase);
+REGEXP_FLAG_ASSERT_EQ(kMultiline);
+REGEXP_FLAG_ASSERT_EQ(kSticky);
+REGEXP_FLAG_ASSERT_EQ(kUnicode);
 #undef REGEXP_FLAG_ASSERT_EQ
 
 v8::RegExp::Flags v8::RegExp::GetFlags() const {
   i::Handle<i::JSRegExp> obj = Utils::OpenHandle(this);
-  return static_cast<RegExp::Flags>(obj->GetFlags().value());
+  return RegExp::Flags(static_cast<int>(obj->GetFlags()));
 }
 
 

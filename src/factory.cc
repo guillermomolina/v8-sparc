@@ -1173,9 +1173,13 @@ DEFINE_ERROR(TypeError, type_error)
 #undef DEFINE_ERROR
 
 
-void Factory::InitializeFunction(Handle<JSFunction> function,
-                                 Handle<SharedFunctionInfo> info,
-                                 Handle<Context> context) {
+Handle<JSFunction> Factory::NewFunction(Handle<Map> map,
+                                        Handle<SharedFunctionInfo> info,
+                                        Handle<Context> context,
+                                        PretenureFlag pretenure) {
+  AllocationSpace space = pretenure == TENURED ? OLD_SPACE : NEW_SPACE;
+  Handle<JSFunction> function = New<JSFunction>(map, space);
+
   function->initialize_properties();
   function->initialize_elements();
   function->set_shared(*info);
@@ -1184,17 +1188,8 @@ void Factory::InitializeFunction(Handle<JSFunction> function,
   function->set_prototype_or_initial_map(*the_hole_value());
   function->set_literals_or_bindings(*empty_fixed_array());
   function->set_next_function_link(*undefined_value(), SKIP_WRITE_BARRIER);
-}
-
-
-Handle<JSFunction> Factory::NewFunction(Handle<Map> map,
-                                        Handle<SharedFunctionInfo> info,
-                                        Handle<Context> context,
-                                        PretenureFlag pretenure) {
-  AllocationSpace space = pretenure == TENURED ? OLD_SPACE : NEW_SPACE;
-  Handle<JSFunction> result = New<JSFunction>(map, space);
-  InitializeFunction(result, info, context);
-  return result;
+  isolate()->heap()->InitializeJSObjectBody(*function, *map, JSFunction::kSize);
+  return function;
 }
 
 
@@ -1202,7 +1197,8 @@ Handle<JSFunction> Factory::NewFunction(Handle<Map> map,
                                         Handle<String> name,
                                         MaybeHandle<Code> code) {
   Handle<Context> context(isolate()->native_context());
-  Handle<SharedFunctionInfo> info = NewSharedFunctionInfo(name, code);
+  Handle<SharedFunctionInfo> info =
+      NewSharedFunctionInfo(name, code, map->is_constructor());
   DCHECK(is_sloppy(info->language_mode()) &&
          (map.is_identical_to(isolate()->sloppy_function_map()) ||
           map.is_identical_to(
@@ -2022,7 +2018,8 @@ Handle<SharedFunctionInfo> Factory::NewSharedFunctionInfo(
     Handle<Code> code, Handle<ScopeInfo> scope_info,
     Handle<TypeFeedbackVector> feedback_vector) {
   DCHECK(IsValidFunctionKind(kind));
-  Handle<SharedFunctionInfo> shared = NewSharedFunctionInfo(name, code);
+  Handle<SharedFunctionInfo> shared = NewSharedFunctionInfo(
+      name, code, IsConstructable(kind, scope_info->language_mode()));
   shared->set_scope_info(*scope_info);
   shared->set_feedback_vector(*feedback_vector);
   shared->set_kind(kind);
@@ -2055,8 +2052,7 @@ Handle<JSMessageObject> Factory::NewJSMessageObject(
 
 
 Handle<SharedFunctionInfo> Factory::NewSharedFunctionInfo(
-    Handle<String> name,
-    MaybeHandle<Code> maybe_code) {
+    Handle<String> name, MaybeHandle<Code> maybe_code, bool is_constructor) {
   Handle<Map> map = shared_function_info_map();
   Handle<SharedFunctionInfo> share = New<SharedFunctionInfo>(map, OLD_SPACE);
 
@@ -2064,14 +2060,15 @@ Handle<SharedFunctionInfo> Factory::NewSharedFunctionInfo(
   share->set_name(*name);
   Handle<Code> code;
   if (!maybe_code.ToHandle(&code)) {
-    code = handle(isolate()->builtins()->builtin(Builtins::kIllegal));
+    code = isolate()->builtins()->Illegal();
   }
   share->set_code(*code);
   share->set_optimized_code_map(*cleared_optimized_code_map());
   share->set_scope_info(ScopeInfo::Empty(isolate()));
-  Code* construct_stub =
-      isolate()->builtins()->builtin(Builtins::kJSConstructStubGeneric);
-  share->set_construct_stub(construct_stub);
+  Handle<Code> construct_stub =
+      is_constructor ? isolate()->builtins()->JSConstructStubGeneric()
+                     : isolate()->builtins()->ConstructedNonConstructable();
+  share->set_construct_stub(*construct_stub);
   share->set_instance_class_name(*Object_string());
   share->set_function_data(*undefined_value(), SKIP_WRITE_BARRIER);
   share->set_script(*undefined_value(), SKIP_WRITE_BARRIER);
@@ -2295,7 +2292,7 @@ void Factory::SetRegExpAtomData(Handle<JSRegExp> regexp,
 
   store->set(JSRegExp::kTagIndex, Smi::FromInt(type));
   store->set(JSRegExp::kSourceIndex, *source);
-  store->set(JSRegExp::kFlagsIndex, Smi::FromInt(flags.value()));
+  store->set(JSRegExp::kFlagsIndex, Smi::FromInt(flags));
   store->set(JSRegExp::kAtomPatternIndex, *data);
   regexp->set_data(*store);
 }
@@ -2310,7 +2307,7 @@ void Factory::SetRegExpIrregexpData(Handle<JSRegExp> regexp,
   Smi* uninitialized = Smi::FromInt(JSRegExp::kUninitializedValue);
   store->set(JSRegExp::kTagIndex, Smi::FromInt(type));
   store->set(JSRegExp::kSourceIndex, *source);
-  store->set(JSRegExp::kFlagsIndex, Smi::FromInt(flags.value()));
+  store->set(JSRegExp::kFlagsIndex, Smi::FromInt(flags));
   store->set(JSRegExp::kIrregexpLatin1CodeIndex, uninitialized);
   store->set(JSRegExp::kIrregexpUC16CodeIndex, uninitialized);
   store->set(JSRegExp::kIrregexpLatin1CodeSavedIndex, uninitialized);

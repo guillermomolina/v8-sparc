@@ -1450,47 +1450,12 @@ void FullCodeGenerator::EmitVariableLoad(VariableProxy* proxy,
 
 void FullCodeGenerator::VisitRegExpLiteral(RegExpLiteral* expr) {
   Comment cmnt(masm_, "[ RegExpLiteral");
-  Label materialized;
-  // Registers will be used as follows:
-  // x5 = materialized value (RegExp literal)
-  // x4 = JS function, literals array
-  // x3 = literal index
-  // x2 = RegExp pattern
-  // x1 = RegExp flags
-  // x0 = RegExp literal clone
-  __ Ldr(x10, MemOperand(fp, JavaScriptFrameConstants::kFunctionOffset));
-  __ Ldr(x4, FieldMemOperand(x10, JSFunction::kLiteralsOffset));
-  int literal_offset = LiteralsArray::OffsetOfLiteralAt(expr->literal_index());
-  __ Ldr(x5, FieldMemOperand(x4, literal_offset));
-  __ JumpIfNotRoot(x5, Heap::kUndefinedValueRootIndex, &materialized);
-
-  // Create regexp literal using runtime function.
-  // Result will be in x0.
-  __ Mov(x3, Smi::FromInt(expr->literal_index()));
-  __ Mov(x2, Operand(expr->pattern()));
-  __ Mov(x1, Operand(expr->flags()));
-  __ Push(x4, x3, x2, x1);
-  __ CallRuntime(Runtime::kMaterializeRegExpLiteral, 4);
-  __ Mov(x5, x0);
-
-  __ Bind(&materialized);
-  int size = JSRegExp::kSize + JSRegExp::kInObjectFieldCount * kPointerSize;
-  Label allocated, runtime_allocate;
-  __ Allocate(size, x0, x2, x3, &runtime_allocate, TAG_OBJECT);
-  __ B(&allocated);
-
-  __ Bind(&runtime_allocate);
-  __ Mov(x10, Smi::FromInt(size));
-  __ Push(x5, x10);
-  __ CallRuntime(Runtime::kAllocateInNewSpace, 1);
-  __ Pop(x5);
-
-  __ Bind(&allocated);
-  // After this, registers are used as follows:
-  // x0: Newly allocated regexp.
-  // x5: Materialized regexp.
-  // x10, x11, x12: temps.
-  __ CopyFields(x0, x5, CPURegList(x10, x11, x12), size / kPointerSize);
+  __ Ldr(x3, MemOperand(fp, JavaScriptFrameConstants::kFunctionOffset));
+  __ Mov(x2, Smi::FromInt(expr->literal_index()));
+  __ Mov(x1, Operand(expr->pattern()));
+  __ Mov(x0, Smi::FromInt(expr->flags()));
+  FastCloneRegExpStub stub(isolate());
+  __ CallStub(&stub);
   context()->Plug(x0);
 }
 
@@ -1517,7 +1482,6 @@ void FullCodeGenerator::VisitObjectLiteral(ObjectLiteral* expr) {
 
   Handle<FixedArray> constant_properties = expr->constant_properties();
   __ Ldr(x3, MemOperand(fp,  JavaScriptFrameConstants::kFunctionOffset));
-  __ Ldr(x3, FieldMemOperand(x3, JSFunction::kLiteralsOffset));
   __ Mov(x2, Smi::FromInt(expr->literal_index()));
   __ Mov(x1, Operand(constant_properties));
   int flags = expr->ComputeFlags();
@@ -1721,7 +1685,6 @@ void FullCodeGenerator::VisitArrayLiteral(ArrayLiteral* expr) {
   }
 
   __ Ldr(x3, MemOperand(fp, JavaScriptFrameConstants::kFunctionOffset));
-  __ Ldr(x3, FieldMemOperand(x3, JSFunction::kLiteralsOffset));
   __ Mov(x2, Smi::FromInt(expr->literal_index()));
   __ Mov(x1, Operand(constant_elements));
   if (MustCreateArrayLiteralWithRuntime(expr)) {
@@ -1750,14 +1713,13 @@ void FullCodeGenerator::VisitArrayLiteral(ArrayLiteral* expr) {
     if (CompileTimeValue::IsCompileTimeValue(subexpr)) continue;
 
     if (!result_saved) {
-      __ Mov(x1, Smi::FromInt(expr->literal_index()));
-      __ Push(x0, x1);
+      __ Push(x0);
       result_saved = true;
     }
     VisitForAccumulatorValue(subexpr);
 
     __ Mov(StoreDescriptor::NameRegister(), Smi::FromInt(array_index));
-    __ Peek(StoreDescriptor::ReceiverRegister(), kPointerSize);
+    __ Peek(StoreDescriptor::ReceiverRegister(), 0);
     EmitLoadStoreICSlot(expr->LiteralFeedbackSlot());
     Handle<Code> ic =
         CodeFactory::KeyedStoreIC(isolate(), language_mode()).code();
@@ -1772,7 +1734,6 @@ void FullCodeGenerator::VisitArrayLiteral(ArrayLiteral* expr) {
   // (inclusive) and these elements gets appended to the array. Note that the
   // number elements an iterable produces is unknown ahead of time.
   if (array_index < length && result_saved) {
-    __ Drop(1);  // literal index
     __ Pop(x0);
     result_saved = false;
   }
@@ -1793,7 +1754,6 @@ void FullCodeGenerator::VisitArrayLiteral(ArrayLiteral* expr) {
   }
 
   if (result_saved) {
-    __ Drop(1);   // literal index
     context()->PlugTOS();
   } else {
     context()->Plug(x0);

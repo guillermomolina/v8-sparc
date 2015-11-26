@@ -2381,16 +2381,6 @@ Block* Parser::ParseBlock(ZoneList<const AstRawString*>* labels, bool* ok) {
 }
 
 
-const AstRawString* Parser::DeclarationParsingResult::SingleName() const {
-  if (declarations.length() != 1) return nullptr;
-  const Declaration& declaration = declarations.at(0);
-  if (declaration.pattern->IsVariableProxy()) {
-    return declaration.pattern->AsVariableProxy()->raw_name();
-  }
-  return nullptr;
-}
-
-
 Block* Parser::DeclarationParsingResult::BuildInitializationBlock(
     ZoneList<const AstRawString*>* names, bool* ok) {
   Block* result = descriptor.parser->factory()->NewBlock(
@@ -3678,9 +3668,12 @@ Statement* Parser::ParseForStatement(ZoneList<const AstRawString*>* labels,
           *ok = false;
           return nullptr;
         }
+        DeclarationParsingResult::Declaration& decl =
+            parsing_result.declarations[0];
         if (parsing_result.first_initializer_loc.IsValid() &&
             (is_strict(language_mode()) || mode == ForEachStatement::ITERATE ||
-             IsLexicalVariableMode(parsing_result.descriptor.mode))) {
+             IsLexicalVariableMode(parsing_result.descriptor.mode) ||
+             !decl.pattern->IsVariableProxy())) {
           if (mode == ForEachStatement::ITERATE) {
             ReportMessageAt(parsing_result.first_initializer_loc,
                             MessageTemplate::kForOfLoopInitializer);
@@ -3693,23 +3686,22 @@ Statement* Parser::ParseForStatement(ZoneList<const AstRawString*>* labels,
           return nullptr;
         }
 
-        DCHECK(parsing_result.declarations.length() == 1);
         Block* init_block = nullptr;
 
         // special case for legacy for (var/const x =.... in)
         if (!IsLexicalVariableMode(parsing_result.descriptor.mode) &&
-            parsing_result.declarations[0].initializer != nullptr) {
+            decl.pattern->IsVariableProxy() && decl.initializer != nullptr) {
+          const AstRawString* name =
+              decl.pattern->AsVariableProxy()->raw_name();
           VariableProxy* single_var = scope_->NewUnresolved(
-              factory(), parsing_result.SingleName(), Variable::NORMAL,
-              each_beg_pos, each_end_pos);
+              factory(), name, Variable::NORMAL, each_beg_pos, each_end_pos);
           init_block = factory()->NewBlock(
               nullptr, 2, true, parsing_result.descriptor.declaration_pos);
           init_block->statements()->Add(
               factory()->NewExpressionStatement(
-                  factory()->NewAssignment(
-                      Token::ASSIGN, single_var,
-                      parsing_result.declarations[0].initializer,
-                      RelocInfo::kNoPosition),
+                  factory()->NewAssignment(Token::ASSIGN, single_var,
+                                           decl.initializer,
+                                           RelocInfo::kNoPosition),
                   RelocInfo::kNoPosition),
               zone());
         }
@@ -3752,9 +3744,6 @@ Statement* Parser::ParseForStatement(ZoneList<const AstRawString*>* labels,
         auto each_initialization_block =
             factory()->NewBlock(nullptr, 1, true, RelocInfo::kNoPosition);
         {
-          DCHECK(parsing_result.declarations.length() == 1);
-          DeclarationParsingResult::Declaration decl =
-              parsing_result.declarations[0];
           auto descriptor = parsing_result.descriptor;
           descriptor.declaration_pos = RelocInfo::kNoPosition;
           descriptor.initialization_pos = RelocInfo::kNoPosition;
@@ -4088,7 +4077,11 @@ void ParserTraits::ParseArrowFunctionFormalParameters(
                                      parser_->scope_, parameters->scope);
   }
 
-  AddFormalParameter(parameters, expr, initializer, is_rest);
+  // TODO(adamk): params_loc.end_pos is not the correct initializer position,
+  // but it should be conservative enough to trigger hole checks for variables
+  // referenced in the initializer (if any).
+  AddFormalParameter(parameters, expr, initializer, params_loc.end_pos,
+                     is_rest);
 }
 
 
@@ -4550,7 +4543,15 @@ Block* Parser::BuildParameterInitializationBlock(
     descriptor.is_const = false;
     descriptor.needs_init = true;
     descriptor.declaration_pos = parameter.pattern->position();
+    // The position that will be used by the AssignmentExpression
+    // which copies from the temp parameter to the pattern.
+    //
+    // TODO(adamk): Should this be RelocInfo::kNoPosition, since
+    // it's just copying from a temp var to the real param var?
     descriptor.initialization_pos = parameter.pattern->position();
+    // The initializer position which will end up in,
+    // Variable::initializer_position(), used for hole check elimination.
+    int initializer_position = parameter.pattern->position();
     Expression* initial_value =
         factory()->NewVariableProxy(parameters.scope->parameter(i));
     if (parameter.initializer != nullptr) {
@@ -4565,6 +4566,7 @@ Block* Parser::BuildParameterInitializationBlock(
           condition, parameter.initializer, initial_value,
           RelocInfo::kNoPosition);
       descriptor.initialization_pos = parameter.initializer->position();
+      initializer_position = parameter.initializer_end_position;
     } else if (parameter.is_rest) {
       // $rest = [];
       // for (var $argument_index = $rest_index;
@@ -4576,7 +4578,6 @@ Block* Parser::BuildParameterInitializationBlock(
       DCHECK(parameter.pattern->IsVariableProxy());
       DCHECK_EQ(i, parameters.params.length() - 1);
 
-      int pos = parameter.pattern->position();
       Variable* temp_var = parameters.scope->parameter(i);
       auto empty_values = new (zone()) ZoneList<Expression*>(0, zone());
       auto empty_array = factory()->NewArrayLiteral(
@@ -4640,8 +4641,6 @@ Block* Parser::BuildParameterInitializationBlock(
           zone());
 
       init_block->statements()->Add(loop, zone());
-
-      descriptor.initialization_pos = pos;
     }
 
     Scope* param_scope = scope_;
@@ -4660,7 +4659,7 @@ Block* Parser::BuildParameterInitializationBlock(
     {
       BlockState block_state(&scope_, param_scope);
       DeclarationParsingResult::Declaration decl(
-          parameter.pattern, parameter.pattern->position(), initial_value);
+          parameter.pattern, initializer_position, initial_value);
       PatternRewriter::DeclareAndInitializeVariables(param_block, &descriptor,
                                                      &decl, nullptr, CHECK_OK);
     }

@@ -1042,12 +1042,9 @@ void BytecodeGenerator::VisitLiteral(Literal* expr) {
 void BytecodeGenerator::VisitRegExpLiteral(RegExpLiteral* expr) {
   // Materialize a regular expression literal.
   TemporaryRegisterScope temporary_register_scope(builder());
-  Register flags = temporary_register_scope.NewRegister();
   builder()
-      ->LoadLiteral(expr->flags())
-      .StoreAccumulatorInRegister(flags)
-      .LoadLiteral(expr->pattern())
-      .CreateRegExpLiteral(expr->literal_index(), flags);
+      ->LoadLiteral(expr->pattern())
+      .CreateRegExpLiteral(expr->literal_index(), expr->flags());
   execution_result()->SetResultInAccumulator();
 }
 
@@ -2157,7 +2154,7 @@ void BytecodeGenerator::VisitNewTargetVariable(Variable* variable) {
   if (variable == nullptr) return;
 
   // Store the new target we were called with in the given variable.
-  builder()->CallRuntime(Runtime::kGetNewTarget, Register(), 0);
+  builder()->LoadAccumulatorWithRegister(Register::new_target());
   VisitVariableAssignment(variable, FeedbackVectorSlot::Invalid());
 }
 

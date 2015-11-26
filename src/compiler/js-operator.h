@@ -403,6 +403,34 @@ std::ostream& operator<<(std::ostream&, CreateClosureParameters const&);
 const CreateClosureParameters& CreateClosureParametersOf(const Operator* op);
 
 
+// Defines shared information for the literal that should be created. This is
+// used as parameter by JSCreateLiteralArray, JSCreateLiteralObject and
+// JSCreateLiteralRegExp operators.
+class CreateLiteralParameters final {
+ public:
+  CreateLiteralParameters(Handle<HeapObject> constant, int flags, int index)
+      : constant_(constant), flags_(flags), index_(index) {}
+
+  Handle<HeapObject> constant() const { return constant_; }
+  int flags() const { return flags_; }
+  int index() const { return index_; }
+
+ private:
+  Handle<HeapObject> const constant_;
+  int const flags_;
+  int const index_;
+};
+
+bool operator==(CreateLiteralParameters const&, CreateLiteralParameters const&);
+bool operator!=(CreateLiteralParameters const&, CreateLiteralParameters const&);
+
+size_t hash_value(CreateLiteralParameters const&);
+
+std::ostream& operator<<(std::ostream&, CreateLiteralParameters const&);
+
+const CreateLiteralParameters& CreateLiteralParametersOf(const Operator* op);
+
+
 // Interface for building JavaScript-level operators, e.g. directly from the
 // AST. Most operators have no parameters, thus can be globally shared for all
 // graphs.
@@ -444,8 +472,12 @@ class JSOperatorBuilder final : public ZoneObject {
   const Operator* CreateArray(size_t arity, Handle<AllocationSite> site);
   const Operator* CreateClosure(Handle<SharedFunctionInfo> shared_info,
                                 PretenureFlag pretenure);
-  const Operator* CreateLiteralArray(int literal_flags);
-  const Operator* CreateLiteralObject(int literal_flags);
+  const Operator* CreateLiteralArray(Handle<FixedArray> constant_elements,
+                                     int literal_flags, int literal_index);
+  const Operator* CreateLiteralObject(Handle<FixedArray> constant_properties,
+                                      int literal_flags, int literal_index);
+  const Operator* CreateLiteralRegExp(Handle<String> constant_pattern,
+                                      int literal_flags, int literal_index);
 
   const Operator* CallFunction(
       size_t arity, LanguageMode language_mode,

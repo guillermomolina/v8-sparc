@@ -1634,7 +1634,8 @@ void LCodeGen::DoApplyArguments(LApplyArguments* instr) {
   // The number of arguments is stored in argc (receiver) which is x0, as
   // expected by InvokeFunction.
   ParameterCount actual(argc);
-  __ InvokeFunction(function, actual, CALL_FUNCTION, safepoint_generator);
+  __ InvokeFunction(function, no_reg, actual, CALL_FUNCTION,
+                    safepoint_generator);
 }
 
 
@@ -3006,7 +3007,7 @@ void LCodeGen::DoInvokeFunction(LInvokeFunction* instr) {
     LPointerMap* pointers = instr->pointer_map();
     SafepointGenerator generator(this, pointers, Safepoint::kLazyDeopt);
     ParameterCount count(instr->arity());
-    __ InvokeFunction(x1, count, CALL_FUNCTION, generator);
+    __ InvokeFunction(x1, no_reg, count, CALL_FUNCTION, generator);
   } else {
     CallKnownFunction(known_function,
                       instr->hydrogen()->formal_parameter_count(),
@@ -5560,48 +5561,6 @@ void LCodeGen::DoToFastProperties(LToFastProperties* instr) {
   DCHECK(ToRegister(instr->result()).Is(x0));
   __ Push(x0);
   CallRuntime(Runtime::kToFastProperties, 1, instr);
-}
-
-
-void LCodeGen::DoRegExpLiteral(LRegExpLiteral* instr) {
-  DCHECK(ToRegister(instr->context()).is(cp));
-  Label materialized;
-  // Registers will be used as follows:
-  // x7 = literals array.
-  // x1 = regexp literal.
-  // x0 = regexp literal clone.
-  // x10-x12 are used as temporaries.
-  int literal_offset =
-      LiteralsArray::OffsetOfLiteralAt(instr->hydrogen()->literal_index());
-  __ LoadObject(x7, instr->hydrogen()->literals());
-  __ Ldr(x1, FieldMemOperand(x7, literal_offset));
-  __ JumpIfNotRoot(x1, Heap::kUndefinedValueRootIndex, &materialized);
-
-  // Create regexp literal using runtime function
-  // Result will be in x0.
-  __ Mov(x12, Operand(Smi::FromInt(instr->hydrogen()->literal_index())));
-  __ Mov(x11, Operand(instr->hydrogen()->pattern()));
-  __ Mov(x10, Operand(instr->hydrogen()->flags()));
-  __ Push(x7, x12, x11, x10);
-  CallRuntime(Runtime::kMaterializeRegExpLiteral, 4, instr);
-  __ Mov(x1, x0);
-
-  __ Bind(&materialized);
-  int size = JSRegExp::kSize + JSRegExp::kInObjectFieldCount * kPointerSize;
-  Label allocated, runtime_allocate;
-
-  __ Allocate(size, x0, x10, x11, &runtime_allocate, TAG_OBJECT);
-  __ B(&allocated);
-
-  __ Bind(&runtime_allocate);
-  __ Mov(x0, Smi::FromInt(size));
-  __ Push(x1, x0);
-  CallRuntime(Runtime::kAllocateInNewSpace, 1, instr);
-  __ Pop(x1);
-
-  __ Bind(&allocated);
-  // Copy the content into the newly allocated memory.
-  __ CopyFields(x0, x1, CPURegList(x10, x11, x12), size / kPointerSize);
 }
 
 

@@ -156,7 +156,7 @@ namespace interpreter {
   V(ToObject, OperandType::kNone)                                              \
                                                                                \
   /* Literals */                                                               \
-  V(CreateRegExpLiteral, OperandType::kIdx8, OperandType::kReg8)               \
+  V(CreateRegExpLiteral, OperandType::kIdx8, OperandType::kImm8)               \
   V(CreateArrayLiteral, OperandType::kIdx8, OperandType::kImm8)                \
   V(CreateObjectLiteral, OperandType::kIdx8, OperandType::kImm8)               \
                                                                                \
@@ -259,6 +259,10 @@ class Register {
   // Returns the register for the function's outer context.
   static Register function_context();
   bool is_function_context() const;
+
+  // Returns the register for the incoming new target value.
+  static Register new_target();
+  bool is_new_target() const;
 
   static Register FromOperand(uint8_t operand);
   uint8_t ToOperand() const;

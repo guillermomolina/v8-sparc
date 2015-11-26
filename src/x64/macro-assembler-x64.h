@@ -85,11 +85,8 @@ struct SmiIndex {
 // MacroAssembler implements a collection of frequently used macros.
 class MacroAssembler: public Assembler {
  public:
-  // The isolate parameter can be NULL if the macro assembler should
-  // not use isolate-dependent functionality. In this case, it's the
-  // responsibility of the caller to never invoke such function on the
-  // macro assembler.
-  MacroAssembler(Isolate* isolate, void* buffer, int size);
+  MacroAssembler(Isolate* isolate, void* buffer, int size,
+                 CodeObjectRequired create_code_object);
 
   // Prevent the use of the RootArray during the lifetime of this
   // scope object.
@@ -372,6 +369,7 @@ class MacroAssembler: public Assembler {
 
   // Invoke the JavaScript function code by either calling or jumping.
   void InvokeCode(Register code,
+                  Register new_target,
                   const ParameterCount& expected,
                   const ParameterCount& actual,
                   InvokeFlag flag,
@@ -380,11 +378,13 @@ class MacroAssembler: public Assembler {
   // Invoke the JavaScript function in the given register. Changes the
   // current context to the context in the function before invoking.
   void InvokeFunction(Register function,
+                      Register new_target,
                       const ParameterCount& actual,
                       InvokeFlag flag,
                       const CallWrapper& call_wrapper);
 
   void InvokeFunction(Register function,
+                      Register new_target,
                       const ParameterCount& expected,
                       const ParameterCount& actual,
                       InvokeFlag flag,
@@ -967,6 +967,7 @@ class MacroAssembler: public Assembler {
   void Movapd(XMMRegister dst, XMMRegister src);
   void Movmskpd(Register dst, XMMRegister src);
 
+  void Roundss(XMMRegister dst, XMMRegister src, RoundingMode mode);
   void Roundsd(XMMRegister dst, XMMRegister src, RoundingMode mode);
   void Sqrtsd(XMMRegister dst, XMMRegister src);
   void Sqrtsd(XMMRegister dst, const Operand& src);
@@ -1588,8 +1589,8 @@ class MacroAssembler: public Assembler {
                       Label* done,
                       bool* definitely_mismatches,
                       InvokeFlag flag,
-                      Label::Distance near_jump = Label::kFar,
-                      const CallWrapper& call_wrapper = NullCallWrapper());
+                      Label::Distance near_jump,
+                      const CallWrapper& call_wrapper);
 
   void EnterExitFramePrologue(bool save_rax);
 

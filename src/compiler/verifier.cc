@@ -521,6 +521,7 @@ void Verifier::Visitor::Check(Node* node) {
       break;
     case IrOpcode::kJSCreateLiteralArray:
     case IrOpcode::kJSCreateLiteralObject:
+    case IrOpcode::kJSCreateLiteralRegExp:
       // Type is OtherObject.
       CheckUpperIs(node, Type::OtherObject());
       break;
@@ -888,10 +889,14 @@ void Verifier::Visitor::Check(Node* node) {
     case IrOpcode::kFloat64Min:
     case IrOpcode::kFloat64Abs:
     case IrOpcode::kFloat64Sqrt:
+    case IrOpcode::kFloat32RoundDown:
     case IrOpcode::kFloat64RoundDown:
+    case IrOpcode::kFloat32RoundUp:
     case IrOpcode::kFloat64RoundUp:
+    case IrOpcode::kFloat32RoundTruncate:
     case IrOpcode::kFloat64RoundTruncate:
     case IrOpcode::kFloat64RoundTiesAway:
+    case IrOpcode::kFloat32RoundTiesEven:
     case IrOpcode::kFloat64RoundTiesEven:
     case IrOpcode::kFloat64Equal:
     case IrOpcode::kFloat64LessThan:

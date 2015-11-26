@@ -2663,10 +2663,10 @@ class V8_EXPORT Object : public Value {
   // will only be returned if the interceptor doesn't return a value.
   //
   // Note also that this only works for named properties.
-  V8_DEPRECATE_SOON("Use CreateDataProperty",
+  V8_DEPRECATE_SOON("Use CreateDataProperty / DefineOwnProperty",
                     bool ForceSet(Local<Value> key, Local<Value> value,
                                   PropertyAttribute attribs = None));
-  V8_DEPRECATE_SOON("Use CreateDataProperty",
+  V8_DEPRECATE_SOON("Use CreateDataProperty / DefineOwnProperty",
                     Maybe<bool> ForceSet(Local<Context> context,
                                          Local<Value> key, Local<Value> value,
                                          PropertyAttribute attribs = None));
@@ -2921,7 +2921,7 @@ class V8_EXPORT Object : public Value {
 
   V8_DEPRECATE_SOON("Use v8::Object::SetPrivate instead.",
                     bool SetHiddenValue(Local<String> key, Local<Value> value));
-  V8_DEPRECATE_SOON("Use v8::Object::GetHidden instead.",
+  V8_DEPRECATE_SOON("Use v8::Object::GetPrivate instead.",
                     Local<Value> GetHiddenValue(Local<String> key));
   V8_DEPRECATE_SOON("Use v8::Object::DeletePrivate instead.",
                     bool DeleteHiddenValue(Local<String> key));
@@ -4411,6 +4411,15 @@ class V8_EXPORT FunctionTemplate : public Template {
       Local<Value> data = Local<Value>(),
       Local<Signature> signature = Local<Signature>(), int length = 0);
 
+  /**
+   * Creates a function template with a fast handler. If a fast handler is set,
+   * the callback cannot be null.
+   */
+  static Local<FunctionTemplate> NewWithFastHandler(
+      Isolate* isolate, FunctionCallback callback, Local<Value> fast_handler,
+      Local<Value> data = Local<Value>(),
+      Local<Signature> signature = Local<Signature>(), int length = 0);
+
   /** Returns the unique function instance in the current execution context.*/
   V8_DEPRECATE_SOON("Use maybe version", Local<Function> GetFunction());
   V8_WARN_UNUSED_RESULT MaybeLocal<Function> GetFunction(
@@ -4422,7 +4431,8 @@ class V8_EXPORT FunctionTemplate : public Template {
    * FunctionTemplate is called.
    */
   void SetCallHandler(FunctionCallback callback,
-                      Local<Value> data = Local<Value>());
+                      Local<Value> data = Local<Value>(),
+                      Local<Value> fast_handler = Local<Value>());
 
   /** Set the predefined length property for the FunctionTemplate. */
   void SetLength(int length);

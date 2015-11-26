@@ -5144,13 +5144,23 @@ static double kValues[] = {0.1,
                            -two_52 + 1 - 0.7};
 
 
+TEST(RunFloat32RoundDown) {
+  BufferedRawMachineAssemblerTester<float> m(kMachFloat32);
+  if (!m.machine()->Float32RoundDown().IsSupported()) return;
+
+  m.Return(m.Float32RoundDown(m.Parameter(0)));
+
+  FOR_FLOAT32_INPUTS(i) { CheckFloatEq(floorf(*i), m.Call(*i)); }
+}
+
+
 TEST(RunFloat64RoundDown1) {
   BufferedRawMachineAssemblerTester<double> m(kMachFloat64);
   if (!m.machine()->Float64RoundDown().IsSupported()) return;
 
   m.Return(m.Float64RoundDown(m.Parameter(0)));
 
-  FOR_FLOAT64_INPUTS(i) { CheckDoubleEq(std::floor(*i), m.Call(*i)); }
+  FOR_FLOAT64_INPUTS(i) { CheckDoubleEq(floor(*i), m.Call(*i)); }
 }
 
 
@@ -5162,8 +5172,17 @@ TEST(RunFloat64RoundDown2) {
                                                         m.Parameter(0)))));
 
   for (size_t i = 0; i < arraysize(kValues); ++i) {
-    CHECK_EQ(std::ceil(kValues[i]), m.Call(kValues[i]));
+    CHECK_EQ(ceil(kValues[i]), m.Call(kValues[i]));
   }
+}
+
+
+TEST(RunFloat32RoundUp) {
+  BufferedRawMachineAssemblerTester<float> m(kMachFloat32);
+  if (!m.machine()->Float32RoundUp().IsSupported()) return;
+  m.Return(m.Float32RoundUp(m.Parameter(0)));
+
+  FOR_FLOAT32_INPUTS(i) { CheckFloatEq(ceilf(*i), m.Call(*i)); }
 }
 
 
@@ -5172,7 +5191,16 @@ TEST(RunFloat64RoundUp) {
   if (!m.machine()->Float64RoundUp().IsSupported()) return;
   m.Return(m.Float64RoundUp(m.Parameter(0)));
 
-  FOR_FLOAT64_INPUTS(i) { CheckDoubleEq(std::ceil(*i), m.Call(*i)); }
+  FOR_FLOAT64_INPUTS(i) { CheckDoubleEq(ceil(*i), m.Call(*i)); }
+}
+
+
+TEST(RunFloat32RoundTiesEven) {
+  BufferedRawMachineAssemblerTester<float> m(kMachFloat32);
+  if (!m.machine()->Float32RoundTiesEven().IsSupported()) return;
+  m.Return(m.Float32RoundTiesEven(m.Parameter(0)));
+
+  FOR_FLOAT32_INPUTS(i) { CheckFloatEq(nearbyint(*i), m.Call(*i)); }
 }
 
 
@@ -5182,6 +5210,16 @@ TEST(RunFloat64RoundTiesEven) {
   m.Return(m.Float64RoundTiesEven(m.Parameter(0)));
 
   FOR_FLOAT64_INPUTS(i) { CheckDoubleEq(nearbyint(*i), m.Call(*i)); }
+}
+
+
+TEST(RunFloat32RoundTruncate) {
+  BufferedRawMachineAssemblerTester<float> m(kMachFloat32);
+  if (!m.machine()->Float32RoundTruncate().IsSupported()) return;
+
+  m.Return(m.Float32RoundTruncate(m.Parameter(0)));
+
+  FOR_FLOAT32_INPUTS(i) { CheckFloatEq(truncf(*i), m.Call(*i)); }
 }
 
 

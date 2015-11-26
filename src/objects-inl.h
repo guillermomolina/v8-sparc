@@ -2288,7 +2288,7 @@ Object* JSObject::InObjectPropertyAtPut(int index,
 }
 
 
-void JSObject::InitializeBody(Map* map,
+void JSObject::InitializeBody(Map* map, int start_offset,
                               Object* pre_allocated_value,
                               Object* filler_value) {
   DCHECK(!filler_value->IsHeapObject() ||
@@ -2296,7 +2296,7 @@ void JSObject::InitializeBody(Map* map,
   DCHECK(!pre_allocated_value->IsHeapObject() ||
          !GetHeap()->InNewSpace(pre_allocated_value));
   int size = map->instance_size();
-  int offset = kHeaderSize;
+  int offset = start_offset;
   if (filler_value != pre_allocated_value) {
     int end_of_pre_allocated_offset =
         size - (map->unused_property_fields() * kPointerSize);
@@ -3037,20 +3037,12 @@ void DescriptorArray::Get(int descriptor_number, Descriptor* desc) {
 }
 
 
-void DescriptorArray::Set(int descriptor_number,
-                          Descriptor* desc,
-                          const WhitenessWitness&) {
+void DescriptorArray::SetDescriptor(int descriptor_number, Descriptor* desc) {
   // Range check.
   DCHECK(descriptor_number < number_of_descriptors());
-
-  NoIncrementalWriteBarrierSet(this,
-                               ToKeyIndex(descriptor_number),
-                               *desc->GetKey());
-  NoIncrementalWriteBarrierSet(this,
-                               ToValueIndex(descriptor_number),
-                               *desc->GetValue());
-  NoIncrementalWriteBarrierSet(this, ToDetailsIndex(descriptor_number),
-                               desc->GetDetails().AsSmi());
+  set(ToKeyIndex(descriptor_number), *desc->GetKey());
+  set(ToValueIndex(descriptor_number), *desc->GetValue());
+  set(ToDetailsIndex(descriptor_number), desc->GetDetails().AsSmi());
 }
 
 
@@ -3088,19 +3080,6 @@ void DescriptorArray::SwapSortedKeys(int first, int second) {
   int first_key = GetSortedKeyIndex(first);
   SetSortedKey(first, GetSortedKeyIndex(second));
   SetSortedKey(second, first_key);
-}
-
-
-DescriptorArray::WhitenessWitness::WhitenessWitness(DescriptorArray* array)
-    : marking_(array->GetHeap()->incremental_marking()) {
-  marking_->EnterNoMarkingScope();
-  DCHECK(!marking_->IsMarking() ||
-         Marking::Color(array) == Marking::WHITE_OBJECT);
-}
-
-
-DescriptorArray::WhitenessWitness::~WhitenessWitness() {
-  marking_->LeaveNoMarkingScope();
 }
 
 
@@ -5619,6 +5598,7 @@ BOOL_ACCESSORS(InterceptorInfo, flags, non_masking, kNonMasking)
 
 ACCESSORS(CallHandlerInfo, callback, Object, kCallbackOffset)
 ACCESSORS(CallHandlerInfo, data, Object, kDataOffset)
+ACCESSORS(CallHandlerInfo, fast_handler, Object, kFastHandlerOffset)
 
 ACCESSORS(TemplateInfo, tag, Object, kTagOffset)
 SMI_ACCESSORS(TemplateInfo, number_of_properties, kNumberOfProperties)

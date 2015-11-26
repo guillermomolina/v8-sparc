@@ -141,11 +141,8 @@ inline MemOperand CFunctionArgumentOperand(int index) {
 // MacroAssembler implements a collection of frequently used macros.
 class MacroAssembler: public Assembler {
  public:
-  // The isolate parameter can be NULL if the macro assembler should
-  // not use isolate-dependent functionality. In this case, it's the
-  // responsibility of the caller to never invoke such function on the
-  // macro assembler.
-  MacroAssembler(Isolate* isolate, void* buffer, int size);
+  MacroAssembler(Isolate* isolate, void* buffer, int size,
+                 CodeObjectRequired create_code_object);
 
   // Arguments macros.
 #define COND_TYPED_ARGS Condition cond, Register r1, const Operand& r2
@@ -971,6 +968,7 @@ class MacroAssembler: public Assembler {
 
   // Invoke the JavaScript function code by either calling or jumping.
   void InvokeCode(Register code,
+                  Register new_target,
                   const ParameterCount& expected,
                   const ParameterCount& actual,
                   InvokeFlag flag,
@@ -979,6 +977,7 @@ class MacroAssembler: public Assembler {
   // Invoke the JavaScript function in the given register. Changes the
   // current context to the context in the function before invoking.
   void InvokeFunction(Register function,
+                      Register new_target,
                       const ParameterCount& actual,
                       InvokeFlag flag,
                       const CallWrapper& call_wrapper);
@@ -1017,9 +1016,6 @@ class MacroAssembler: public Assembler {
   // Unlink the stack handler on top of the stack from the stack handler chain.
   // Must preserve the result register.
   void PopStackHandler();
-
-  // Copies a fixed number of fields of heap objects from src to dst.
-  void CopyFields(Register dst, Register src, RegList temps, int field_count);
 
   // Copies a number of bytes from src to dst. All registers are clobbered. On
   // exit src and dst will point to the place just after where the last byte was

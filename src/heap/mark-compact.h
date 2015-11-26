@@ -119,8 +119,6 @@ class Marking : public AllStatic {
     markbit.Next().Set();
   }
 
-  static void TransferMark(Heap* heap, Address old_start, Address new_start);
-
 #ifdef DEBUG
   enum ObjectColor {
     BLACK_OBJECT,
@@ -627,6 +625,9 @@ class MarkCompactCollector {
   // increase chances of reusing of map transition tree in future.
   void RetainMaps();
 
+  // Collects a list of dependent code from maps embedded in optimize code.
+  DependentCode* DependentCodeListFromNonLiveMaps();
+
   // Mark objects reachable (transitively) from objects in the marking
   // stack.  This function empties the marking stack, but may leave
   // overflowed objects in the heap, in which case the marking stack's
@@ -653,10 +654,10 @@ class MarkCompactCollector {
   // Map transitions from a live map to a dead map must be killed.
   // We replace them with a null descriptor, with the same key.
   void ClearNonLiveReferences();
-  void ClearNonLivePrototypeTransitions(Map* map);
   void ClearNonLiveMapTransitions(Map* map);
   void ClearMapTransitions(Map* map, Map* dead_transition);
   bool ClearMapBackPointer(Map* map);
+  void MarkDependentCodeListForDeoptimization(DependentCode* list_head);
   void TrimDescriptorArray(Map* map, DescriptorArray* descriptors,
                            int number_of_own_descriptors);
   void TrimEnumCache(Map* map, DescriptorArray* descriptors);
@@ -682,6 +683,9 @@ class MarkCompactCollector {
   // optimized code maps that became unreachable are removed, potentially
   // trimming or clearing out the entire optimized code map.
   void ProcessAndClearOptimizedCodeMaps();
+
+  // Process non-live references in maps and optimized code.
+  void ProcessWeakReferences();
 
   // -----------------------------------------------------------------------
   // Phase 2: Sweeping to clear mark bits and free non-live objects for

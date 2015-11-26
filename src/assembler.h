@@ -55,6 +55,9 @@ class StatsCounter;
 // -----------------------------------------------------------------------------
 // Platform independent assembler base class.
 
+enum class CodeObjectRequired { kNo, kYes };
+
+
 class AssemblerBase: public Malloced {
  public:
   AssemblerBase(Isolate* isolate, void* buffer, int buffer_size);
@@ -233,17 +236,18 @@ class CpuFeatures : public AllStatic {
   static void PrintTarget();
   static void PrintFeatures();
 
+ private:
+  friend class ExternalReference;
+  friend class AssemblerBase;
   // Flush instruction cache.
   static void FlushICache(void* start, size_t size);
 
- private:
   // Platform-dependent implementation.
   static void ProbeImpl(bool cross_compile);
 
   static unsigned supported_;
   static unsigned cache_line_size_;
   static bool initialized_;
-  friend class ExternalReference;
   DISALLOW_COPY_AND_ASSIGN(CpuFeatures);
 };
 
@@ -1134,7 +1138,7 @@ inline int NumberOfBitsSet(uint32_t x) {
 bool EvalComparison(Token::Value op, double op1, double op2);
 
 // Computes pow(x, y) with the special cases in the spec for Math.pow.
-double power_helper(double x, double y);
+double power_helper(Isolate* isolate, double x, double y);
 double power_double_int(double x, int y);
 double power_double_double(double x, double y);
 

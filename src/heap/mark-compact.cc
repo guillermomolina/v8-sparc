@@ -349,16 +349,7 @@ void MarkCompactCollector::CollectGarbage() {
 
   DCHECK(heap_->incremental_marking()->IsStopped());
 
-  // ClearNonLiveReferences can deoptimize code in dependent code arrays.
-  // Process weak cells before so that weak cells in dependent code
-  // arrays are cleared or contain only live code objects.
-  ProcessAndClearWeakCells();
-
-  ClearNonLiveReferences();
-
-  ClearWeakCollections();
-
-  heap_->set_encountered_weak_cells(Smi::FromInt(0));
+  ProcessWeakReferences();
 
 #ifdef VERIFY_HEAP
   if (FLAG_verify_heap) {
@@ -600,43 +591,6 @@ bool MarkCompactCollector::IsSweepingCompleted() {
   }
   pending_sweeper_tasks_semaphore_.Signal();
   return true;
-}
-
-
-void Marking::TransferMark(Heap* heap, Address old_start, Address new_start) {
-  // This is only used when resizing an object.
-  DCHECK(MemoryChunk::FromAddress(old_start) ==
-         MemoryChunk::FromAddress(new_start));
-
-  if (!heap->incremental_marking()->IsMarking()) return;
-
-  // If the mark doesn't move, we don't check the color of the object.
-  // It doesn't matter whether the object is black, since it hasn't changed
-  // size, so the adjustment to the live data count will be zero anyway.
-  if (old_start == new_start) return;
-
-  MarkBit new_mark_bit = MarkBitFrom(new_start);
-  MarkBit old_mark_bit = MarkBitFrom(old_start);
-
-#ifdef DEBUG
-  ObjectColor old_color = Color(old_mark_bit);
-#endif
-
-  if (Marking::IsBlack(old_mark_bit)) {
-    Marking::BlackToWhite(old_mark_bit);
-    Marking::MarkBlack(new_mark_bit);
-    return;
-  } else if (Marking::IsGrey(old_mark_bit)) {
-    Marking::GreyToWhite(old_mark_bit);
-    heap->incremental_marking()->WhiteToGreyAndPush(
-        HeapObject::FromAddress(new_start), new_mark_bit);
-    heap->incremental_marking()->RestartIfNotMarking();
-  }
-
-#ifdef DEBUG
-  ObjectColor new_color = Color(new_mark_bit);
-  DCHECK(new_color == old_color);
-#endif
 }
 
 
@@ -1497,7 +1451,8 @@ void MarkCompactCollector::DiscoverGreyObjectsWithIterator(T* it) {
 }
 
 
-static inline int MarkWordToObjectStarts(uint32_t mark_bits, int* starts);
+static inline int MarkWordToObjectStarts(uint32_t mark_bits, Address base,
+                                         Address* starts);
 
 
 void MarkCompactCollector::DiscoverGreyObjectsOnPage(MemoryChunk* p) {
@@ -1821,18 +1776,40 @@ void MarkCompactCollector::ProcessTopOptimizedFrame(ObjectVisitor* visitor) {
 }
 
 
-void MarkCompactCollector::RetainMaps() {
-  if (heap()->ShouldReduceMemory() || heap()->ShouldAbortIncrementalMarking() ||
-      FLAG_retain_maps_for_n_gc == 0) {
-    // Do not retain dead maps if flag disables it or there is
-    // - memory pressure (reduce_memory_footprint_),
-    // - GC is requested by tests or dev-tools (abort_incremental_marking_).
-    return;
+bool ShouldRetainMap(Map* map, int age) {
+  if (age == 0) {
+    // The map has aged. Do not retain this map.
+    return false;
   }
+  Object* constructor = map->GetConstructor();
+  if (!constructor->IsHeapObject() ||
+      Marking::IsWhite(Marking::MarkBitFrom(HeapObject::cast(constructor)))) {
+    // The constructor is dead, no new objects with this map can
+    // be created. Do not retain this map.
+    return false;
+  }
+  return true;
+}
+
+
+void MarkCompactCollector::RetainMaps() {
+  // Do not retain dead maps if flag disables it or there is
+  // - memory pressure (reduce_memory_footprint_),
+  // - GC is requested by tests or dev-tools (abort_incremental_marking_).
+  bool map_retaining_is_disabled = heap()->ShouldReduceMemory() ||
+                                   heap()->ShouldAbortIncrementalMarking() ||
+                                   FLAG_retain_maps_for_n_gc == 0;
 
   ArrayList* retained_maps = heap()->retained_maps();
   int length = retained_maps->Length();
   int new_length = 0;
+  // The number_of_disposed_maps separates maps in the retained_maps
+  // array that were created before and after context disposal.
+  // We do not age and retain disposed maps to avoid memory leaks.
+  int number_of_disposed_maps = heap()->number_of_disposed_maps_;
+  int new_number_of_disposed_maps = 0;
+  // This loop compacts the array by removing cleared weak cells,
+  // ages and retains dead maps.
   for (int i = 0; i < length; i += 2) {
     DCHECK(retained_maps->Get(i)->IsWeakCell());
     WeakCell* cell = WeakCell::cast(retained_maps->Get(i));
@@ -1841,20 +1818,13 @@ void MarkCompactCollector::RetainMaps() {
     int new_age;
     Map* map = Map::cast(cell->value());
     MarkBit map_mark = Marking::MarkBitFrom(map);
-    if (Marking::IsWhite(map_mark)) {
-      if (age == 0) {
-        // The map has aged. Do not retain this map.
-        continue;
-      }
-      Object* constructor = map->GetConstructor();
-      if (!constructor->IsHeapObject() || Marking::IsWhite(Marking::MarkBitFrom(
-                                              HeapObject::cast(constructor)))) {
-        // The constructor is dead, no new objects with this map can
-        // be created. Do not retain this map.
-        continue;
+    if (i >= number_of_disposed_maps && !map_retaining_is_disabled &&
+        Marking::IsWhite(map_mark)) {
+      if (ShouldRetainMap(map, age)) {
+        MarkObject(map, map_mark);
       }
       Object* prototype = map->prototype();
-      if (prototype->IsHeapObject() &&
+      if (age > 0 && prototype->IsHeapObject() &&
           Marking::IsWhite(Marking::MarkBitFrom(HeapObject::cast(prototype)))) {
         // The prototype is not marked, age the map.
         new_age = age - 1;
@@ -1863,10 +1833,10 @@ void MarkCompactCollector::RetainMaps() {
         // transition tree alive, not JSObjects. Do not age the map.
         new_age = age;
       }
-      MarkObject(map, map_mark);
     } else {
       new_age = FLAG_retain_maps_for_n_gc;
     }
+    // Compact the array and update the age.
     if (i != new_length) {
       retained_maps->Set(new_length, cell);
       Object** slot = retained_maps->Slot(new_length);
@@ -1875,14 +1845,45 @@ void MarkCompactCollector::RetainMaps() {
     } else if (new_age != age) {
       retained_maps->Set(new_length + 1, Smi::FromInt(new_age));
     }
+    if (i < number_of_disposed_maps) {
+      new_number_of_disposed_maps++;
+    }
     new_length += 2;
   }
+  heap()->number_of_disposed_maps_ = new_number_of_disposed_maps;
   Object* undefined = heap()->undefined_value();
   for (int i = new_length; i < length; i++) {
     retained_maps->Clear(i, undefined);
   }
   if (new_length != length) retained_maps->SetLength(new_length);
   ProcessMarkingDeque();
+}
+
+
+DependentCode* MarkCompactCollector::DependentCodeListFromNonLiveMaps() {
+  GCTracer::Scope gc_scope(heap()->tracer(),
+                           GCTracer::Scope::MC_EXTRACT_DEPENDENT_CODE);
+  ArrayList* retained_maps = heap()->retained_maps();
+  int length = retained_maps->Length();
+  DependentCode* head = DependentCode::cast(heap()->empty_fixed_array());
+  for (int i = 0; i < length; i += 2) {
+    DCHECK(retained_maps->Get(i)->IsWeakCell());
+    WeakCell* cell = WeakCell::cast(retained_maps->Get(i));
+    DCHECK(!cell->cleared());
+    Map* map = Map::cast(cell->value());
+    MarkBit map_mark = Marking::MarkBitFrom(map);
+    if (Marking::IsWhite(map_mark)) {
+      DependentCode* candidate = map->dependent_code();
+      // We rely on the fact that the weak code group comes first.
+      STATIC_ASSERT(DependentCode::kWeakCodeGroup == 0);
+      if (candidate->length() > 0 &&
+          candidate->group() == DependentCode::kWeakCodeGroup) {
+        candidate->set_next_link(head);
+        head = candidate;
+      }
+    }
+  }
+  return head;
 }
 
 
@@ -2192,6 +2193,26 @@ void MarkCompactCollector::ProcessAndClearOptimizedCodeMaps() {
 }
 
 
+void MarkCompactCollector::ProcessWeakReferences() {
+  // This should be done before processing weak cells because it checks
+  // mark bits of maps in weak cells.
+  DependentCode* dependent_code_list = DependentCodeListFromNonLiveMaps();
+
+  // Process weak cells before MarkCodeForDeoptimization and
+  // ClearNonLiveReferences  so that weak cells in dependent code arrays are
+  // cleared or contain only live code objects.
+  ProcessAndClearWeakCells();
+
+  MarkDependentCodeListForDeoptimization(dependent_code_list);
+
+  ClearNonLiveReferences();
+
+  ClearWeakCollections();
+
+  heap_->set_encountered_weak_cells(Smi::FromInt(0));
+}
+
+
 void MarkCompactCollector::ClearNonLiveReferences() {
   GCTracer::Scope gc_scope(heap()->tracer(),
                            GCTracer::Scope::MC_NONLIVEREFERENCES);
@@ -2204,15 +2225,8 @@ void MarkCompactCollector::ClearNonLiveReferences() {
     Map* map = Map::cast(obj);
     if (!map->CanTransition()) continue;
     MarkBit map_mark = Marking::MarkBitFrom(map);
-    bool alive = Marking::IsBlackOrGrey(map_mark);
-    if (alive) {
-      ClearNonLivePrototypeTransitions(map);
-    } else {
+    if (Marking::IsWhite(map_mark)) {
       ClearNonLiveMapTransitions(map);
-      have_code_to_deoptimize_ |=
-          map->dependent_code()->MarkCodeForDeoptimization(
-              isolate(), DependentCode::kWeakCodeGroup);
-      map->set_dependent_code(DependentCode::cast(heap()->empty_fixed_array()));
     }
   }
 
@@ -2237,35 +2251,16 @@ void MarkCompactCollector::ClearNonLiveReferences() {
 }
 
 
-void MarkCompactCollector::ClearNonLivePrototypeTransitions(Map* map) {
-  FixedArray* prototype_transitions =
-      TransitionArray::GetPrototypeTransitions(map);
-  int number_of_transitions =
-      TransitionArray::NumberOfPrototypeTransitions(prototype_transitions);
-
-  const int header = TransitionArray::kProtoTransitionHeaderSize;
-  int new_number_of_transitions = 0;
-  for (int i = 0; i < number_of_transitions; i++) {
-    Object* cell = prototype_transitions->get(header + i);
-    if (!WeakCell::cast(cell)->cleared()) {
-      if (new_number_of_transitions != i) {
-        prototype_transitions->set(header + new_number_of_transitions, cell);
-        Object** slot = prototype_transitions->RawFieldOfElementAt(
-            header + new_number_of_transitions);
-        RecordSlot(prototype_transitions, slot, cell);
-      }
-      new_number_of_transitions++;
-    }
-  }
-
-  if (new_number_of_transitions != number_of_transitions) {
-    TransitionArray::SetNumberOfPrototypeTransitions(prototype_transitions,
-                                                     new_number_of_transitions);
-  }
-
-  // Fill slots that became free with undefined value.
-  for (int i = new_number_of_transitions; i < number_of_transitions; i++) {
-    prototype_transitions->set_undefined(header + i);
+void MarkCompactCollector::MarkDependentCodeListForDeoptimization(
+    DependentCode* list_head) {
+  GCTracer::Scope gc_scope(heap()->tracer(),
+                           GCTracer::Scope::MC_DEOPT_DEPENDENT_CODE);
+  Isolate* isolate = this->isolate();
+  DependentCode* current = list_head;
+  while (current->length() > 0) {
+    have_code_to_deoptimize_ |= current->MarkCodeForDeoptimization(
+        isolate, DependentCode::kWeakCodeGroup);
+    current = current->next_link();
   }
 }
 
@@ -3109,17 +3104,16 @@ bool MarkCompactCollector::EvacuateLiveObjectsFromPage(
   AlwaysAllocateScope always_allocate(isolate());
   DCHECK(p->IsEvacuationCandidate() && !p->WasSwept());
 
-  int offsets[16];
+  Address starts[16];
   for (MarkBitCellIterator it(p); !it.Done(); it.Advance()) {
     Address cell_base = it.CurrentCellBase();
     MarkBit::CellType* cell = it.CurrentCell();
 
     if (*cell == 0) continue;
 
-    int live_objects = MarkWordToObjectStarts(*cell, offsets);
+    int live_objects = MarkWordToObjectStarts(*cell, cell_base, starts);
     for (int i = 0; i < live_objects; i++) {
-      Address object_addr = cell_base + offsets[i] * kPointerSize;
-      HeapObject* object = HeapObject::FromAddress(object_addr);
+      HeapObject* object = HeapObject::FromAddress(starts[i]);
       DCHECK(Marking::IsBlack(Marking::MarkBitFrom(object)));
 
       int size = object->Size();
@@ -3131,7 +3125,7 @@ bool MarkCompactCollector::EvacuateLiveObjectsFromPage(
         // the mark bits for objects that have already been migrated.
         if (i > 0) {
           p->markbits()->ClearRange(p->AddressToMarkbitIndex(p->area_start()),
-                                    p->AddressToMarkbitIndex(object_addr));
+                                    p->AddressToMarkbitIndex(starts[i]));
         }
         return false;
       }
@@ -3402,7 +3396,7 @@ static int Sweep(PagedSpace* space, FreeList* free_list, Page* p,
 
   Address free_start = p->area_start();
   DCHECK(reinterpret_cast<intptr_t>(free_start) % (32 * kPointerSize) == 0);
-  int offsets[16];
+  Address starts[16];
 
   // If we use the skip list for code space pages, we have to lock the skip
   // list because it could be accessed concurrently by the runtime or the
@@ -3419,10 +3413,10 @@ static int Sweep(PagedSpace* space, FreeList* free_list, Page* p,
   for (MarkBitCellIterator it(p); !it.Done(); it.Advance()) {
     Address cell_base = it.CurrentCellBase();
     MarkBit::CellType* cell = it.CurrentCell();
-    int live_objects = MarkWordToObjectStarts(*cell, offsets);
+    int live_objects = MarkWordToObjectStarts(*cell, cell_base, starts);
     int live_index = 0;
     for (; live_objects != 0; live_objects--) {
-      Address free_end = cell_base + offsets[live_index++] * kPointerSize;
+      Address free_end = starts[live_index++];
       if (free_end != free_start) {
         int size = static_cast<int>(free_end - free_start);
         if (free_space_mode == ZAP_FREE_SPACE) {
@@ -3517,15 +3511,14 @@ void MarkCompactCollector::RemoveObjectSlots(Address start_slot,
 void MarkCompactCollector::VisitLiveObjects(Page* page,
                                             ObjectVisitor* visitor) {
   // First pass on aborted pages.
-  int offsets[16];
+  Address starts[16];
   for (MarkBitCellIterator it(page); !it.Done(); it.Advance()) {
     Address cell_base = it.CurrentCellBase();
     MarkBit::CellType* cell = it.CurrentCell();
     if (*cell == 0) continue;
-    int live_objects = MarkWordToObjectStarts(*cell, offsets);
+    int live_objects = MarkWordToObjectStarts(*cell, cell_base, starts);
     for (int i = 0; i < live_objects; i++) {
-      Address object_addr = cell_base + offsets[i] * kPointerSize;
-      HeapObject* live_object = HeapObject::FromAddress(object_addr);
+      HeapObject* live_object = HeapObject::FromAddress(starts[i]);
       DCHECK(Marking::IsBlack(Marking::MarkBitFrom(live_object)));
       Map* map = live_object->synchronized_map();
       int size = live_object->SizeFromMap(map);
@@ -3762,395 +3755,21 @@ void MarkCompactCollector::ReleaseEvacuationCandidates() {
 }
 
 
-static const int kStartTableEntriesPerLine = 5;
-static const int kStartTableLines = 171;
-static const int kStartTableInvalidLine = 127;
-static const int kStartTableUnusedEntry = 126;
-
-#define _ kStartTableUnusedEntry
-#define X kStartTableInvalidLine
-// Mark-bit to object start offset table.
-//
-// The line is indexed by the mark bits in a byte.  The first number on
-// the line describes the number of live object starts for the line and the
-// other numbers on the line describe the offsets (in words) of the object
-// starts.
-//
-// Since objects are at least 2 words large we don't have entries for two
-// consecutive 1 bits.  All entries after 170 have at least 2 consecutive bits.
-char kStartTable[kStartTableLines * kStartTableEntriesPerLine] = {
-    0, _, _,
-    _, _,  // 0
-    1, 0, _,
-    _, _,  // 1
-    1, 1, _,
-    _, _,  // 2
-    X, _, _,
-    _, _,  // 3
-    1, 2, _,
-    _, _,  // 4
-    2, 0, 2,
-    _, _,  // 5
-    X, _, _,
-    _, _,  // 6
-    X, _, _,
-    _, _,  // 7
-    1, 3, _,
-    _, _,  // 8
-    2, 0, 3,
-    _, _,  // 9
-    2, 1, 3,
-    _, _,  // 10
-    X, _, _,
-    _, _,  // 11
-    X, _, _,
-    _, _,  // 12
-    X, _, _,
-    _, _,  // 13
-    X, _, _,
-    _, _,  // 14
-    X, _, _,
-    _, _,  // 15
-    1, 4, _,
-    _, _,  // 16
-    2, 0, 4,
-    _, _,  // 17
-    2, 1, 4,
-    _, _,  // 18
-    X, _, _,
-    _, _,  // 19
-    2, 2, 4,
-    _, _,  // 20
-    3, 0, 2,
-    4, _,  // 21
-    X, _, _,
-    _, _,  // 22
-    X, _, _,
-    _, _,  // 23
-    X, _, _,
-    _, _,  // 24
-    X, _, _,
-    _, _,  // 25
-    X, _, _,
-    _, _,  // 26
-    X, _, _,
-    _, _,  // 27
-    X, _, _,
-    _, _,  // 28
-    X, _, _,
-    _, _,  // 29
-    X, _, _,
-    _, _,  // 30
-    X, _, _,
-    _, _,  // 31
-    1, 5, _,
-    _, _,  // 32
-    2, 0, 5,
-    _, _,  // 33
-    2, 1, 5,
-    _, _,  // 34
-    X, _, _,
-    _, _,  // 35
-    2, 2, 5,
-    _, _,  // 36
-    3, 0, 2,
-    5, _,  // 37
-    X, _, _,
-    _, _,  // 38
-    X, _, _,
-    _, _,  // 39
-    2, 3, 5,
-    _, _,  // 40
-    3, 0, 3,
-    5, _,  // 41
-    3, 1, 3,
-    5, _,  // 42
-    X, _, _,
-    _, _,  // 43
-    X, _, _,
-    _, _,  // 44
-    X, _, _,
-    _, _,  // 45
-    X, _, _,
-    _, _,  // 46
-    X, _, _,
-    _, _,  // 47
-    X, _, _,
-    _, _,  // 48
-    X, _, _,
-    _, _,  // 49
-    X, _, _,
-    _, _,  // 50
-    X, _, _,
-    _, _,  // 51
-    X, _, _,
-    _, _,  // 52
-    X, _, _,
-    _, _,  // 53
-    X, _, _,
-    _, _,  // 54
-    X, _, _,
-    _, _,  // 55
-    X, _, _,
-    _, _,  // 56
-    X, _, _,
-    _, _,  // 57
-    X, _, _,
-    _, _,  // 58
-    X, _, _,
-    _, _,  // 59
-    X, _, _,
-    _, _,  // 60
-    X, _, _,
-    _, _,  // 61
-    X, _, _,
-    _, _,  // 62
-    X, _, _,
-    _, _,  // 63
-    1, 6, _,
-    _, _,  // 64
-    2, 0, 6,
-    _, _,  // 65
-    2, 1, 6,
-    _, _,  // 66
-    X, _, _,
-    _, _,  // 67
-    2, 2, 6,
-    _, _,  // 68
-    3, 0, 2,
-    6, _,  // 69
-    X, _, _,
-    _, _,  // 70
-    X, _, _,
-    _, _,  // 71
-    2, 3, 6,
-    _, _,  // 72
-    3, 0, 3,
-    6, _,  // 73
-    3, 1, 3,
-    6, _,  // 74
-    X, _, _,
-    _, _,  // 75
-    X, _, _,
-    _, _,  // 76
-    X, _, _,
-    _, _,  // 77
-    X, _, _,
-    _, _,  // 78
-    X, _, _,
-    _, _,  // 79
-    2, 4, 6,
-    _, _,  // 80
-    3, 0, 4,
-    6, _,  // 81
-    3, 1, 4,
-    6, _,  // 82
-    X, _, _,
-    _, _,  // 83
-    3, 2, 4,
-    6, _,  // 84
-    4, 0, 2,
-    4, 6,  // 85
-    X, _, _,
-    _, _,  // 86
-    X, _, _,
-    _, _,  // 87
-    X, _, _,
-    _, _,  // 88
-    X, _, _,
-    _, _,  // 89
-    X, _, _,
-    _, _,  // 90
-    X, _, _,
-    _, _,  // 91
-    X, _, _,
-    _, _,  // 92
-    X, _, _,
-    _, _,  // 93
-    X, _, _,
-    _, _,  // 94
-    X, _, _,
-    _, _,  // 95
-    X, _, _,
-    _, _,  // 96
-    X, _, _,
-    _, _,  // 97
-    X, _, _,
-    _, _,  // 98
-    X, _, _,
-    _, _,  // 99
-    X, _, _,
-    _, _,  // 100
-    X, _, _,
-    _, _,  // 101
-    X, _, _,
-    _, _,  // 102
-    X, _, _,
-    _, _,  // 103
-    X, _, _,
-    _, _,  // 104
-    X, _, _,
-    _, _,  // 105
-    X, _, _,
-    _, _,  // 106
-    X, _, _,
-    _, _,  // 107
-    X, _, _,
-    _, _,  // 108
-    X, _, _,
-    _, _,  // 109
-    X, _, _,
-    _, _,  // 110
-    X, _, _,
-    _, _,  // 111
-    X, _, _,
-    _, _,  // 112
-    X, _, _,
-    _, _,  // 113
-    X, _, _,
-    _, _,  // 114
-    X, _, _,
-    _, _,  // 115
-    X, _, _,
-    _, _,  // 116
-    X, _, _,
-    _, _,  // 117
-    X, _, _,
-    _, _,  // 118
-    X, _, _,
-    _, _,  // 119
-    X, _, _,
-    _, _,  // 120
-    X, _, _,
-    _, _,  // 121
-    X, _, _,
-    _, _,  // 122
-    X, _, _,
-    _, _,  // 123
-    X, _, _,
-    _, _,  // 124
-    X, _, _,
-    _, _,  // 125
-    X, _, _,
-    _, _,  // 126
-    X, _, _,
-    _, _,  // 127
-    1, 7, _,
-    _, _,  // 128
-    2, 0, 7,
-    _, _,  // 129
-    2, 1, 7,
-    _, _,  // 130
-    X, _, _,
-    _, _,  // 131
-    2, 2, 7,
-    _, _,  // 132
-    3, 0, 2,
-    7, _,  // 133
-    X, _, _,
-    _, _,  // 134
-    X, _, _,
-    _, _,  // 135
-    2, 3, 7,
-    _, _,  // 136
-    3, 0, 3,
-    7, _,  // 137
-    3, 1, 3,
-    7, _,  // 138
-    X, _, _,
-    _, _,  // 139
-    X, _, _,
-    _, _,  // 140
-    X, _, _,
-    _, _,  // 141
-    X, _, _,
-    _, _,  // 142
-    X, _, _,
-    _, _,  // 143
-    2, 4, 7,
-    _, _,  // 144
-    3, 0, 4,
-    7, _,  // 145
-    3, 1, 4,
-    7, _,  // 146
-    X, _, _,
-    _, _,  // 147
-    3, 2, 4,
-    7, _,  // 148
-    4, 0, 2,
-    4, 7,  // 149
-    X, _, _,
-    _, _,  // 150
-    X, _, _,
-    _, _,  // 151
-    X, _, _,
-    _, _,  // 152
-    X, _, _,
-    _, _,  // 153
-    X, _, _,
-    _, _,  // 154
-    X, _, _,
-    _, _,  // 155
-    X, _, _,
-    _, _,  // 156
-    X, _, _,
-    _, _,  // 157
-    X, _, _,
-    _, _,  // 158
-    X, _, _,
-    _, _,  // 159
-    2, 5, 7,
-    _, _,  // 160
-    3, 0, 5,
-    7, _,  // 161
-    3, 1, 5,
-    7, _,  // 162
-    X, _, _,
-    _, _,  // 163
-    3, 2, 5,
-    7, _,  // 164
-    4, 0, 2,
-    5, 7,  // 165
-    X, _, _,
-    _, _,  // 166
-    X, _, _,
-    _, _,  // 167
-    3, 3, 5,
-    7, _,  // 168
-    4, 0, 3,
-    5, 7,  // 169
-    4, 1, 3,
-    5, 7  // 170
-};
-#undef _
-#undef X
-
-
-// Takes a word of mark bits.  Returns the number of objects that start in the
-// range.  Puts the offsets of the words in the supplied array.
-static inline int MarkWordToObjectStarts(uint32_t mark_bits, int* starts) {
+// Takes a word of mark bits and a base address. Returns the number of objects
+// that start in the range.  Puts the object starts in the supplied array.
+static inline int MarkWordToObjectStarts(uint32_t mark_bits, Address base,
+                                         Address* starts) {
   int objects = 0;
-  int offset = 0;
 
   // No consecutive 1 bits.
   DCHECK((mark_bits & 0x180) != 0x180);
   DCHECK((mark_bits & 0x18000) != 0x18000);
   DCHECK((mark_bits & 0x1800000) != 0x1800000);
 
-  while (mark_bits != 0) {
-    int byte = (mark_bits & 0xff);
-    mark_bits >>= 8;
-    if (byte != 0) {
-      DCHECK(byte < kStartTableLines);  // No consecutive 1 bits.
-      char* table = kStartTable + byte * kStartTableEntriesPerLine;
-      int objects_in_these_8_words = table[0];
-      DCHECK(objects_in_these_8_words != kStartTableInvalidLine);
-      DCHECK(objects_in_these_8_words < kStartTableEntriesPerLine);
-      for (int i = 0; i < objects_in_these_8_words; i++) {
-        starts[objects++] = offset + table[1 + i];
-      }
-    }
-    offset += 8;
+  unsigned index = 0;
+  while ((index = base::bits::CountTrailingZeros32(mark_bits)) != 32) {
+    starts[objects++] = base + kPointerSize * index;
+    mark_bits &= ~(1u << index);
   }
   return objects;
 }

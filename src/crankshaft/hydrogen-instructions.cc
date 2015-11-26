@@ -820,7 +820,6 @@ bool HInstruction::CanDeoptimize() {
     case HValue::kParameter:
     case HValue::kPhi:
     case HValue::kPushArguments:
-    case HValue::kRegExpLiteral:
     case HValue::kReturn:
     case HValue::kSeqStringGetChar:
     case HValue::kStoreCodeEntry:
@@ -4082,11 +4081,13 @@ HInstruction* HUnaryMathOperation::New(Isolate* isolate, Zone* zone,
     }
     switch (op) {
       case kMathExp:
-        return H_CONSTANT_DOUBLE(fast_exp(d));
+        lazily_initialize_fast_exp(isolate);
+        return H_CONSTANT_DOUBLE(fast_exp(d, isolate));
       case kMathLog:
         return H_CONSTANT_DOUBLE(std::log(d));
       case kMathSqrt:
-        return H_CONSTANT_DOUBLE(fast_sqrt(d));
+        lazily_initialize_fast_sqrt(isolate);
+        return H_CONSTANT_DOUBLE(fast_sqrt(d, isolate));
       case kMathPowHalf:
         return H_CONSTANT_DOUBLE(power_double_double(d, 0.5));
       case kMathAbs:
@@ -4158,8 +4159,8 @@ HInstruction* HPower::New(Isolate* isolate, Zone* zone, HValue* context,
     HConstant* c_left = HConstant::cast(left);
     HConstant* c_right = HConstant::cast(right);
     if (c_left->HasNumberValue() && c_right->HasNumberValue()) {
-      double result = power_helper(c_left->DoubleValue(),
-                                   c_right->DoubleValue());
+      double result =
+          power_helper(isolate, c_left->DoubleValue(), c_right->DoubleValue());
       return H_CONSTANT_DOUBLE(std::isnan(result)
                                    ? std::numeric_limits<double>::quiet_NaN()
                                    : result);

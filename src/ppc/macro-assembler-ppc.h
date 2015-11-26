@@ -114,7 +114,8 @@ class MacroAssembler : public Assembler {
   // not use isolate-dependent functionality. In this case, it's the
   // responsibility of the caller to never invoke such function on the
   // macro assembler.
-  MacroAssembler(Isolate* isolate, void* buffer, int size);
+  MacroAssembler(Isolate* isolate, void* buffer, int size,
+                 CodeObjectRequired create_code_object);
 
 
   // Returns the size of a call in instructions. Note, the value returned is
@@ -554,14 +555,15 @@ class MacroAssembler : public Assembler {
   // JavaScript invokes
 
   // Invoke the JavaScript function code by either calling or jumping.
-  void InvokeCode(Register code, const ParameterCount& expected,
-                  const ParameterCount& actual, InvokeFlag flag,
-                  const CallWrapper& call_wrapper);
+  void InvokeCode(Register code, Register new_target,
+                  const ParameterCount& expected, const ParameterCount& actual,
+                  InvokeFlag flag, const CallWrapper& call_wrapper);
 
   // Invoke the JavaScript function in the given register. Changes the
   // current context to the context in the function before invoking.
-  void InvokeFunction(Register function, const ParameterCount& actual,
-                      InvokeFlag flag, const CallWrapper& call_wrapper);
+  void InvokeFunction(Register function, Register new_target,
+                      const ParameterCount& actual, InvokeFlag flag,
+                      const CallWrapper& call_wrapper);
 
   void InvokeFunction(Register function, const ParameterCount& expected,
                       const ParameterCount& actual, InvokeFlag flag,
@@ -686,9 +688,6 @@ class MacroAssembler : public Assembler {
                                    Register scratch1, Register scratch2,
                                    Register heap_number_map,
                                    Label* gc_required);
-
-  // Copies a fixed number of fields of heap objects from src to dst.
-  void CopyFields(Register dst, Register src, RegList temps, int field_count);
 
   // Copies a number of bytes from src to dst. All registers are clobbered. On
   // exit src and dst will point to the place just after where the last byte was

@@ -3313,7 +3313,8 @@ void LCodeGen::DoApplyArguments(LApplyArguments* instr) {
   SafepointGenerator safepoint_generator(
       this, pointers, Safepoint::kLazyDeopt);
   ParameterCount actual(rax);
-  __ InvokeFunction(function, actual, CALL_FUNCTION, safepoint_generator);
+  __ InvokeFunction(function, no_reg, actual, CALL_FUNCTION,
+                    safepoint_generator);
 }
 
 
@@ -3387,7 +3388,8 @@ void LCodeGen::CallKnownFunction(Handle<JSFunction> function,
         this, pointers, Safepoint::kLazyDeopt);
     ParameterCount count(arity);
     ParameterCount expected(formal_parameter_count);
-    __ InvokeFunction(function_reg, expected, count, CALL_FUNCTION, generator);
+    __ InvokeFunction(function_reg, no_reg, expected, count, CALL_FUNCTION,
+                      generator);
   }
 }
 
@@ -3831,7 +3833,7 @@ void LCodeGen::DoInvokeFunction(LInvokeFunction* instr) {
     LPointerMap* pointers = instr->pointer_map();
     SafepointGenerator generator(this, pointers, Safepoint::kLazyDeopt);
     ParameterCount count(instr->arity());
-    __ InvokeFunction(rdi, count, CALL_FUNCTION, generator);
+    __ InvokeFunction(rdi, no_reg, count, CALL_FUNCTION, generator);
   } else {
     CallKnownFunction(known_function,
                       instr->hydrogen()->formal_parameter_count(),
@@ -5372,57 +5374,6 @@ void LCodeGen::DoToFastProperties(LToFastProperties* instr) {
   DCHECK(ToRegister(instr->value()).is(rax));
   __ Push(rax);
   CallRuntime(Runtime::kToFastProperties, 1, instr);
-}
-
-
-void LCodeGen::DoRegExpLiteral(LRegExpLiteral* instr) {
-  DCHECK(ToRegister(instr->context()).is(rsi));
-  Label materialized;
-  // Registers will be used as follows:
-  // rcx = literals array.
-  // rbx = regexp literal.
-  // rax = regexp literal clone.
-  int literal_offset =
-      LiteralsArray::OffsetOfLiteralAt(instr->hydrogen()->literal_index());
-  __ Move(rcx, instr->hydrogen()->literals());
-  __ movp(rbx, FieldOperand(rcx, literal_offset));
-  __ CompareRoot(rbx, Heap::kUndefinedValueRootIndex);
-  __ j(not_equal, &materialized, Label::kNear);
-
-  // Create regexp literal using runtime function
-  // Result will be in rax.
-  __ Push(rcx);
-  __ Push(Smi::FromInt(instr->hydrogen()->literal_index()));
-  __ Push(instr->hydrogen()->pattern());
-  __ Push(instr->hydrogen()->flags());
-  CallRuntime(Runtime::kMaterializeRegExpLiteral, 4, instr);
-  __ movp(rbx, rax);
-
-  __ bind(&materialized);
-  int size = JSRegExp::kSize + JSRegExp::kInObjectFieldCount * kPointerSize;
-  Label allocated, runtime_allocate;
-  __ Allocate(size, rax, rcx, rdx, &runtime_allocate, TAG_OBJECT);
-  __ jmp(&allocated, Label::kNear);
-
-  __ bind(&runtime_allocate);
-  __ Push(rbx);
-  __ Push(Smi::FromInt(size));
-  CallRuntime(Runtime::kAllocateInNewSpace, 1, instr);
-  __ Pop(rbx);
-
-  __ bind(&allocated);
-  // Copy the content into the newly allocated memory.
-  // (Unroll copy loop once for better throughput).
-  for (int i = 0; i < size - kPointerSize; i += 2 * kPointerSize) {
-    __ movp(rdx, FieldOperand(rbx, i));
-    __ movp(rcx, FieldOperand(rbx, i + kPointerSize));
-    __ movp(FieldOperand(rax, i), rdx);
-    __ movp(FieldOperand(rax, i + kPointerSize), rcx);
-  }
-  if ((size % (2 * kPointerSize)) != 0) {
-    __ movp(rdx, FieldOperand(rbx, size - kPointerSize));
-    __ movp(FieldOperand(rax, size - kPointerSize), rdx);
-  }
 }
 
 

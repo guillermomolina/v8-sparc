@@ -320,7 +320,8 @@ action("js2c_experimental") {
     "src/js/harmony-reflect.js",
     "src/js/harmony-object-observe.js",
     "src/js/harmony-sharedarraybuffer.js",
-    "src/js/harmony-simd.js"
+    "src/js/harmony-simd.js",
+    "src/js/promise-extra.js"
   ]
 
   outputs = [
@@ -722,8 +723,6 @@ source_set("v8_base") {
     "src/compiler/ast-loop-assignment-analyzer.h",
     "src/compiler/basic-block-instrumentor.cc",
     "src/compiler/basic-block-instrumentor.h",
-    "src/compiler/binary-operator-reducer.cc",
-    "src/compiler/binary-operator-reducer.h",
     "src/compiler/branch-elimination.cc",
     "src/compiler/branch-elimination.h",
     "src/compiler/bytecode-graph-builder.cc",
@@ -857,6 +856,7 @@ source_set("v8_base") {
     "src/compiler/register-allocator.h",
     "src/compiler/register-allocator-verifier.cc",
     "src/compiler/register-allocator-verifier.h",
+    "src/compiler/representation-change.cc",
     "src/compiler/representation-change.h",
     "src/compiler/schedule.cc",
     "src/compiler/schedule.h",

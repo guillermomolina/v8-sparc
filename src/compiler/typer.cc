@@ -54,12 +54,15 @@ Typer::Typer(Isolate* isolate, Graph* graph, Flags flags,
 
   singleton_false_ = Type::Constant(factory->false_value(), zone);
   singleton_true_ = Type::Constant(factory->true_value(), zone);
+  singleton_the_hole_ = Type::Constant(factory->the_hole_value(), zone);
   signed32ish_ = Type::Union(Type::Signed32(), truncating_to_zero, zone);
   unsigned32ish_ = Type::Union(Type::Unsigned32(), truncating_to_zero, zone);
   falsish_ = Type::Union(
       Type::Undetectable(),
-      Type::Union(Type::Union(singleton_false_, cache_.kZeroish, zone),
-                  Type::NullOrUndefined(), zone),
+      Type::Union(
+          Type::Union(Type::Union(singleton_false_, cache_.kZeroish, zone),
+                      Type::NullOrUndefined(), zone),
+          singleton_the_hole_, zone),
       zone);
   truish_ = Type::Union(
       singleton_true_,
@@ -697,6 +700,10 @@ Type* Typer::Visitor::JSStrictEqualTyper(Type* lhs, Type* rhs, Typer* t) {
       (lhs->Max() < rhs->Min() || lhs->Min() > rhs->Max())) {
     return t->singleton_false_;
   }
+  if ((lhs->Is(t->singleton_the_hole_) || rhs->Is(t->singleton_the_hole_)) &&
+      !lhs->Maybe(rhs)) {
+    return t->singleton_false_;
+  }
   if (lhs->IsConstant() && rhs->Is(lhs)) {
     // Types are equal and are inhabited only by a single semantic value,
     // which is not nan due to the earlier check.
@@ -1226,11 +1233,16 @@ Type* Typer::Visitor::TypeJSCreateClosure(Node* node) {
 
 
 Type* Typer::Visitor::TypeJSCreateLiteralArray(Node* node) {
-  return Type::None(), Type::OtherObject();
+  return Type::OtherObject();
 }
 
 
 Type* Typer::Visitor::TypeJSCreateLiteralObject(Node* node) {
+  return Type::OtherObject();
+}
+
+
+Type* Typer::Visitor::TypeJSCreateLiteralRegExp(Node* node) {
   return Type::OtherObject();
 }
 
@@ -2258,13 +2270,31 @@ Type* Typer::Visitor::TypeFloat64LessThanOrEqual(Node* node) {
 }
 
 
+Type* Typer::Visitor::TypeFloat32RoundDown(Node* node) {
+  // TODO(sigurds): We could have a tighter bound here.
+  return Type::Number();
+}
+
+
 Type* Typer::Visitor::TypeFloat64RoundDown(Node* node) {
   // TODO(sigurds): We could have a tighter bound here.
   return Type::Number();
 }
 
 
+Type* Typer::Visitor::TypeFloat32RoundUp(Node* node) {
+  // TODO(sigurds): We could have a tighter bound here.
+  return Type::Number();
+}
+
+
 Type* Typer::Visitor::TypeFloat64RoundUp(Node* node) {
+  // TODO(sigurds): We could have a tighter bound here.
+  return Type::Number();
+}
+
+
+Type* Typer::Visitor::TypeFloat32RoundTruncate(Node* node) {
   // TODO(sigurds): We could have a tighter bound here.
   return Type::Number();
 }
@@ -2277,6 +2307,12 @@ Type* Typer::Visitor::TypeFloat64RoundTruncate(Node* node) {
 
 
 Type* Typer::Visitor::TypeFloat64RoundTiesAway(Node* node) {
+  // TODO(sigurds): We could have a tighter bound here.
+  return Type::Number();
+}
+
+
+Type* Typer::Visitor::TypeFloat32RoundTiesEven(Node* node) {
   // TODO(sigurds): We could have a tighter bound here.
   return Type::Number();
 }

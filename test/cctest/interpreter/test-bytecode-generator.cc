@@ -2853,56 +2853,51 @@ TEST(RegExpLiterals) {
   FeedbackVectorSpec feedback_spec(&zone);
   FeedbackVectorSlot slot1 = feedback_spec.AddCallICSlot();
   FeedbackVectorSlot slot2 = feedback_spec.AddLoadICSlot();
+  uint8_t i_flags = JSRegExp::kIgnoreCase;
 
   Handle<i::TypeFeedbackVector> vector =
       i::NewTypeFeedbackVector(helper.isolate(), &feedback_spec);
 
   ExpectedSnippet<const char*> snippets[] = {
       {"return /ab+d/;",
-       1 * kPointerSize,
+       0 * kPointerSize,
        1,
-       10,
+       6,
        {
-           B(LdaConstant), U8(0),                //
-           B(Star), R(0),                        //
-           B(LdaConstant), U8(1),                //
-           B(CreateRegExpLiteral), U8(0), R(0),  //
-           B(Return),                            //
+           B(LdaConstant), U8(0),                 //
+           B(CreateRegExpLiteral), U8(0), U8(0),  //
+           B(Return),                             //
        },
-       2,
-       {"", "ab+d"}},
+       1,
+       {"ab+d"}},
       {"return /(\\w+)\\s(\\w+)/i;",
-       1 * kPointerSize,
+       0 * kPointerSize,
        1,
-       10,
+       6,
        {
-           B(LdaConstant), U8(0),                //
-           B(Star), R(0),                        //
-           B(LdaConstant), U8(1),                //
-           B(CreateRegExpLiteral), U8(0), R(0),  //
-           B(Return),                            //
+           B(LdaConstant), U8(0),                       //
+           B(CreateRegExpLiteral), U8(0), U8(i_flags),  //
+           B(Return),                                   //
        },
-       2,
-       {"i", "(\\w+)\\s(\\w+)"}},
+       1,
+       {"(\\w+)\\s(\\w+)"}},
       {"return /ab+d/.exec('abdd');",
        3 * kPointerSize,
        1,
-       27,
+       23,
        {
            B(LdaConstant), U8(0),                                      //
-           B(Star), R(2),                                              //
-           B(LdaConstant), U8(1),                                      //
-           B(CreateRegExpLiteral), U8(0), R(2),                        //
+           B(CreateRegExpLiteral), U8(0), U8(0),                       //
            B(Star), R(1),                                              //
-           B(LoadICSloppy), R(1), U8(2), U8(vector->GetIndex(slot2)),  //
+           B(LoadICSloppy), R(1), U8(1), U8(vector->GetIndex(slot2)),  //
            B(Star), R(0),                                              //
-           B(LdaConstant), U8(3),                                      //
+           B(LdaConstant), U8(2),                                      //
            B(Star), R(2),                                              //
            B(Call), R(0), R(1), U8(1), U8(vector->GetIndex(slot1)),    //
            B(Return),                                                  //
        },
-       4,
-       {"", "ab+d", "exec", "abdd"}},
+       3,
+       {"ab+d", "exec", "abdd"}},
   };
 
   for (size_t i = 0; i < arraysize(snippets); i++) {
@@ -4495,21 +4490,25 @@ TEST(IllegalRedeclaration) {
   InitializedHandleScope handle_scope;
   BytecodeGeneratorHelper helper;
 
-  ExpectedSnippet<const char*> snippets[] = {
+  CHECK_GE(MessageTemplate::kVarRedeclaration, 128);
+  // Must adapt bytecode if this changes.
+
+  ExpectedSnippet<Handle<Object>, 2> snippets[] = {
       {"const a = 1; { var a = 2; }",
        3 * kPointerSize,
        1,
        14,
        {
-           B(LdaSmi8), U8(MessageTemplate::kVarRedeclaration),          //
-           B(Star), R(1),                                               //
            B(LdaConstant), U8(0),                                       //
+           B(Star), R(1),                                               //
+           B(LdaConstant), U8(1),                                       //
            B(Star), R(2),                                               //
            B(CallRuntime), U16(Runtime::kNewSyntaxError), R(1), U8(2),  //
            B(Throw),                                                    //
        },
-       1,
-       {"a"}},
+       2,
+       {helper.factory()->NewNumberFromInt(MessageTemplate::kVarRedeclaration),
+        helper.factory()->NewStringFromAsciiChecked("a")}},
   };
 
   for (size_t i = 0; i < arraysize(snippets); i++) {
@@ -5186,16 +5185,28 @@ TEST(NewTarget) {
   InitializedHandleScope handle_scope;
   BytecodeGeneratorHelper helper;
 
+  int new_target = Register::new_target().index();
+
   ExpectedSnippet<int> snippets[] = {
       {"return new.target;",
        1 * kPointerSize,
        1,
-       8,
+       5,
        {
-           B(CallRuntime), U16(Runtime::kGetNewTarget), R(0), U8(0),  //
-           B(Star), R(0),                                             //
-           B(Return),                                                 //
-       }}
+           B(Ldar), R(new_target),  //
+           B(Star), R(0),           //
+           B(Return),               //
+       }},
+      {"new.target;",
+       1 * kPointerSize,
+       1,
+       6,
+       {
+           B(Ldar), R(new_target),  //
+           B(Star), R(0),           //
+           B(LdaUndefined),         //
+           B(Return),               //
+       }},
   };
 
   for (size_t i = 0; i < arraysize(snippets); i++) {

@@ -115,6 +115,7 @@
   V(JSCreateClosure)         \
   V(JSCreateLiteralArray)    \
   V(JSCreateLiteralObject)   \
+  V(JSCreateLiteralRegExp)   \
   V(JSLoadProperty)          \
   V(JSLoadNamed)             \
   V(JSLoadGlobal)            \
@@ -294,6 +295,7 @@
   V(Float32Min)                 \
   V(Float32Abs)                 \
   V(Float32Sqrt)                \
+  V(Float32RoundDown)           \
   V(Float64Add)                 \
   V(Float64Sub)                 \
   V(Float64Mul)                 \
@@ -304,9 +306,12 @@
   V(Float64Abs)                 \
   V(Float64Sqrt)                \
   V(Float64RoundDown)           \
+  V(Float32RoundUp)             \
   V(Float64RoundUp)             \
+  V(Float32RoundTruncate)       \
   V(Float64RoundTruncate)       \
   V(Float64RoundTiesAway)       \
+  V(Float32RoundTiesEven)       \
   V(Float64RoundTiesEven)       \
   V(Float64ExtractLowWord32)    \
   V(Float64ExtractHighWord32)   \

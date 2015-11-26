@@ -131,6 +131,13 @@ void TypeofDescriptor::InitializePlatformSpecific(
 }
 
 
+void FastCloneRegExpDescriptor::InitializePlatformSpecific(
+    CallInterfaceDescriptorData* data) {
+  Register registers[] = {edi, eax, ecx, edx};
+  data->InitializePlatformSpecific(arraysize(registers), registers);
+}
+
+
 void FastCloneShallowArrayDescriptor::InitializePlatformSpecific(
     CallInterfaceDescriptorData* data) {
   Register registers[] = {eax, ebx, ecx};
@@ -206,6 +213,16 @@ void CallTrampolineDescriptor::InitializePlatformSpecific(
   // eax : number of arguments
   // edi : the target to call
   Register registers[] = {edi, eax};
+  data->InitializePlatformSpecific(arraysize(registers), registers);
+}
+
+
+void ConstructTrampolineDescriptor::InitializePlatformSpecific(
+    CallInterfaceDescriptorData* data) {
+  // eax : number of arguments
+  // edx : the new target
+  // edi : the target to call
+  Register registers[] = {edi, edx, eax};
   data->InitializePlatformSpecific(arraysize(registers), registers);
 }
 

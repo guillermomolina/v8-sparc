@@ -1250,10 +1250,8 @@ class PreParserFactory {
     return PreParserExpression::Default();
   }
   PreParserExpression NewRegExpLiteral(PreParserIdentifier js_pattern,
-                                       PreParserIdentifier js_flags,
-                                       int literal_index,
-                                       bool is_strong,
-                                       int pos) {
+                                       int js_flags, int literal_index,
+                                       bool is_strong, int pos) {
     return PreParserExpression::Default();
   }
   PreParserExpression NewArrayLiteral(PreParserExpressionList values,
@@ -1708,9 +1706,10 @@ class PreParserTraits {
     return !tag.IsNoTemplateTag();
   }
 
-  void AddFormalParameter(
-      PreParserFormalParameters* parameters, PreParserExpression pattern,
-      PreParserExpression initializer, bool is_rest) {
+  void AddFormalParameter(PreParserFormalParameters* parameters,
+                          PreParserExpression pattern,
+                          PreParserExpression initializer,
+                          int initializer_end_position, bool is_rest) {
     ++parameters->arity;
   }
   void DeclareFormalParameter(Scope* scope, PreParserIdentifier parameter,
@@ -1845,7 +1844,8 @@ class PreParser : public ParserBase<PreParserTraits> {
   Statement ParseVariableStatement(VariableDeclarationContext var_context,
                                    bool* ok);
   Statement ParseVariableDeclarations(VariableDeclarationContext var_context,
-                                      int* num_decl,
+                                      int* num_decl, bool* is_lexical,
+                                      bool* is_binding_pattern,
                                       Scanner::Location* first_initializer_loc,
                                       Scanner::Location* bindings_loc,
                                       bool* ok);
@@ -2224,13 +2224,14 @@ typename ParserBase<Traits>::ExpressionT ParserBase<Traits>::ParseRegExpLiteral(
   int literal_index = function_state_->NextMaterializedLiteralIndex();
 
   IdentifierT js_pattern = this->GetNextSymbol(scanner());
-  if (!scanner()->ScanRegExpFlags()) {
+  Maybe<RegExp::Flags> flags = scanner()->ScanRegExpFlags();
+  if (flags.IsNothing()) {
     Next();
     ReportMessage(MessageTemplate::kMalformedRegExpFlags);
     *ok = false;
     return Traits::EmptyExpression();
   }
-  IdentifierT js_flags = this->GetNextSymbol(scanner());
+  int js_flags = flags.FromJust();
   Next();
   return factory()->NewRegExpLiteral(js_pattern, js_flags, literal_index,
                                      is_strong(language_mode()), pos);
@@ -3337,7 +3338,8 @@ ParserBase<Traits>::ParseLeftHandSideExpression(
           return this->EmptyExpression();
         }
         int pos;
-        if (scanner()->current_token() == Token::IDENTIFIER) {
+        if (scanner()->current_token() == Token::IDENTIFIER ||
+            scanner()->current_token() == Token::SUPER) {
           // For call of an identifier we want to report position of
           // the identifier as position of the call in the stack trace.
           pos = position();
@@ -3677,8 +3679,8 @@ typename ParserBase<Traits>::ExpressionT
 ParserBase<Traits>::ParseSuperExpression(bool is_new,
                                          ExpressionClassifier* classifier,
                                          bool* ok) {
-  int pos = position();
   Expect(Token::SUPER, CHECK_OK);
+  int pos = position();
 
   Scope* scope = scope_->ReceiverScope();
   FunctionKind kind = scope->function_kind();
@@ -3837,7 +3839,8 @@ void ParserBase<Traits>::ParseFormalParameter(
     classifier->RecordNonSimpleParameter();
   }
 
-  Traits::AddFormalParameter(parameters, pattern, initializer, is_rest);
+  Traits::AddFormalParameter(parameters, pattern, initializer,
+                             scanner()->location().end_pos, is_rest);
 }
 
 

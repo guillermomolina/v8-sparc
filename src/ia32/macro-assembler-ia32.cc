@@ -19,11 +19,12 @@ namespace internal {
 // -------------------------------------------------------------------------
 // MacroAssembler implementation.
 
-MacroAssembler::MacroAssembler(Isolate* arg_isolate, void* buffer, int size)
+MacroAssembler::MacroAssembler(Isolate* arg_isolate, void* buffer, int size,
+                               CodeObjectRequired create_code_object)
     : Assembler(arg_isolate, buffer, size),
       generating_stub_(false),
       has_frame_(false) {
-  if (isolate() != NULL) {
+  if (create_code_object == CodeObjectRequired::kYes) {
     code_object_ =
         Handle<Object>::New(isolate()->heap()->undefined_value(), isolate());
   }
@@ -1987,12 +1988,20 @@ void MacroAssembler::InvokePrologue(const ParameterCount& expected,
 
 
 void MacroAssembler::InvokeCode(const Operand& code,
+                                Register new_target,
                                 const ParameterCount& expected,
                                 const ParameterCount& actual,
                                 InvokeFlag flag,
                                 const CallWrapper& call_wrapper) {
   // You can't call a function without a valid frame.
   DCHECK(flag == JUMP_FUNCTION || has_frame());
+
+  // Ensure new target is passed in the correct register. Otherwise clear the
+  // appropriate register in case new target is not given.
+  DCHECK_IMPLIES(new_target.is_valid(), new_target.is(edx));
+  if (!new_target.is_valid()) {
+    mov(edx, isolate()->factory()->undefined_value());
+  }
 
   Label done;
   bool definitely_mismatches = false;
@@ -2013,6 +2022,7 @@ void MacroAssembler::InvokeCode(const Operand& code,
 
 
 void MacroAssembler::InvokeFunction(Register fun,
+                                    Register new_target,
                                     const ParameterCount& actual,
                                     InvokeFlag flag,
                                     const CallWrapper& call_wrapper) {
@@ -2020,13 +2030,13 @@ void MacroAssembler::InvokeFunction(Register fun,
   DCHECK(flag == JUMP_FUNCTION || has_frame());
 
   DCHECK(fun.is(edi));
-  mov(edx, FieldOperand(edi, JSFunction::kSharedFunctionInfoOffset));
+  mov(ebx, FieldOperand(edi, JSFunction::kSharedFunctionInfoOffset));
   mov(esi, FieldOperand(edi, JSFunction::kContextOffset));
-  mov(ebx, FieldOperand(edx, SharedFunctionInfo::kFormalParameterCountOffset));
+  mov(ebx, FieldOperand(ebx, SharedFunctionInfo::kFormalParameterCountOffset));
   SmiUntag(ebx);
 
   ParameterCount expected(ebx);
-  InvokeCode(FieldOperand(edi, JSFunction::kCodeEntryOffset),
+  InvokeCode(FieldOperand(edi, JSFunction::kCodeEntryOffset), new_target,
              expected, actual, flag, call_wrapper);
 }
 
@@ -2042,7 +2052,7 @@ void MacroAssembler::InvokeFunction(Register fun,
   DCHECK(fun.is(edi));
   mov(esi, FieldOperand(edi, JSFunction::kContextOffset));
 
-  InvokeCode(FieldOperand(edi, JSFunction::kCodeEntryOffset),
+  InvokeCode(FieldOperand(edi, JSFunction::kCodeEntryOffset), no_reg,
              expected, actual, flag, call_wrapper);
 }
 
@@ -2067,7 +2077,7 @@ void MacroAssembler::InvokeBuiltin(int native_context_index, InvokeFlag flag,
   // parameter count to avoid emitting code to do the check.
   ParameterCount expected(0);
   GetBuiltinFunction(edi, native_context_index);
-  InvokeCode(FieldOperand(edi, JSFunction::kCodeEntryOffset),
+  InvokeCode(FieldOperand(edi, JSFunction::kCodeEntryOffset), no_reg,
              expected, expected, flag, call_wrapper);
 }
 
@@ -2783,7 +2793,7 @@ bool AreAliased(Register reg1,
 CodePatcher::CodePatcher(byte* address, int size)
     : address_(address),
       size_(size),
-      masm_(NULL, address, size + Assembler::kGap) {
+      masm_(NULL, address, size + Assembler::kGap, CodeObjectRequired::kNo) {
   // Create a new macro assembler pointing to the address of the code to patch.
   // The size is adjusted with kGap on order for the assembler to generate size
   // bytes of instructions without failing with buffer size constraints.

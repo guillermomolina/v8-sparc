@@ -906,6 +906,15 @@ MaybeHandle<Object> JSProxy::GetPrototype(Handle<JSProxy> proxy) {
 }
 
 
+bool JSProxy::IsRevoked(Handle<JSProxy> proxy) {
+  // TODO(neis): Decide on how to represent revocation.  For now, revocation is
+  // unsupported.
+  DCHECK(proxy->target()->IsJSReceiver());
+  DCHECK(proxy->handler()->IsJSReceiver());
+  return false;
+}
+
+
 MaybeHandle<Object> JSProxy::GetPropertyWithHandler(Handle<JSProxy> proxy,
                                                     Handle<Object> receiver,
                                                     Handle<Name> name) {
@@ -4675,6 +4684,15 @@ Maybe<PropertyAttributes> JSProxy::GetPropertyAttributes(LookupIterator* it) {
 }
 
 
+MaybeHandle<Object> JSProxy::GetTrap(Handle<JSProxy> proxy,
+                                     Handle<String> trap) {
+  DCHECK(!IsRevoked(proxy));
+  Isolate* isolate = proxy->GetIsolate();
+  Handle<JSReceiver> handler(JSReceiver::cast(proxy->handler()), isolate);
+  return Object::GetMethod(handler, trap);
+}
+
+
 MaybeHandle<Object> JSProxy::CallTrap(Handle<JSProxy> proxy,
                                       const char* name,
                                       Handle<Object> derived,
@@ -4682,13 +4700,9 @@ MaybeHandle<Object> JSProxy::CallTrap(Handle<JSProxy> proxy,
                                       Handle<Object> argv[]) {
   Isolate* isolate = proxy->GetIsolate();
   Handle<Object> handler(proxy->handler(), isolate);
-
   Handle<String> trap_name = isolate->factory()->InternalizeUtf8String(name);
   Handle<Object> trap;
-  ASSIGN_RETURN_ON_EXCEPTION(
-      isolate, trap,
-      Object::GetPropertyOrElement(handler, trap_name),
-      Object);
+  ASSIGN_RETURN_ON_EXCEPTION(isolate, trap, GetTrap(proxy, trap_name), Object);
 
   if (trap->IsUndefined()) {
     if (derived.is_null()) {
@@ -7083,10 +7097,59 @@ bool JSObject::ReferencesObject(Object* obj) {
 
 Maybe<bool> JSReceiver::PreventExtensions(Handle<JSReceiver> object,
                                           ShouldThrow should_throw) {
-  if (!object->IsJSObject()) return Just(false);
-  // TODO(neis): Deal with proxies.
+  if (object->IsJSProxy()) {
+    return JSProxy::PreventExtensions(Handle<JSProxy>::cast(object),
+                                      should_throw);
+  }
+  DCHECK(object->IsJSObject());
   return JSObject::PreventExtensions(Handle<JSObject>::cast(object),
                                      should_throw);
+}
+
+
+Maybe<bool> JSProxy::PreventExtensions(Handle<JSProxy> proxy,
+                                       ShouldThrow should_throw) {
+  Isolate* isolate = proxy->GetIsolate();
+  Factory* factory = isolate->factory();
+  Handle<String> trap_name = factory->preventExtensions_string();
+
+  if (IsRevoked(proxy)) {
+    isolate->Throw(
+        *factory->NewTypeError(MessageTemplate::kProxyRevoked, trap_name));
+    return Nothing<bool>();
+  }
+
+  Handle<JSReceiver> target(JSReceiver::cast(proxy->target()), isolate);
+  Handle<JSReceiver> handler(JSReceiver::cast(proxy->handler()), isolate);
+
+  Handle<Object> trap;
+  ASSIGN_RETURN_ON_EXCEPTION_VALUE(isolate, trap, GetTrap(proxy, trap_name),
+                                   Nothing<bool>());
+  if (trap->IsUndefined()) {
+    return JSReceiver::PreventExtensions(target, should_throw);
+  }
+
+  Handle<Object> trap_result;
+  Handle<Object> args[] = {target};
+  ASSIGN_RETURN_ON_EXCEPTION_VALUE(
+      isolate, trap_result,
+      Execution::Call(isolate, trap, handler, arraysize(args), args),
+      Nothing<bool>());
+  if (!trap_result->BooleanValue()) {
+    RETURN_FAILURE(isolate, should_throw,
+                   NewTypeError(MessageTemplate::kProxyHandlerReturned, handler,
+                                factory->false_string(), trap_name));
+  }
+
+  // Enforce the invariant.
+  Maybe<bool> target_result = JSReceiver::IsExtensible(target);
+  MAYBE_RETURN(target_result, Nothing<bool>());
+  if (target_result.FromJust()) {
+    isolate->Throw(*factory->NewTypeError(
+        MessageTemplate::kProxyPreventExtensionsViolatesInvariant));
+    return Nothing<bool>();
+  }
+  return Just(true);
 }
 
 
@@ -7147,13 +7210,51 @@ Maybe<bool> JSObject::PreventExtensions(Handle<JSObject> object,
 }
 
 
-// static
 Maybe<bool> JSReceiver::IsExtensible(Handle<JSReceiver> object) {
   if (object->IsJSProxy()) {
-    // TODO(neis,cbruni): Redirect to the trap on JSProxy.
-    return Just(true);
+    return JSProxy::IsExtensible(Handle<JSProxy>::cast(object));
   }
   return Just(JSObject::IsExtensible(Handle<JSObject>::cast(object)));
+}
+
+
+Maybe<bool> JSProxy::IsExtensible(Handle<JSProxy> proxy) {
+  Isolate* isolate = proxy->GetIsolate();
+  Factory* factory = isolate->factory();
+  Handle<String> trap_name = factory->isExtensible_string();
+
+  if (IsRevoked(proxy)) {
+    isolate->Throw(
+        *factory->NewTypeError(MessageTemplate::kProxyRevoked, trap_name));
+    return Nothing<bool>();
+  }
+
+  Handle<JSReceiver> target(JSReceiver::cast(proxy->target()), isolate);
+  Handle<JSReceiver> handler(JSReceiver::cast(proxy->handler()), isolate);
+
+  Handle<Object> trap;
+  ASSIGN_RETURN_ON_EXCEPTION_VALUE(isolate, trap, GetTrap(proxy, trap_name),
+                                   Nothing<bool>());
+  if (trap->IsUndefined()) {
+    return JSReceiver::IsExtensible(target);
+  }
+
+  Handle<Object> trap_result;
+  Handle<Object> args[] = {target};
+  ASSIGN_RETURN_ON_EXCEPTION_VALUE(
+      isolate, trap_result,
+      Execution::Call(isolate, trap, handler, arraysize(args), args),
+      Nothing<bool>());
+
+  // Enforce the invariant.
+  Maybe<bool> target_result = JSReceiver::IsExtensible(target);
+  MAYBE_RETURN(target_result, Nothing<bool>());
+  if (target_result.FromJust() != trap_result->BooleanValue()) {
+    isolate->Throw(*factory->NewTypeError(
+        MessageTemplate::kProxyIsExtensibleViolatesInvariant));
+    return Nothing<bool>();
+  }
+  return target_result;
 }
 
 
@@ -8984,7 +9085,6 @@ Handle<DescriptorArray> DescriptorArray::CopyUpToAddAttributes(
 
   Handle<DescriptorArray> descriptors =
       DescriptorArray::Allocate(desc->GetIsolate(), size, slack);
-  DescriptorArray::WhitenessWitness witness(*descriptors);
 
   if (attributes != NONE) {
     for (int i = 0; i < size; ++i) {
@@ -9003,11 +9103,11 @@ Handle<DescriptorArray> DescriptorArray::CopyUpToAddAttributes(
       }
       Descriptor inner_desc(
           handle(key), handle(value, desc->GetIsolate()), details);
-      descriptors->Set(i, &inner_desc, witness);
+      descriptors->SetDescriptor(i, &inner_desc);
     }
   } else {
     for (int i = 0; i < size; ++i) {
-      descriptors->CopyFrom(i, *desc, witness);
+      descriptors->CopyFrom(i, *desc);
     }
   }
 
@@ -9766,21 +9866,16 @@ void DescriptorArray::SetEnumCache(Handle<DescriptorArray> descriptors,
 }
 
 
-void DescriptorArray::CopyFrom(int index, DescriptorArray* src,
-                               const WhitenessWitness& witness) {
+void DescriptorArray::CopyFrom(int index, DescriptorArray* src) {
   Object* value = src->GetValue(index);
   PropertyDetails details = src->GetDetails(index);
   Descriptor desc(handle(src->GetKey(index)),
                   handle(value, src->GetIsolate()),
                   details);
-  Set(index, &desc, witness);
+  SetDescriptor(index, &desc);
 }
 
 
-// We need the whiteness witness since sort will reshuffle the entries in the
-// descriptor array. If the descriptor array were to be black, the shuffling
-// would move a slot that was already recorded as pointing into an evacuation
-// candidate. This would result in missing updates upon evacuation.
 void DescriptorArray::Sort() {
   // In-place heap sort.
   int len = number_of_descriptors();
@@ -11956,23 +12051,23 @@ bool CanSubclassHaveInobjectProperties(InstanceType instance_type) {
     case JS_DATE_TYPE:
     case JS_ARRAY_TYPE:
     case JS_MESSAGE_OBJECT_TYPE:
+    case JS_SET_TYPE:
+    case JS_MAP_TYPE:
     case JS_SET_ITERATOR_TYPE:
     case JS_MAP_ITERATOR_TYPE:
     case JS_ITERATOR_RESULT_TYPE:
+    case JS_WEAK_MAP_TYPE:
+    case JS_WEAK_SET_TYPE:
     case JS_PROMISE_TYPE:
+    case JS_REGEXP_TYPE:
+    case JS_FUNCTION_TYPE:
       return true;
 
     case JS_TYPED_ARRAY_TYPE:
     case JS_DATA_VIEW_TYPE:
-    case JS_REGEXP_TYPE:
-    case JS_SET_TYPE:
-    case JS_MAP_TYPE:
     case JS_PROXY_TYPE:
     case JS_FUNCTION_PROXY_TYPE:
-    case JS_WEAK_MAP_TYPE:
-    case JS_WEAK_SET_TYPE:
     case JS_ARRAY_BUFFER_TYPE:
-    case JS_FUNCTION_TYPE:
       return false;
 
     case JS_GLOBAL_PROXY_TYPE:
@@ -12631,6 +12726,10 @@ void SharedFunctionInfo::InitFromFunctionLiteral(
   shared_info->set_dont_crankshaft(lit->flags() &
                                    AstProperties::kDontCrankshaft);
   shared_info->set_kind(lit->kind());
+  if (!IsConstructable(lit->kind(), lit->language_mode())) {
+    shared_info->set_construct_stub(
+        *shared_info->GetIsolate()->builtins()->ConstructedNonConstructable());
+  }
   shared_info->set_needs_home_object(lit->scope()->NeedsHomeObject());
   shared_info->set_asm_function(lit->scope()->asm_function());
 }
@@ -14541,6 +14640,8 @@ static bool ShouldConvertToFastElements(JSObject* object,
 
   uint32_t dictionary_size = static_cast<uint32_t>(dictionary->Capacity()) *
                              SeededNumberDictionary::kEntrySize;
+
+  // Turn fast if the dictionary only saves 50% space.
   return 2 * dictionary_size >= *new_capacity;
 }
 
@@ -15254,9 +15355,9 @@ void JSObject::CollectOwnPropertyNames(KeyAccumulator* keys,
       keys->AddKey(key);
     }
   } else if (IsJSGlobalObject()) {
-    global_dictionary()->CollectKeysTo(keys, filter);
+    GlobalDictionary::CollectKeysTo(handle(global_dictionary()), keys, filter);
   } else {
-    property_dictionary()->CollectKeysTo(keys, filter);
+    NameDictionary::CollectKeysTo(handle(property_dictionary()), keys, filter);
   }
 }
 
@@ -15549,43 +15650,32 @@ class StringSharedKey : public HashTableKey {
 };
 
 
-// static
-MaybeHandle<JSRegExp> JSRegExp::New(Handle<String> pattern,
-                                    Handle<String> flags) {
-  Isolate* isolate = pattern->GetIsolate();
-  Handle<JSFunction> constructor = isolate->regexp_function();
-  Handle<JSRegExp> regexp =
-      Handle<JSRegExp>::cast(isolate->factory()->NewJSObject(constructor));
+namespace {
 
-  return JSRegExp::Initialize(regexp, pattern, flags);
-}
-
-
-static JSRegExp::Flags RegExpFlagsFromString(Handle<String> flags,
-                                             bool* success) {
-  uint32_t value = JSRegExp::NONE;
+JSRegExp::Flags RegExpFlagsFromString(Handle<String> flags, bool* success) {
+  JSRegExp::Flags value = JSRegExp::kNone;
   int length = flags->length();
   // A longer flags string cannot be valid.
   if (length > 5) return JSRegExp::Flags(0);
   for (int i = 0; i < length; i++) {
-    uint32_t flag = JSRegExp::NONE;
+    JSRegExp::Flag flag = JSRegExp::kNone;
     switch (flags->Get(i)) {
       case 'g':
-        flag = JSRegExp::GLOBAL;
+        flag = JSRegExp::kGlobal;
         break;
       case 'i':
-        flag = JSRegExp::IGNORE_CASE;
+        flag = JSRegExp::kIgnoreCase;
         break;
       case 'm':
-        flag = JSRegExp::MULTILINE;
+        flag = JSRegExp::kMultiline;
         break;
       case 'u':
         if (!FLAG_harmony_unicode_regexps) return JSRegExp::Flags(0);
-        flag = JSRegExp::UNICODE_ESCAPES;
+        flag = JSRegExp::kUnicode;
         break;
       case 'y':
         if (!FLAG_harmony_regexps) return JSRegExp::Flags(0);
-        flag = JSRegExp::STICKY;
+        flag = JSRegExp::kSticky;
         break;
       default:
         return JSRegExp::Flags(0);
@@ -15595,7 +15685,43 @@ static JSRegExp::Flags RegExpFlagsFromString(Handle<String> flags,
     value |= flag;
   }
   *success = true;
-  return JSRegExp::Flags(value);
+  return value;
+}
+
+}  // namespace
+
+
+// static
+MaybeHandle<JSRegExp> JSRegExp::New(Handle<String> pattern, Flags flags) {
+  Isolate* isolate = pattern->GetIsolate();
+  Handle<JSFunction> constructor = isolate->regexp_function();
+  Handle<JSRegExp> regexp =
+      Handle<JSRegExp>::cast(isolate->factory()->NewJSObject(constructor));
+
+  return JSRegExp::Initialize(regexp, pattern, flags);
+}
+
+
+// static
+MaybeHandle<JSRegExp> JSRegExp::New(Handle<String> pattern,
+                                    Handle<String> flags_string) {
+  Isolate* isolate = pattern->GetIsolate();
+  bool success = false;
+  Flags flags = RegExpFlagsFromString(flags_string, &success);
+  if (!success) {
+    THROW_NEW_ERROR(
+        isolate,
+        NewSyntaxError(MessageTemplate::kInvalidRegExpFlags, flags_string),
+        JSRegExp);
+  }
+  return New(pattern, flags);
+}
+
+
+// static
+Handle<JSRegExp> JSRegExp::Copy(Handle<JSRegExp> regexp) {
+  Isolate* const isolate = regexp->GetIsolate();
+  return Handle<JSRegExp>::cast(isolate->factory()->CopyJSObject(regexp));
 }
 
 
@@ -15657,27 +15783,34 @@ MaybeHandle<String> EscapeRegExpSource(Isolate* isolate,
 MaybeHandle<JSRegExp> JSRegExp::Initialize(Handle<JSRegExp> regexp,
                                            Handle<String> source,
                                            Handle<String> flags_string) {
-  Isolate* isolate = regexp->GetIsolate();
-  Factory* factory = isolate->factory();
-  // If source is the empty string we set it to "(?:)" instead as
-  // suggested by ECMA-262, 5th, section 15.10.4.1.
-  if (source->length() == 0) source = factory->query_colon_string();
-
+  Isolate* isolate = source->GetIsolate();
   bool success = false;
-  JSRegExp::Flags flags = RegExpFlagsFromString(flags_string, &success);
+  Flags flags = RegExpFlagsFromString(flags_string, &success);
   if (!success) {
     THROW_NEW_ERROR(
         isolate,
         NewSyntaxError(MessageTemplate::kInvalidRegExpFlags, flags_string),
         JSRegExp);
   }
+  return Initialize(regexp, source, flags);
+}
+
+
+// static
+MaybeHandle<JSRegExp> JSRegExp::Initialize(Handle<JSRegExp> regexp,
+                                           Handle<String> source, Flags flags) {
+  Isolate* isolate = regexp->GetIsolate();
+  Factory* factory = isolate->factory();
+  // If source is the empty string we set it to "(?:)" instead as
+  // suggested by ECMA-262, 5th, section 15.10.4.1.
+  if (source->length() == 0) source = factory->query_colon_string();
 
   Handle<String> escaped_source;
   ASSIGN_RETURN_ON_EXCEPTION(isolate, escaped_source,
                              EscapeRegExpSource(isolate, source), JSRegExp);
 
   regexp->set_source(*escaped_source);
-  regexp->set_flags(Smi::FromInt(flags.value()));
+  regexp->set_flags(Smi::FromInt(flags));
 
   Map* map = regexp->map();
   Object* constructor = map->GetConstructor();
@@ -15707,8 +15840,7 @@ MaybeHandle<JSRegExp> JSRegExp::Initialize(Handle<JSRegExp> regexp,
 class RegExpKey : public HashTableKey {
  public:
   RegExpKey(Handle<String> string, JSRegExp::Flags flags)
-      : string_(string),
-        flags_(Smi::FromInt(flags.value())) { }
+      : string_(string), flags_(Smi::FromInt(flags)) {}
 
   // Rather than storing the key in the hash table, a pointer to the
   // stored value is stored where the key should be.  IsMatch then
@@ -17201,29 +17333,35 @@ int Dictionary<Derived, Shape, Key>::CopyKeysTo(
 
 
 template <typename Derived, typename Shape, typename Key>
-void Dictionary<Derived, Shape, Key>::CollectKeysTo(KeyAccumulator* keys,
-                                                    PropertyAttributes filter) {
-  int capacity = this->Capacity();
+void Dictionary<Derived, Shape, Key>::CollectKeysTo(
+    Handle<Dictionary<Derived, Shape, Key> > dictionary, KeyAccumulator* keys,
+    PropertyAttributes filter) {
+  int capacity = dictionary->Capacity();
   Handle<FixedArray> array =
-      keys->isolate()->factory()->NewFixedArray(this->NumberOfElements());
+      keys->isolate()->factory()->NewFixedArray(dictionary->NumberOfElements());
   int array_size = 0;
 
-  for (int i = 0; i < capacity; i++) {
-    Object* k = this->KeyAt(i);
-    if (!this->IsKey(k) || k->FilterKey(filter)) continue;
-    if (this->IsDeleted(i)) continue;
-    PropertyDetails details = this->DetailsAt(i);
-    PropertyAttributes attr = details.attributes();
-    if ((attr & filter) != 0) continue;
-    array->set(array_size++, Smi::FromInt(i));
+  {
+    DisallowHeapAllocation no_gc;
+    Dictionary<Derived, Shape, Key>* raw_dict = *dictionary;
+    for (int i = 0; i < capacity; i++) {
+      Object* k = raw_dict->KeyAt(i);
+      if (!raw_dict->IsKey(k) || k->FilterKey(filter)) continue;
+      if (raw_dict->IsDeleted(i)) continue;
+      PropertyDetails details = raw_dict->DetailsAt(i);
+      PropertyAttributes attr = details.attributes();
+      if ((attr & filter) != 0) continue;
+      array->set(array_size++, Smi::FromInt(i));
+    }
+
+    EnumIndexComparator<Derived> cmp(static_cast<Derived*>(raw_dict));
+    Smi** start = reinterpret_cast<Smi**>(array->GetFirstElementAddress());
+    std::sort(start, start + array_size, cmp);
   }
 
-  EnumIndexComparator<Derived> cmp(static_cast<Derived*>(this));
-  Smi** start = reinterpret_cast<Smi**>(array->GetFirstElementAddress());
-  std::sort(start, start + array_size, cmp);
   for (int i = 0; i < array_size; i++) {
     int index = Smi::cast(array->get(i))->value();
-    keys->AddKey(this->KeyAt(index));
+    keys->AddKey(dictionary->KeyAt(index));
   }
 }
 

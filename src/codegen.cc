@@ -64,26 +64,24 @@ double modulo(double x, double y) {
 #endif  // defined(_WIN64)
 
 
-#define UNARY_MATH_FUNCTION(name, generator)             \
-static UnaryMathFunction fast_##name##_function = NULL;  \
-void init_fast_##name##_function() {                     \
-  fast_##name##_function = generator;                    \
-}                                                        \
-double fast_##name(double x) {                           \
-  return (*fast_##name##_function)(x);                   \
-}
+#define UNARY_MATH_FUNCTION(name, generator)                             \
+  static UnaryMathFunctionWithIsolate fast_##name##_function = nullptr;  \
+  double std_##name(double x, Isolate* isolate) { return std::name(x); } \
+  void init_fast_##name##_function(Isolate* isolate) {                   \
+    if (FLAG_fast_math) fast_##name##_function = generator(isolate);     \
+    if (!fast_##name##_function) fast_##name##_function = std_##name;    \
+  }                                                                      \
+  void lazily_initialize_fast_##name(Isolate* isolate) {                 \
+    if (!fast_##name##_function) init_fast_##name##_function(isolate);   \
+  }                                                                      \
+  double fast_##name(double x, Isolate* isolate) {                       \
+    return (*fast_##name##_function)(x, isolate);                        \
+  }
 
-UNARY_MATH_FUNCTION(exp, CreateExpFunction())
-UNARY_MATH_FUNCTION(sqrt, CreateSqrtFunction())
+UNARY_MATH_FUNCTION(sqrt, CreateSqrtFunction)
+UNARY_MATH_FUNCTION(exp, CreateExpFunction)
 
 #undef UNARY_MATH_FUNCTION
-
-
-void lazily_initialize_fast_exp() {
-  if (fast_exp_function == NULL) {
-    init_fast_exp_function();
-  }
-}
 
 
 #define __ ACCESS_MASM(masm_)

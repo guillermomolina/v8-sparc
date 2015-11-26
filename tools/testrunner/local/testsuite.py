@@ -44,6 +44,7 @@ ALL_VARIANT_FLAGS = {
   "ignition": [["--ignition", "--ignition-filter=*",
                 "--ignition-fake-try-catch",
                 "--ignition-fallback-on-eval-and-catch"]],
+  "preparser": [["--min-preparse-length=0"]],
 }
 
 # FAST_VARIANTS implies no --always-opt.
@@ -55,10 +56,11 @@ FAST_VARIANT_FLAGS = {
   "ignition": [["--ignition", "--ignition-filter=*",
                 "--ignition-fake-try-catch",
                 "--ignition-fallback-on-eval-and-catch"]],
+  "preparser": [["--min-preparse-length=0"]],
 }
 
 ALL_VARIANTS = set(["default", "stress", "turbofan", "turbofan_opt",
-                    "nocrankshaft", "ignition"])
+                    "nocrankshaft", "ignition", "preparser"])
 FAST_VARIANTS = set(["default", "turbofan"])
 STANDARD_VARIANT = set(["default"])
 
@@ -95,7 +97,7 @@ class TestSuite(object):
       (f, pathname, description) = imp.find_module("testcfg", [root])
       module = imp.load_module("testcfg", f, pathname, description)
       return module.GetSuite(name, root)
-    except:
+    except ImportError:
       # Use default if no testcfg is present.
       return GoogleTestSuite(name, root)
     finally:

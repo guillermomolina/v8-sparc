@@ -20,11 +20,12 @@
 namespace v8 {
 namespace internal {
 
-MacroAssembler::MacroAssembler(Isolate* arg_isolate, void* buffer, int size)
+MacroAssembler::MacroAssembler(Isolate* arg_isolate, void* buffer, int size,
+                               CodeObjectRequired create_code_object)
     : Assembler(arg_isolate, buffer, size),
       generating_stub_(false),
       has_frame_(false) {
-  if (isolate() != NULL) {
+  if (create_code_object == CodeObjectRequired::kYes) {
     code_object_ =
         Handle<Object>::New(isolate()->heap()->undefined_value(), isolate());
   }
@@ -1085,11 +1086,19 @@ void MacroAssembler::InvokePrologue(const ParameterCount& expected,
 }
 
 
-void MacroAssembler::InvokeCode(Register code, const ParameterCount& expected,
+void MacroAssembler::InvokeCode(Register code, Register new_target,
+                                const ParameterCount& expected,
                                 const ParameterCount& actual, InvokeFlag flag,
                                 const CallWrapper& call_wrapper) {
   // You can't call a function without a valid frame.
   DCHECK(flag == JUMP_FUNCTION || has_frame());
+
+  // Ensure new target is passed in the correct register. Otherwise clear the
+  // appropriate register in case new target is not given.
+  DCHECK_IMPLIES(new_target.is_valid(), new_target.is(r6));
+  if (!new_target.is_valid()) {
+    LoadRoot(r6, Heap::kUndefinedValueRootIndex);
+  }
 
   Label done;
   bool definitely_mismatches = false;
@@ -1112,7 +1121,8 @@ void MacroAssembler::InvokeCode(Register code, const ParameterCount& expected,
 }
 
 
-void MacroAssembler::InvokeFunction(Register fun, const ParameterCount& actual,
+void MacroAssembler::InvokeFunction(Register fun, Register new_target,
+                                    const ParameterCount& actual,
                                     InvokeFlag flag,
                                     const CallWrapper& call_wrapper) {
   // You can't call a function without a valid frame.
@@ -1135,7 +1145,7 @@ void MacroAssembler::InvokeFunction(Register fun, const ParameterCount& actual,
   LoadP(code_reg, FieldMemOperand(r4, JSFunction::kCodeEntryOffset));
 
   ParameterCount expected(expected_reg);
-  InvokeCode(code_reg, expected, actual, flag, call_wrapper);
+  InvokeCode(code_reg, new_target, expected, actual, flag, call_wrapper);
 }
 
 
@@ -1157,7 +1167,7 @@ void MacroAssembler::InvokeFunction(Register function,
   // allow recompilation to take effect without changing any of the
   // call sites.
   LoadP(ip, FieldMemOperand(r4, JSFunction::kCodeEntryOffset));
-  InvokeCode(ip, expected, actual, flag, call_wrapper);
+  InvokeCode(ip, no_reg, expected, actual, flag, call_wrapper);
 }
 
 
@@ -1438,11 +1448,7 @@ void MacroAssembler::Allocate(int object_size, Register result,
     return;
   }
 
-  DCHECK(!result.is(scratch1));
-  DCHECK(!result.is(scratch2));
-  DCHECK(!scratch1.is(scratch2));
-  DCHECK(!scratch1.is(ip));
-  DCHECK(!scratch2.is(ip));
+  DCHECK(!AreAliased(result, scratch1, scratch2, ip));
 
   // Make object size into bytes.
   if ((flags & SIZE_IN_WORDS) != 0) {
@@ -1461,26 +1467,26 @@ void MacroAssembler::Allocate(int object_size, Register result,
   DCHECK((limit - top) == kPointerSize);
 
   // Set up allocation top address register.
-  Register topaddr = scratch1;
-  mov(topaddr, Operand(allocation_top));
-
+  Register top_address = scratch1;
   // This code stores a temporary value in ip. This is OK, as the code below
   // does not need ip for implicit literal generation.
+  Register alloc_limit = ip;
+  Register result_end = scratch2;
+  mov(top_address, Operand(allocation_top));
+
   if ((flags & RESULT_CONTAINS_TOP) == 0) {
     // Load allocation top into result and allocation limit into ip.
-    LoadP(result, MemOperand(topaddr));
-    LoadP(ip, MemOperand(topaddr, kPointerSize));
+    LoadP(result, MemOperand(top_address));
+    LoadP(alloc_limit, MemOperand(top_address, kPointerSize));
   } else {
     if (emit_debug_code()) {
-      // Assert that result actually contains top on entry. ip is used
-      // immediately below so this use of ip does not cause difference with
-      // respect to register content between debug and release mode.
-      LoadP(ip, MemOperand(topaddr));
-      cmp(result, ip);
+      // Assert that result actually contains top on entry.
+      LoadP(alloc_limit, MemOperand(top_address));
+      cmp(result, alloc_limit);
       Check(eq, kUnexpectedAllocationTop);
     }
-    // Load allocation limit into ip. Result already contains allocation top.
-    LoadP(ip, MemOperand(topaddr, limit - top), r0);
+    // Load allocation limit. Result already contains allocation top.
+    LoadP(alloc_limit, MemOperand(top_address, limit - top));
   }
 
   if ((flags & DOUBLE_ALIGNMENT) != 0) {
@@ -1490,15 +1496,15 @@ void MacroAssembler::Allocate(int object_size, Register result,
     STATIC_ASSERT(kPointerAlignment == kDoubleAlignment);
 #else
     STATIC_ASSERT(kPointerAlignment * 2 == kDoubleAlignment);
-    andi(scratch2, result, Operand(kDoubleAlignmentMask));
+    andi(result_end, result, Operand(kDoubleAlignmentMask));
     Label aligned;
     beq(&aligned, cr0);
     if ((flags & PRETENURE) != 0) {
-      cmpl(result, ip);
+      cmpl(result, alloc_limit);
       bge(gc_required);
     }
-    mov(scratch2, Operand(isolate()->factory()->one_pointer_filler_map()));
-    stw(scratch2, MemOperand(result));
+    mov(result_end, Operand(isolate()->factory()->one_pointer_filler_map()));
+    stw(result_end, MemOperand(result));
     addi(result, result, Operand(kDoubleSize / 2));
     bind(&aligned);
 #endif
@@ -1506,17 +1512,17 @@ void MacroAssembler::Allocate(int object_size, Register result,
 
   // Calculate new top and bail out if new space is exhausted. Use result
   // to calculate the new top.
-  sub(r0, ip, result);
+  sub(r0, alloc_limit, result);
   if (is_int16(object_size)) {
     cmpi(r0, Operand(object_size));
     blt(gc_required);
-    addi(scratch2, result, Operand(object_size));
+    addi(result_end, result, Operand(object_size));
   } else {
-    Cmpi(r0, Operand(object_size), scratch2);
+    Cmpi(r0, Operand(object_size), result_end);
     blt(gc_required);
-    add(scratch2, result, scratch2);
+    add(result_end, result, result_end);
   }
-  StoreP(scratch2, MemOperand(topaddr));
+  StoreP(result_end, MemOperand(top_address));
 
   // Tag object if requested.
   if ((flags & TAG_OBJECT) != 0) {
@@ -1539,15 +1545,11 @@ void MacroAssembler::Allocate(Register object_size, Register result,
     return;
   }
 
-  // Assert that the register arguments are different and that none of
-  // them are ip. ip is used explicitly in the code generated below.
-  DCHECK(!result.is(scratch));
-  DCHECK(!result.is(result_end));
-  DCHECK(!scratch.is(result_end));
-  DCHECK(!object_size.is(ip));
-  DCHECK(!result.is(ip));
-  DCHECK(!scratch.is(ip));
-  DCHECK(!result_end.is(ip));
+  // |object_size| and |result_end| may overlap if the DOUBLE_ALIGNMENT flag
+  // is not specified. Other registers must not overlap.
+  DCHECK(!AreAliased(object_size, result, scratch, ip));
+  DCHECK(!AreAliased(result_end, result, scratch, ip));
+  DCHECK((flags & DOUBLE_ALIGNMENT) == 0 || !object_size.is(result_end));
 
   // Check relative positions of allocation top and limit addresses.
   ExternalReference allocation_top =
@@ -1558,27 +1560,26 @@ void MacroAssembler::Allocate(Register object_size, Register result,
   intptr_t limit = reinterpret_cast<intptr_t>(allocation_limit.address());
   DCHECK((limit - top) == kPointerSize);
 
-  // Set up allocation top address.
-  Register topaddr = scratch;
-  mov(topaddr, Operand(allocation_top));
-
+  // Set up allocation top address and allocation limit registers.
+  Register top_address = scratch;
   // This code stores a temporary value in ip. This is OK, as the code below
   // does not need ip for implicit literal generation.
+  Register alloc_limit = ip;
+  mov(top_address, Operand(allocation_top));
+
   if ((flags & RESULT_CONTAINS_TOP) == 0) {
-    // Load allocation top into result and allocation limit into ip.
-    LoadP(result, MemOperand(topaddr));
-    LoadP(ip, MemOperand(topaddr, kPointerSize));
+    // Load allocation top into result and allocation limit into alloc_limit..
+    LoadP(result, MemOperand(top_address));
+    LoadP(alloc_limit, MemOperand(top_address, kPointerSize));
   } else {
     if (emit_debug_code()) {
-      // Assert that result actually contains top on entry. ip is used
-      // immediately below so this use of ip does not cause difference with
-      // respect to register content between debug and release mode.
-      LoadP(ip, MemOperand(topaddr));
-      cmp(result, ip);
+      // Assert that result actually contains top on entry.
+      LoadP(alloc_limit, MemOperand(top_address));
+      cmp(result, alloc_limit);
       Check(eq, kUnexpectedAllocationTop);
     }
-    // Load allocation limit into ip. Result already contains allocation top.
-    LoadP(ip, MemOperand(topaddr, limit - top));
+    // Load allocation limit. Result already contains allocation top.
+    LoadP(alloc_limit, MemOperand(top_address, limit - top));
   }
 
   if ((flags & DOUBLE_ALIGNMENT) != 0) {
@@ -1592,7 +1593,7 @@ void MacroAssembler::Allocate(Register object_size, Register result,
     Label aligned;
     beq(&aligned, cr0);
     if ((flags & PRETENURE) != 0) {
-      cmpl(result, ip);
+      cmpl(result, alloc_limit);
       bge(gc_required);
     }
     mov(result_end, Operand(isolate()->factory()->one_pointer_filler_map()));
@@ -1605,7 +1606,7 @@ void MacroAssembler::Allocate(Register object_size, Register result,
   // Calculate new top and bail out if new space is exhausted. Use result
   // to calculate the new top. Object size may be in words so a shift is
   // required to get the number of bytes.
-  sub(r0, ip, result);
+  sub(r0, alloc_limit, result);
   if ((flags & SIZE_IN_WORDS) != 0) {
     ShiftLeftImm(result_end, object_size, Operand(kPointerSizeLog2));
     cmp(r0, result_end);
@@ -1622,7 +1623,7 @@ void MacroAssembler::Allocate(Register object_size, Register result,
     andi(r0, result_end, Operand(kObjectAlignmentMask));
     Check(eq, kUnalignedAllocationInNewSpace, cr0);
   }
-  StoreP(result_end, MemOperand(topaddr));
+  StoreP(result_end, MemOperand(top_address));
 
   // Tag object if requested.
   if ((flags & TAG_OBJECT) != 0) {
@@ -2751,32 +2752,6 @@ void MacroAssembler::AllocateHeapNumberWithValue(
     Register heap_number_map, Label* gc_required) {
   AllocateHeapNumber(result, scratch1, scratch2, heap_number_map, gc_required);
   stfd(value, FieldMemOperand(result, HeapNumber::kValueOffset));
-}
-
-
-// Copies a fixed number of fields of heap objects from src to dst.
-void MacroAssembler::CopyFields(Register dst, Register src, RegList temps,
-                                int field_count) {
-  // At least one bit set in the first 15 registers.
-  DCHECK((temps & ((1 << 15) - 1)) != 0);
-  DCHECK((temps & dst.bit()) == 0);
-  DCHECK((temps & src.bit()) == 0);
-  // Primitive implementation using only one temporary register.
-
-  Register tmp = no_reg;
-  // Find a temp register in temps list.
-  for (int i = 0; i < 15; i++) {
-    if ((temps & (1 << i)) != 0) {
-      tmp.set_code(i);
-      break;
-    }
-  }
-  DCHECK(!tmp.is(no_reg));
-
-  for (int i = 0; i < field_count; i++) {
-    LoadP(tmp, FieldMemOperand(src, i * kPointerSize), r0);
-    StoreP(tmp, FieldMemOperand(dst, i * kPointerSize), r0);
-  }
 }
 
 
@@ -4370,7 +4345,7 @@ CodePatcher::CodePatcher(byte* address, int instructions,
                          FlushICache flush_cache)
     : address_(address),
       size_(instructions * Assembler::kInstrSize),
-      masm_(NULL, address, size_ + Assembler::kGap),
+      masm_(NULL, address, size_ + Assembler::kGap, CodeObjectRequired::kNo),
       flush_cache_(flush_cache) {
   // Create a new macro assembler pointing to the address of the code to patch.
   // The size is adjusted with kGap on order for the assembler to generate size
