@@ -236,6 +236,11 @@ static void VerifyEvacuation(Heap* heap) {
 
 
 void MarkCompactCollector::SetUp() {
+  DCHECK(strcmp(Marking::kWhiteBitPattern, "00") == 0);
+  DCHECK(strcmp(Marking::kBlackBitPattern, "10") == 0);
+  DCHECK(strcmp(Marking::kGreyBitPattern, "11") == 0);
+  DCHECK(strcmp(Marking::kImpossibleBitPattern, "01") == 0);
+
   free_list_old_space_.Reset(new FreeList(heap_->old_space()));
   free_list_code_space_.Reset(new FreeList(heap_->code_space()));
   free_list_map_space_.Reset(new FreeList(heap_->map_space()));
@@ -614,6 +619,48 @@ const char* AllocationSpaceName(AllocationSpace space) {
 }
 
 
+void MarkCompactCollector::ComputeEvacuationHeuristics(
+    int area_size, int* target_fragmentation_percent,
+    int* max_evacuated_bytes) {
+  // For memory reducing mode we directly define both constants.
+  const int kTargetFragmentationPercentForReduceMemory = 20;
+  const int kMaxEvacuatedBytesForReduceMemory = 12 * Page::kPageSize;
+
+  // For regular mode (which is latency critical) we define less aggressive
+  // defaults to start and switch to a trace-based (using compaction speed)
+  // approach as soon as we have enough samples.
+  const int kTargetFragmentationPercent = 70;
+  const int kMaxEvacuatedBytes = 4 * Page::kPageSize;
+  // Time to take for a single area (=payload of page). Used as soon as there
+  // exist enough compaction speed samples.
+  const int kTargetMsPerArea = 1;
+
+  if (heap()->ShouldReduceMemory()) {
+    *target_fragmentation_percent = kTargetFragmentationPercentForReduceMemory;
+    *max_evacuated_bytes = kMaxEvacuatedBytesForReduceMemory;
+  } else {
+    const intptr_t estimated_compaction_speed =
+        heap()->tracer()->CompactionSpeedInBytesPerMillisecond();
+    if (estimated_compaction_speed != 0) {
+      // Estimate the target fragmentation based on traced compaction speed
+      // and a goal for a single page.
+      const intptr_t estimated_ms_per_area =
+          1 + static_cast<intptr_t>(area_size) / estimated_compaction_speed;
+      *target_fragmentation_percent =
+          100 - 100 * kTargetMsPerArea / estimated_ms_per_area;
+      if (*target_fragmentation_percent <
+          kTargetFragmentationPercentForReduceMemory) {
+        *target_fragmentation_percent =
+            kTargetFragmentationPercentForReduceMemory;
+      }
+    } else {
+      *target_fragmentation_percent = kTargetFragmentationPercent;
+    }
+    *max_evacuated_bytes = kMaxEvacuatedBytes;
+  }
+}
+
+
 void MarkCompactCollector::CollectEvacuationCandidates(PagedSpace* space) {
   DCHECK(space->identity() == OLD_SPACE || space->identity() == CODE_SPACE);
 
@@ -648,7 +695,7 @@ void MarkCompactCollector::CollectEvacuationCandidates(PagedSpace* space) {
   int candidate_count = 0;
   int total_live_bytes = 0;
 
-  bool reduce_memory = heap()->ShouldReduceMemory();
+  const bool reduce_memory = heap()->ShouldReduceMemory();
   if (FLAG_manual_evacuation_candidates_selection) {
     for (size_t i = 0; i < pages.size(); i++) {
       Page* p = pages[i].second;
@@ -669,23 +716,25 @@ void MarkCompactCollector::CollectEvacuationCandidates(PagedSpace* space) {
       }
     }
   } else {
-    const int kTargetFragmentationPercent = 50;
-    const int kMaxEvacuatedBytes = 4 * Page::kPageSize;
-
-    const int kTargetFragmentationPercentForReduceMemory = 20;
-    const int kMaxEvacuatedBytesForReduceMemory = 12 * Page::kPageSize;
-
+    // The following approach determines the pages that should be evacuated.
+    //
+    // We use two conditions to decide whether a page qualifies as an evacuation
+    // candidate, or not:
+    // * Target fragmentation: How fragmented is a page, i.e., how is the ratio
+    //   between live bytes and capacity of this page (= area).
+    // * Evacuation quota: A global quota determining how much bytes should be
+    //   compacted.
+    //
+    // The algorithm sorts all pages by live bytes and then iterates through
+    // them starting with the page with the most free memory, adding them to the
+    // set of evacuation candidates as long as both conditions (fragmentation
+    // and quota) hold.
     int max_evacuated_bytes;
     int target_fragmentation_percent;
+    ComputeEvacuationHeuristics(area_size, &target_fragmentation_percent,
+                                &max_evacuated_bytes);
 
-    if (reduce_memory) {
-      target_fragmentation_percent = kTargetFragmentationPercentForReduceMemory;
-      max_evacuated_bytes = kMaxEvacuatedBytesForReduceMemory;
-    } else {
-      target_fragmentation_percent = kTargetFragmentationPercent;
-      max_evacuated_bytes = kMaxEvacuatedBytes;
-    }
-    intptr_t free_bytes_threshold =
+    const intptr_t free_bytes_threshold =
         target_fragmentation_percent * (area_size / 100);
 
     // Sort pages from the most free to the least free, then select
@@ -701,20 +750,20 @@ void MarkCompactCollector::CollectEvacuationCandidates(PagedSpace* space) {
       int live_bytes = pages[i].first;
       int free_bytes = area_size - live_bytes;
       if (FLAG_always_compact ||
-          (free_bytes >= free_bytes_threshold &&
-           total_live_bytes + live_bytes <= max_evacuated_bytes)) {
+          ((free_bytes >= free_bytes_threshold) &&
+           ((total_live_bytes + live_bytes) <= max_evacuated_bytes))) {
         candidate_count++;
         total_live_bytes += live_bytes;
       }
       if (FLAG_trace_fragmentation_verbose) {
-        PrintF(
-            "Page in %s: %d KB free [fragmented if this >= %d KB], "
-            "sum of live bytes in fragmented pages %d KB [max is %d KB]\n",
-            AllocationSpaceName(space->identity()),
-            static_cast<int>(free_bytes / KB),
-            static_cast<int>(free_bytes_threshold / KB),
-            static_cast<int>(total_live_bytes / KB),
-            static_cast<int>(max_evacuated_bytes / KB));
+        PrintIsolate(isolate(),
+                     "compaction-selection-page: space=%s free_bytes_page=%d "
+                     "fragmentation_limit_kb=%d fragmentation_limit_percent=%d "
+                     "sum_compaction_kb=%d "
+                     "compaction_limit_kb=%d\n",
+                     AllocationSpaceName(space->identity()), free_bytes / KB,
+                     free_bytes_threshold / KB, target_fragmentation_percent,
+                     total_live_bytes / KB, max_evacuated_bytes / KB);
       }
     }
     // How many pages we will allocated for the evacuated objects
@@ -723,20 +772,20 @@ void MarkCompactCollector::CollectEvacuationCandidates(PagedSpace* space) {
     DCHECK_LE(estimated_new_pages, candidate_count);
     int estimated_released_pages = candidate_count - estimated_new_pages;
     // Avoid (compact -> expand) cycles.
-    if (estimated_released_pages == 0 && !FLAG_always_compact)
+    if ((estimated_released_pages == 0) && !FLAG_always_compact) {
       candidate_count = 0;
+    }
     for (int i = 0; i < candidate_count; i++) {
       AddEvacuationCandidate(pages[i].second);
     }
   }
 
   if (FLAG_trace_fragmentation) {
-    PrintF(
-        "Collected %d evacuation candidates [%d KB live] for space %s "
-        "[mode %s]\n",
-        candidate_count, static_cast<int>(total_live_bytes / KB),
-        AllocationSpaceName(space->identity()),
-        (reduce_memory ? "reduce memory footprint" : "normal"));
+    PrintIsolate(isolate(),
+                 "compaction-selection: space=%s reduce_memory=%d pages=%d "
+                 "total_live_bytes=%d\n",
+                 AllocationSpaceName(space->identity()), reduce_memory,
+                 candidate_count, total_live_bytes / KB);
   }
 }
 
@@ -1412,8 +1461,9 @@ typedef StringTableCleaner<true> ExternalStringTableCleaner;
 class MarkCompactWeakObjectRetainer : public WeakObjectRetainer {
  public:
   virtual Object* RetainAs(Object* object) {
-    if (Marking::IsBlackOrGrey(
-            Marking::MarkBitFrom(HeapObject::cast(object)))) {
+    MarkBit mark_bit = Marking::MarkBitFrom(HeapObject::cast(object));
+    DCHECK(!Marking::IsGrey(mark_bit));
+    if (Marking::IsBlack(mark_bit)) {
       return object;
     } else if (object->IsAllocationSite() &&
                !(AllocationSite::cast(object)->IsZombie())) {
@@ -1499,69 +1549,140 @@ void MarkCompactCollector::DiscoverGreyObjectsOnPage(MemoryChunk* p) {
 }
 
 
-int MarkCompactCollector::DiscoverAndEvacuateBlackObjectsOnPage(
-    NewSpace* new_space, NewSpacePage* p) {
-  DCHECK(strcmp(Marking::kWhiteBitPattern, "00") == 0);
-  DCHECK(strcmp(Marking::kBlackBitPattern, "10") == 0);
-  DCHECK(strcmp(Marking::kGreyBitPattern, "11") == 0);
-  DCHECK(strcmp(Marking::kImpossibleBitPattern, "01") == 0);
+class MarkCompactCollector::HeapObjectVisitor {
+ public:
+  virtual ~HeapObjectVisitor() {}
+  virtual bool Visit(HeapObject* object) = 0;
+};
 
-  MarkBit::CellType* cells = p->markbits()->cells();
-  int survivors_size = 0;
 
-  for (MarkBitCellIterator it(p); !it.Done(); it.Advance()) {
+class MarkCompactCollector::EvacuateVisitorBase
+    : public MarkCompactCollector::HeapObjectVisitor {
+ public:
+  EvacuateVisitorBase(Heap* heap, SlotsBuffer** evacuation_slots_buffer)
+      : heap_(heap), evacuation_slots_buffer_(evacuation_slots_buffer) {}
+
+  bool TryEvacuateObject(PagedSpace* target_space, HeapObject* object,
+                         HeapObject** target_object) {
+    int size = object->Size();
+    AllocationAlignment alignment = object->RequiredAlignment();
+    AllocationResult allocation = target_space->AllocateRaw(size, alignment);
+    if (allocation.To(target_object)) {
+      heap_->mark_compact_collector()->MigrateObject(
+          *target_object, object, size, target_space->identity(),
+          evacuation_slots_buffer_);
+      return true;
+    }
+    return false;
+  }
+
+ protected:
+  Heap* heap_;
+  SlotsBuffer** evacuation_slots_buffer_;
+};
+
+
+class MarkCompactCollector::EvacuateNewSpaceVisitor
+    : public MarkCompactCollector::EvacuateVisitorBase {
+ public:
+  explicit EvacuateNewSpaceVisitor(Heap* heap,
+                                   SlotsBuffer** evacuation_slots_buffer)
+      : EvacuateVisitorBase(heap, evacuation_slots_buffer) {}
+
+  virtual bool Visit(HeapObject* object) {
+    Heap::UpdateAllocationSiteFeedback(object, Heap::RECORD_SCRATCHPAD_SLOT);
+    int size = object->Size();
+    HeapObject* target_object = nullptr;
+    if (heap_->ShouldBePromoted(object->address(), size) &&
+        TryEvacuateObject(heap_->old_space(), object, &target_object)) {
+      // If we end up needing more special cases, we should factor this out.
+      if (V8_UNLIKELY(target_object->IsJSArrayBuffer())) {
+        heap_->array_buffer_tracker()->Promote(
+            JSArrayBuffer::cast(target_object));
+      }
+      heap_->IncrementPromotedObjectsSize(size);
+      return true;
+    }
+
+    AllocationAlignment alignment = object->RequiredAlignment();
+    AllocationResult allocation =
+        heap_->new_space()->AllocateRaw(size, alignment);
+    if (allocation.IsRetry()) {
+      if (!heap_->new_space()->AddFreshPage()) {
+        // Shouldn't happen. We are sweeping linearly, and to-space
+        // has the same number of pages as from-space, so there is
+        // always room unless we are in an OOM situation.
+        FatalProcessOutOfMemory("MarkCompactCollector: semi-space copy\n");
+      }
+      allocation = heap_->new_space()->AllocateRaw(size, alignment);
+      DCHECK(!allocation.IsRetry());
+    }
+    Object* target = allocation.ToObjectChecked();
+
+    heap_->mark_compact_collector()->MigrateObject(
+        HeapObject::cast(target), object, size, NEW_SPACE, nullptr);
+    if (V8_UNLIKELY(target->IsJSArrayBuffer())) {
+      heap_->array_buffer_tracker()->MarkLive(JSArrayBuffer::cast(target));
+    }
+    heap_->IncrementSemiSpaceCopiedObjectSize(size);
+    return true;
+  }
+};
+
+
+class MarkCompactCollector::EvacuateOldSpaceVisitor
+    : public MarkCompactCollector::EvacuateVisitorBase {
+ public:
+  EvacuateOldSpaceVisitor(Heap* heap,
+                          CompactionSpaceCollection* compaction_spaces,
+                          SlotsBuffer** evacuation_slots_buffer)
+      : EvacuateVisitorBase(heap, evacuation_slots_buffer),
+        compaction_spaces_(compaction_spaces) {}
+
+  virtual bool Visit(HeapObject* object) {
+    CompactionSpace* target_space = compaction_spaces_->Get(
+        Page::FromAddress(object->address())->owner()->identity());
+    HeapObject* target_object = nullptr;
+    if (TryEvacuateObject(target_space, object, &target_object)) {
+      DCHECK(object->map_word().IsForwardingAddress());
+      return true;
+    }
+    return false;
+  }
+
+ private:
+  CompactionSpaceCollection* compaction_spaces_;
+};
+
+
+bool MarkCompactCollector::IterateLiveObjectsOnPage(MemoryChunk* page,
+                                                    HeapObjectVisitor* visitor,
+                                                    IterationMode mode) {
+  Address offsets[16];
+  for (MarkBitCellIterator it(page); !it.Done(); it.Advance()) {
     Address cell_base = it.CurrentCellBase();
     MarkBit::CellType* cell = it.CurrentCell();
 
-    MarkBit::CellType current_cell = *cell;
-    if (current_cell == 0) continue;
+    if (*cell == 0) continue;
 
-    int offset = 0;
-    while (current_cell != 0) {
-      int trailing_zeros = base::bits::CountTrailingZeros32(current_cell);
-      current_cell >>= trailing_zeros;
-      offset += trailing_zeros;
-      Address address = cell_base + offset * kPointerSize;
-      HeapObject* object = HeapObject::FromAddress(address);
+    int live_objects = MarkWordToObjectStarts(*cell, cell_base, offsets);
+    for (int i = 0; i < live_objects; i++) {
+      HeapObject* object = HeapObject::FromAddress(offsets[i]);
       DCHECK(Marking::IsBlack(Marking::MarkBitFrom(object)));
-
-      int size = object->Size();
-      survivors_size += size;
-
-      Heap::UpdateAllocationSiteFeedback(object, Heap::RECORD_SCRATCHPAD_SLOT);
-
-      offset += 2;
-      current_cell >>= 2;
-
-      // TODO(hpayer): Refactor EvacuateObject and call this function instead.
-      if (heap()->ShouldBePromoted(object->address(), size) &&
-          TryPromoteObject(object, size)) {
-        continue;
-      }
-
-      AllocationAlignment alignment = object->RequiredAlignment();
-      AllocationResult allocation = new_space->AllocateRaw(size, alignment);
-      if (allocation.IsRetry()) {
-        if (!new_space->AddFreshPage()) {
-          // Shouldn't happen. We are sweeping linearly, and to-space
-          // has the same number of pages as from-space, so there is
-          // always room unless we are in an OOM situation.
-          FatalProcessOutOfMemory("MarkCompactCollector: semi-space copy\n");
+      if (!visitor->Visit(object)) {
+        if ((mode == kClearMarkbits) && (i > 0)) {
+          page->markbits()->ClearRange(
+              page->AddressToMarkbitIndex(page->area_start()),
+              page->AddressToMarkbitIndex(offsets[i]));
         }
-        allocation = new_space->AllocateRaw(size, alignment);
-        DCHECK(!allocation.IsRetry());
+        return false;
       }
-      Object* target = allocation.ToObjectChecked();
-
-      MigrateObject(HeapObject::cast(target), object, size, NEW_SPACE, nullptr);
-      if (V8_UNLIKELY(target->IsJSArrayBuffer())) {
-        heap()->array_buffer_tracker()->MarkLive(JSArrayBuffer::cast(target));
-      }
-      heap()->IncrementSemiSpaceCopiedObjectSize(size);
     }
-    *cells = 0;
+    if (mode == kClearMarkbits) {
+      *cell = 0;
+    }
   }
-  return survivors_size;
+  return true;
 }
 
 
@@ -2272,8 +2393,8 @@ void MarkCompactCollector::ClearNonLiveMapTransitions(Map* map) {
 
   // Follow back pointer, check whether we are dealing with a map transition
   // from a live map to a dead path and in case clear transitions of parent.
-  DCHECK(!Marking::IsBlackOrGrey(Marking::MarkBitFrom(map)));
-  bool parent_is_alive = Marking::IsBlackOrGrey(Marking::MarkBitFrom(parent));
+  DCHECK(!Marking::IsGrey(Marking::MarkBitFrom(map)));
+  bool parent_is_alive = Marking::IsBlack(Marking::MarkBitFrom(parent));
   if (parent_is_alive) {
     ClearMapTransitions(parent, map);
   }
@@ -2283,7 +2404,8 @@ void MarkCompactCollector::ClearNonLiveMapTransitions(Map* map) {
 // Clear a possible back pointer in case the transition leads to a dead map.
 // Return true in case a back pointer has been cleared and false otherwise.
 bool MarkCompactCollector::ClearMapBackPointer(Map* target) {
-  if (Marking::IsBlackOrGrey(Marking::MarkBitFrom(target))) return false;
+  DCHECK(!Marking::IsGrey(Marking::MarkBitFrom(target)));
+  if (Marking::IsBlack(Marking::MarkBitFrom(target))) return false;
   target->SetBackPointer(heap_->undefined_value(), SKIP_WRITE_BARRIER);
   return true;
 }
@@ -2703,12 +2825,12 @@ static inline void UpdateSlot(Isolate* isolate, ObjectVisitor* v,
                               SlotsBuffer::SlotType slot_type, Address addr) {
   switch (slot_type) {
     case SlotsBuffer::CODE_TARGET_SLOT: {
-      RelocInfo rinfo(addr, RelocInfo::CODE_TARGET, 0, NULL);
+      RelocInfo rinfo(isolate, addr, RelocInfo::CODE_TARGET, 0, NULL);
       rinfo.Visit(isolate, v);
       break;
     }
     case SlotsBuffer::CELL_TARGET_SLOT: {
-      RelocInfo rinfo(addr, RelocInfo::CELL, 0, NULL);
+      RelocInfo rinfo(isolate, addr, RelocInfo::CELL, 0, NULL);
       rinfo.Visit(isolate, v);
       break;
     }
@@ -2722,12 +2844,13 @@ static inline void UpdateSlot(Isolate* isolate, ObjectVisitor* v,
       break;
     }
     case SlotsBuffer::DEBUG_TARGET_SLOT: {
-      RelocInfo rinfo(addr, RelocInfo::DEBUG_BREAK_SLOT_AT_POSITION, 0, NULL);
+      RelocInfo rinfo(isolate, addr, RelocInfo::DEBUG_BREAK_SLOT_AT_POSITION, 0,
+                      NULL);
       if (rinfo.IsPatchedDebugBreakSlotSequence()) rinfo.Visit(isolate, v);
       break;
     }
     case SlotsBuffer::EMBEDDED_OBJECT_SLOT: {
-      RelocInfo rinfo(addr, RelocInfo::EMBEDDED_OBJECT, 0, NULL);
+      RelocInfo rinfo(isolate, addr, RelocInfo::EMBEDDED_OBJECT, 0, NULL);
       rinfo.Visit(isolate, v);
       break;
     }
@@ -2885,28 +3008,6 @@ static String* UpdateReferenceInExternalStringTableEntry(Heap* heap,
   }
 
   return String::cast(*p);
-}
-
-
-bool MarkCompactCollector::TryPromoteObject(HeapObject* object,
-                                            int object_size) {
-  OldSpace* old_space = heap()->old_space();
-
-  HeapObject* target = nullptr;
-  AllocationAlignment alignment = object->RequiredAlignment();
-  AllocationResult allocation = old_space->AllocateRaw(object_size, alignment);
-  if (allocation.To(&target)) {
-    MigrateObject(target, object, object_size, old_space->identity(),
-                  &migration_slots_buffer_);
-    // If we end up needing more special cases, we should factor this out.
-    if (V8_UNLIKELY(target->IsJSArrayBuffer())) {
-      heap()->array_buffer_tracker()->Promote(JSArrayBuffer::cast(target));
-    }
-    heap()->IncrementPromotedObjectsSize(object_size);
-    return true;
-  }
-
-  return false;
 }
 
 
@@ -3082,9 +3183,13 @@ void MarkCompactCollector::EvacuateNewSpace() {
   // new entries in the store buffer and may cause some pages to be marked
   // scan-on-scavenge.
   NewSpacePageIterator it(from_bottom, from_top);
+  EvacuateNewSpaceVisitor new_space_visitor(heap(), &migration_slots_buffer_);
   while (it.has_next()) {
     NewSpacePage* p = it.next();
-    survivors_size += DiscoverAndEvacuateBlackObjectsOnPage(new_space, p);
+    survivors_size += p->LiveBytes();
+    bool ok = IterateLiveObjectsOnPage(p, &new_space_visitor, kClearMarkbits);
+    USE(ok);
+    DCHECK(ok);
   }
 
   heap_->IncrementYoungSurvivorsCounter(survivors_size);
@@ -3096,50 +3201,6 @@ void MarkCompactCollector::AddEvacuationSlotsBufferSynchronized(
     SlotsBuffer* evacuation_slots_buffer) {
   base::LockGuard<base::Mutex> lock_guard(&evacuation_slots_buffers_mutex_);
   evacuation_slots_buffers_.Add(evacuation_slots_buffer);
-}
-
-
-bool MarkCompactCollector::EvacuateLiveObjectsFromPage(
-    Page* p, PagedSpace* target_space, SlotsBuffer** evacuation_slots_buffer) {
-  AlwaysAllocateScope always_allocate(isolate());
-  DCHECK(p->IsEvacuationCandidate() && !p->WasSwept());
-
-  Address starts[16];
-  for (MarkBitCellIterator it(p); !it.Done(); it.Advance()) {
-    Address cell_base = it.CurrentCellBase();
-    MarkBit::CellType* cell = it.CurrentCell();
-
-    if (*cell == 0) continue;
-
-    int live_objects = MarkWordToObjectStarts(*cell, cell_base, starts);
-    for (int i = 0; i < live_objects; i++) {
-      HeapObject* object = HeapObject::FromAddress(starts[i]);
-      DCHECK(Marking::IsBlack(Marking::MarkBitFrom(object)));
-
-      int size = object->Size();
-      AllocationAlignment alignment = object->RequiredAlignment();
-      HeapObject* target_object = nullptr;
-      AllocationResult allocation = target_space->AllocateRaw(size, alignment);
-      if (!allocation.To(&target_object)) {
-        // We need to abort compaction for this page. Make sure that we reset
-        // the mark bits for objects that have already been migrated.
-        if (i > 0) {
-          p->markbits()->ClearRange(p->AddressToMarkbitIndex(p->area_start()),
-                                    p->AddressToMarkbitIndex(starts[i]));
-        }
-        return false;
-      }
-
-      MigrateObject(target_object, object, size, target_space->identity(),
-                    evacuation_slots_buffer);
-      DCHECK(object->map_word().IsForwardingAddress());
-    }
-
-    // Clear marking bits for current cell.
-    *cell = 0;
-  }
-  p->ResetLiveBytes();
-  return true;
 }
 
 
@@ -3307,6 +3368,8 @@ void MarkCompactCollector::WaitUntilCompactionCompleted(uint32_t* task_ids,
 void MarkCompactCollector::EvacuatePages(
     CompactionSpaceCollection* compaction_spaces,
     SlotsBuffer** evacuation_slots_buffer) {
+  EvacuateOldSpaceVisitor visitor(heap(), compaction_spaces,
+                                  evacuation_slots_buffer);
   for (int i = 0; i < evacuation_candidates_.length(); i++) {
     Page* p = evacuation_candidates_[i];
     DCHECK(p->IsEvacuationCandidate() ||
@@ -3320,9 +3383,8 @@ void MarkCompactCollector::EvacuatePages(
                   MemoryChunk::kCompactingInProgress);
         double start = heap()->MonotonicallyIncreasingTimeInMs();
         intptr_t live_bytes = p->LiveBytes();
-        if (EvacuateLiveObjectsFromPage(
-                p, compaction_spaces->Get(p->owner()->identity()),
-                evacuation_slots_buffer)) {
+        if (IterateLiveObjectsOnPage(p, &visitor, kClearMarkbits)) {
+          p->ResetLiveBytes();
           p->parallel_compaction_state().SetValue(
               MemoryChunk::kCompactingFinalize);
           compaction_spaces->ReportCompactionProgress(
@@ -4105,7 +4167,7 @@ void MarkCompactCollector::RecordCodeTargetPatch(Address pc, Code* target) {
             pc);
     MarkBit mark_bit = Marking::MarkBitFrom(host);
     if (Marking::IsBlack(mark_bit)) {
-      RelocInfo rinfo(pc, RelocInfo::CODE_TARGET, 0, host);
+      RelocInfo rinfo(isolate(), pc, RelocInfo::CODE_TARGET, 0, host);
       RecordRelocSlot(&rinfo, target);
     }
   }

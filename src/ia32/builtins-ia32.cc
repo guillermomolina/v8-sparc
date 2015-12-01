@@ -341,7 +341,8 @@ static void Generate_JSConstructStubHelper(MacroAssembler* masm,
       __ call(code, RelocInfo::CODE_TARGET);
     } else {
       ParameterCount actual(eax);
-      __ InvokeFunction(edi, edx, actual, CALL_FUNCTION, NullCallWrapper());
+      __ InvokeFunction(edi, edx, actual, CALL_FUNCTION,
+                        CheckDebugStepCallWrapper());
     }
 
     // Store offset of return address for deoptimizer.
@@ -362,8 +363,8 @@ static void Generate_JSConstructStubHelper(MacroAssembler* masm,
       __ JumpIfSmi(eax, &use_receiver);
 
       // If the type of the result (stored in its map) is less than
-      // FIRST_SPEC_OBJECT_TYPE, it is not an object in the ECMA sense.
-      __ CmpObjectType(eax, FIRST_SPEC_OBJECT_TYPE, ecx);
+      // FIRST_JS_RECEIVER_TYPE, it is not an object in the ECMA sense.
+      __ CmpObjectType(eax, FIRST_JS_RECEIVER_TYPE, ecx);
       __ j(above_equal, &exit);
 
       // Throw away the result of the constructor invocation and use the
@@ -755,7 +756,7 @@ void Builtins::Generate_InterpreterPushArgsAndConstruct(MacroAssembler* masm) {
   __ Push(ecx);
 
   // Call the constructor with unmodified eax, edi, ebi values.
-  __ Jump(masm->isolate()->builtins()->Construct(), RelocInfo::CONSTRUCT_CALL);
+  __ Jump(masm->isolate()->builtins()->Construct(), RelocInfo::CODE_TARGET);
 }
 
 
@@ -1156,8 +1157,7 @@ static void Generate_ConstructHelper(MacroAssembler* masm) {
     __ mov(edx, Operand(ebp, kNewTargetOffset));
 
     // Call the function.
-    __ Call(masm->isolate()->builtins()->Construct(),
-            RelocInfo::CONSTRUCT_CALL);
+    __ Call(masm->isolate()->builtins()->Construct(), RelocInfo::CODE_TARGET);
 
     // Leave internal frame.
   }
@@ -1545,9 +1545,8 @@ void Builtins::Generate_CallFunction(MacroAssembler* masm,
   __ SmiUntag(ebx);
   ParameterCount actual(eax);
   ParameterCount expected(ebx);
-  __ InvokeCode(FieldOperand(edi, JSFunction::kCodeEntryOffset), no_reg,
-                expected, actual, JUMP_FUNCTION, NullCallWrapper());
-
+  __ InvokeFunctionCode(edi, no_reg, expected, actual, JUMP_FUNCTION,
+                        CheckDebugStepCallWrapper());
   // The function is a "classConstructor", need to raise an exception.
   __ bind(&class_constructor);
   {
@@ -1608,10 +1607,9 @@ void Builtins::Generate_Call(MacroAssembler* masm, ConvertReceiverMode mode) {
 void Builtins::Generate_ConstructFunction(MacroAssembler* masm) {
   // ----------- S t a t e -------------
   //  -- eax : the number of arguments (not including the receiver)
-  //  -- edx : the new target (checked to be a JSFunction)
+  //  -- edx : the new target (checked to be a constructor)
   //  -- edi : the constructor to call (checked to be a JSFunction)
   // -----------------------------------
-  __ AssertFunction(edx);
   __ AssertFunction(edi);
 
   // Calling convention for function specific ConstructStubs require
@@ -1922,8 +1920,8 @@ void Builtins::Generate_HandleFastApiCall(MacroAssembler* masm) {
   __ jmp(edx);
 
   __ bind(&set_global_proxy);
-  __ mov(ecx, GlobalObjectOperand());
-  __ mov(ecx, FieldOperand(ecx, JSGlobalObject::kGlobalProxyOffset));
+  __ mov(ecx, NativeContextOperand());
+  __ mov(ecx, ContextOperand(ecx, Context::GLOBAL_PROXY_INDEX));
   __ mov(receiver_operand, ecx);
   __ jmp(&valid_receiver, Label::kNear);
 

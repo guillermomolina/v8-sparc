@@ -47,9 +47,6 @@ class BytecodeGraphBuilder {
   // Builder for accessing type feedback vector.
   Node* BuildLoadFeedbackVector();
 
-  // Builder for loading the global object.
-  Node* BuildLoadGlobalObject();
-
   // Builder for loading the a native context field.
   Node* BuildLoadNativeContextField(int index);
 
@@ -120,6 +117,8 @@ class BytecodeGraphBuilder {
   void BuildCompareOp(const Operator* op,
                       const interpreter::BytecodeArrayIterator& iterator);
   void BuildDelete(const interpreter::BytecodeArrayIterator& iterator);
+  void BuildCastOperator(const Operator* js_op,
+                         const interpreter::BytecodeArrayIterator& iterator);
 
   // Growth increment for the temporary buffer used to construct input lists to
   // new nodes.

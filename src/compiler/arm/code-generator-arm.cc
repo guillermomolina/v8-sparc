@@ -5,11 +5,11 @@
 #include "src/compiler/code-generator.h"
 
 #include "src/arm/macro-assembler-arm.h"
+#include "src/ast/scopes.h"
 #include "src/compiler/code-generator-impl.h"
 #include "src/compiler/gap-resolver.h"
 #include "src/compiler/node-matchers.h"
 #include "src/compiler/osr.h"
-#include "src/scopes.h"
 
 namespace v8 {
 namespace internal {
@@ -359,13 +359,6 @@ void CodeGenerator::AssembleDeconstructActivationRecord(int stack_param_delta) {
   if (sp_slot_delta > 0) {
     __ add(sp, sp, Operand(sp_slot_delta * kPointerSize));
   }
-  if (frame()->needs_frame()) {
-    if (FLAG_enable_embedded_constant_pool) {
-      __ ldm(ia_w, sp, pp.bit() | fp.bit() | lr.bit());
-    } else {
-      __ ldm(ia_w, sp, fp.bit() | lr.bit());
-    }
-  }
   frame_access_state()->SetFrameAccessToDefault();
 }
 
@@ -375,6 +368,13 @@ void CodeGenerator::AssemblePrepareTailCall(int stack_param_delta) {
   if (sp_slot_delta < 0) {
     __ sub(sp, sp, Operand(-sp_slot_delta * kPointerSize));
     frame_access_state()->IncreaseSPDelta(-sp_slot_delta);
+  }
+  if (frame()->needs_frame()) {
+    if (FLAG_enable_embedded_constant_pool) {
+      __ ldr(cp, MemOperand(fp, StandardFrameConstants::kConstantPoolOffset));
+    }
+    __ ldr(lr, MemOperand(fp, StandardFrameConstants::kCallerPCOffset));
+    __ ldr(fp, MemOperand(fp, StandardFrameConstants::kCallerFPOffset));
   }
   frame_access_state()->SetFrameAccessToSP();
 }

@@ -200,9 +200,8 @@ namespace internal {
   F(CollectGarbage, 1, 1)                      \
   F(GetHeapUsage, 0, 1)                        \
   F(GetScript, 1, 1)                           \
-  F(DebugCallbackSupportsStepping, 1, 1)       \
   F(DebugPrepareStepInIfStepping, 1, 1)        \
-  F(DebugPushPromise, 3, 1)                    \
+  F(DebugPushPromise, 2, 1)                    \
   F(DebugPopPromise, 0, 1)                     \
   F(DebugPromiseEvent, 1, 1)                   \
   F(DebugAsyncTaskEvent, 1, 1)                 \
@@ -482,7 +481,7 @@ namespace internal {
   F(HeapObjectGetMap, 1, 1)                          \
   F(MapGetInstanceType, 1, 1)                        \
   F(ObjectEquals, 2, 1)                              \
-  F(IsSpecObject, 1, 1)                              \
+  F(IsJSReceiver, 1, 1)                              \
   F(IsStrong, 1, 1)                                  \
   F(ClassOf, 1, 1)                                   \
   F(DefineGetterPropertyUnchecked, 4, 1)             \
@@ -1170,7 +1169,7 @@ class Runtime : public AllStatic {
   // Get the runtime intrinsic function table.
   static const Function* RuntimeFunctionTable(Isolate* isolate);
 
-  MUST_USE_RESULT static MaybeHandle<Object> DeleteObjectProperty(
+  MUST_USE_RESULT static Maybe<bool> DeleteObjectProperty(
       Isolate* isolate, Handle<JSReceiver> receiver, Handle<Object> key,
       LanguageMode language_mode);
 

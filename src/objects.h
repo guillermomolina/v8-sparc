@@ -144,7 +144,6 @@
 //         - FunctionTemplateInfo
 //         - ObjectTemplateInfo
 //       - Script
-//       - TypeSwitchInfo
 //       - DebugInfo
 //       - BreakPointInfo
 //       - CodeCache
@@ -514,7 +513,6 @@ const int kStubMinorKeyBits = kSmiValueSize - kStubMajorKeyBits - 1;
   V(CALL_HANDLER_INFO, CallHandlerInfo, call_handler_info)                   \
   V(FUNCTION_TEMPLATE_INFO, FunctionTemplateInfo, function_template_info)    \
   V(OBJECT_TEMPLATE_INFO, ObjectTemplateInfo, object_template_info)          \
-  V(TYPE_SWITCH_INFO, TypeSwitchInfo, type_switch_info)                      \
   V(SCRIPT, Script, script)                                                  \
   V(ALLOCATION_SITE, AllocationSite, allocation_site)                        \
   V(ALLOCATION_MEMENTO, AllocationMemento, allocation_memento)               \
@@ -710,8 +708,7 @@ enum InstanceType {
   // All the following types are subtypes of JSReceiver, which corresponds to
   // objects in the JS sense. The first and the last type in this range are
   // the two forms of function. This organization enables using the same
-  // compares for checking the JS_RECEIVER/SPEC_OBJECT range and the
-  // NONCALLABLE_JS_OBJECT range.
+  // compares for checking the JS_RECEIVER and the NONCALLABLE_JS_OBJECT range.
   JS_FUNCTION_PROXY_TYPE,  // FIRST_JS_RECEIVER_TYPE, FIRST_JS_PROXY_TYPE
   JS_PROXY_TYPE,           // LAST_JS_PROXY_TYPE
   JS_VALUE_TYPE,           // FIRST_JS_OBJECT_TYPE
@@ -766,10 +763,7 @@ enum InstanceType {
   // Boundaries for testing the types represented as JSProxy
   FIRST_JS_PROXY_TYPE = JS_FUNCTION_PROXY_TYPE,
   LAST_JS_PROXY_TYPE = JS_PROXY_TYPE,
-  // Boundaries for testing whether the type is a JavaScript object.
-  FIRST_SPEC_OBJECT_TYPE = FIRST_JS_RECEIVER_TYPE,
-  LAST_SPEC_OBJECT_TYPE = LAST_JS_RECEIVER_TYPE,
-  // Boundaries for testing the types for which typeof is "object".
+  //
   FIRST_NONCALLABLE_SPEC_OBJECT_TYPE = JS_PROXY_TYPE,
   LAST_NONCALLABLE_SPEC_OBJECT_TYPE = JS_REGEXP_TYPE,
   // Note that the types for which typeof is "function" are not continuous.
@@ -1064,7 +1058,6 @@ class Object {
   // ES6, section 7.2.4 IsConstructor.
   INLINE(bool IsConstructor() const);
 
-  INLINE(bool IsSpecObject()) const;
   INLINE(bool IsTemplateInfo()) const;
   INLINE(bool IsNameDictionary() const);
   INLINE(bool IsGlobalDictionary() const);
@@ -1800,6 +1793,8 @@ class JSReceiver: public HeapObject {
   MUST_USE_RESULT static MaybeHandle<Object> OrdinaryToPrimitive(
       Handle<JSReceiver> receiver, OrdinaryToPrimitiveHint hint);
 
+  static MaybeHandle<Context> GetFunctionRealm(Handle<JSReceiver> receiver);
+
   // Implementation of [[HasProperty]], ECMA-262 5th edition, section 8.12.6.
   MUST_USE_RESULT static Maybe<bool> HasProperty(LookupIterator* it);
   MUST_USE_RESULT static inline Maybe<bool> HasProperty(
@@ -1811,16 +1806,16 @@ class JSReceiver: public HeapObject {
   MUST_USE_RESULT static inline Maybe<bool> HasOwnElement(
       Handle<JSReceiver> object, uint32_t index);
 
-  // Implementation of [[Delete]], ECMA-262 5th edition, section 8.12.7.
-  MUST_USE_RESULT static MaybeHandle<Object> DeletePropertyOrElement(
+  // Implementation of ES6 [[Delete]]
+  MUST_USE_RESULT static Maybe<bool> DeletePropertyOrElement(
       Handle<JSReceiver> object, Handle<Name> name,
       LanguageMode language_mode = SLOPPY);
-  MUST_USE_RESULT static MaybeHandle<Object> DeleteProperty(
+  MUST_USE_RESULT static Maybe<bool> DeleteProperty(
       Handle<JSReceiver> object, Handle<Name> name,
       LanguageMode language_mode = SLOPPY);
-  MUST_USE_RESULT static MaybeHandle<Object> DeleteProperty(
-      LookupIterator* it, LanguageMode language_mode);
-  MUST_USE_RESULT static MaybeHandle<Object> DeleteElement(
+  MUST_USE_RESULT static Maybe<bool> DeleteProperty(LookupIterator* it,
+                                                    LanguageMode language_mode);
+  MUST_USE_RESULT static Maybe<bool> DeleteElement(
       Handle<JSReceiver> object, uint32_t index,
       LanguageMode language_mode = SLOPPY);
 
@@ -1885,7 +1880,7 @@ class JSReceiver: public HeapObject {
 
   // Returns the constructor name (the name (possibly, inferred name) of the
   // function that was used to instantiate the object).
-  String* constructor_name();
+  static Handle<String> GetConstructorName(Handle<JSReceiver> receiver);
 
   Context* GetCreationContext();
 
@@ -1930,7 +1925,7 @@ class JSReceiver: public HeapObject {
   MUST_USE_RESULT static MaybeHandle<FixedArray> GetKeys(
       Handle<JSReceiver> object, KeyCollectionType type,
       KeyFilter filter = SKIP_SYMBOLS,
-      GetKeysConversion getConversion = KEEP_NUMBERS,
+      GetKeysConversion keys_conversion = KEEP_NUMBERS,
       Enumerability enum_policy = RESPECT_ENUMERABILITY);
 
  private:
@@ -1954,6 +1949,8 @@ class JSObject: public JSReceiver {
   inline NameDictionary* property_dictionary();
   // Gets global object properties.
   inline GlobalDictionary* global_dictionary();
+
+  static MaybeHandle<Context> GetFunctionRealm(Handle<JSObject> object);
 
   // [elements]: The elements (properties with names that are integers).
   //
@@ -2119,7 +2116,7 @@ class JSObject: public JSReceiver {
 
   // Retrieve interceptors.
   InterceptorInfo* GetNamedInterceptor();
-  InterceptorInfo* GetIndexedInterceptor();
+  inline InterceptorInfo* GetIndexedInterceptor();
 
   // Used from JSReceiver.
   MUST_USE_RESULT static Maybe<PropertyAttributes>
@@ -2510,7 +2507,7 @@ class JSObject: public JSReceiver {
                               Handle<Object> value,
                               PropertyAttributes attributes);
 
-  MUST_USE_RESULT static MaybeHandle<Object> DeletePropertyWithInterceptor(
+  MUST_USE_RESULT static Maybe<bool> DeletePropertyWithInterceptor(
       LookupIterator* it);
 
   bool ReferencesObjectFromElements(FixedArray* elements,
@@ -2656,13 +2653,6 @@ class FixedArray: public FixedArrayBase {
   static inline void NoWriteBarrierSet(FixedArray* array,
                                        int index,
                                        Object* value);
-
-  // Set operation on FixedArray without incremental write barrier. Can
-  // only be used if the object is guaranteed to be white (whiteness witness
-  // is present).
-  static inline void NoIncrementalWriteBarrierSet(FixedArray* array,
-                                                  int index,
-                                                  Object* value);
 
  private:
   STATIC_ASSERT(kHeaderSize == Internals::kFixedArrayHeaderSize);
@@ -5654,10 +5644,6 @@ class Map: public HeapObject {
   static Handle<Map> Normalize(Handle<Map> map, PropertyNormalizationMode mode,
                                const char* reason);
 
-  // Returns the constructor name (the name (possibly, inferred name) of the
-  // function that was used to instantiate the object).
-  String* constructor_name();
-
   // Tells whether the map is used for JSObjects in dictionary mode (ie
   // normalized objects, ie objects for which HasFastProperties returns false).
   // A map can never be used for both dictionary mode and fast mode JSObjects.
@@ -6162,8 +6148,6 @@ class PrototypeInfo : public Struct {
   // given receiver embed the currently valid cell for that receiver's prototype
   // during their compilation and check it on execution.
   DECL_ACCESSORS(validity_cell, Object)
-  // [constructor_name]: User-friendly name of the original constructor.
-  DECL_ACCESSORS(constructor_name, Object)
 
   DECLARE_CAST(PrototypeInfo)
 
@@ -7208,6 +7192,8 @@ class JSFunction: public JSObject {
   inline JSObject* global_proxy();
   inline Context* native_context();
 
+  static MaybeHandle<Context> GetFunctionRealm(Handle<JSFunction> function);
+
   // [code]: The generated code object for this function.  Executed
   // when the function is invoked, e.g. foo() or new foo(). See
   // [[Call]] and [[Construct]] description in ECMA-262, section
@@ -7305,11 +7291,13 @@ class JSFunction: public JSObject {
                             Handle<Object> prototype);
   inline bool has_initial_map();
   static void EnsureHasInitialMap(Handle<JSFunction> function);
-  // Ensures that the |new_target| has correct initial map and
-  // returns it. If the |new_target| is not a subclass constructor
-  // its initial map is left unmodified.
-  static Handle<Map> EnsureDerivedHasInitialMap(Handle<JSFunction> new_target,
-                                                Handle<JSFunction> constructor);
+
+  // Creates a map that matches the constructor's initial map, but with
+  // [[prototype]] being new.target.prototype. Because new.target can be a
+  // JSProxy, this can call back into JavaScript.
+  static MUST_USE_RESULT MaybeHandle<Map> GetDerivedMap(
+      Isolate* isolate, Handle<JSFunction> constructor,
+      Handle<JSReceiver> new_target);
 
   // Get and set the prototype property on a JSFunction. If the
   // function has an initial map the prototype is set on the initial
@@ -9502,11 +9490,11 @@ class JSProxy: public JSReceiver {
   // [hash]: The hash code property (undefined if not initialized yet).
   DECL_ACCESSORS(hash, Object)
 
-  inline bool has_handler();
+  static MaybeHandle<Context> GetFunctionRealm(Handle<JSProxy> proxy);
 
   DECLARE_CAST(JSProxy)
 
-  static bool IsRevoked(Handle<JSProxy> proxy);
+  bool IsRevoked();
 
   // ES6 9.5.1
   static MaybeHandle<Object> GetPrototype(Handle<JSProxy> receiver);
@@ -9526,6 +9514,25 @@ class JSProxy: public JSReceiver {
   static bool DefineOwnProperty(Isolate* isolate, Handle<JSProxy> object,
                                 Handle<Object> key, PropertyDescriptor* desc,
                                 ShouldThrow should_throw);
+
+  // ES6 9.5.7
+  MUST_USE_RESULT static Maybe<bool> HasProperty(Isolate* isolate,
+                                                 Handle<JSProxy> proxy,
+                                                 Handle<Name> name);
+
+  // ES6 9.5.10 (when passed SLOPPY)
+  MUST_USE_RESULT static Maybe<bool> DeletePropertyOrElement(
+      Handle<JSProxy> proxy, Handle<Name> name, LanguageMode language_mode);
+
+  // ES6 9.5.11
+  static bool Enumerate(Isolate* isolate, Handle<JSReceiver> receiver,
+                        Handle<JSProxy> proxy, KeyAccumulator* accumulator);
+
+  // ES6 9.5.12
+  static bool OwnPropertyKeys(Isolate* isolate, Handle<JSReceiver> receiver,
+                              Handle<JSProxy> proxy, KeyFilter filter,
+                              Enumerability enum_policy,
+                              KeyAccumulator* accumulator);
 
   MUST_USE_RESULT static MaybeHandle<Object> GetPropertyWithHandler(
       Handle<JSProxy> proxy,
@@ -9578,12 +9585,6 @@ class JSProxy: public JSReceiver {
   MUST_USE_RESULT static MaybeHandle<Object> CallTrap(
       Handle<JSProxy> proxy, const char* name, Handle<Object> derived_trap,
       int argc, Handle<Object> args[]);
-
-  MUST_USE_RESULT static Maybe<bool> HasPropertyWithHandler(
-      Handle<JSProxy> proxy, Handle<Name> name);
-
-  MUST_USE_RESULT static MaybeHandle<Object> DeletePropertyWithHandler(
-      Handle<JSProxy> proxy, Handle<Name> name, LanguageMode language_mode);
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(JSProxy);
 };
@@ -10489,21 +10490,6 @@ class ObjectTemplateInfo: public TemplateInfo {
   static const int kInternalFieldCountOffset =
       kConstructorOffset + kPointerSize;
   static const int kSize = kInternalFieldCountOffset + kPointerSize;
-};
-
-
-class TypeSwitchInfo: public Struct {
- public:
-  DECL_ACCESSORS(types, Object)
-
-  DECLARE_CAST(TypeSwitchInfo)
-
-  // Dispatched behavior.
-  DECLARE_PRINTER(TypeSwitchInfo)
-  DECLARE_VERIFIER(TypeSwitchInfo)
-
-  static const int kTypesOffset = Struct::kHeaderSize;
-  static const int kSize        = kTypesOffset + kPointerSize;
 };
 
 

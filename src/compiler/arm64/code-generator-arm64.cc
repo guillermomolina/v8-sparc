@@ -6,11 +6,11 @@
 
 #include "src/arm64/frames-arm64.h"
 #include "src/arm64/macro-assembler-arm64.h"
+#include "src/ast/scopes.h"
 #include "src/compiler/code-generator-impl.h"
 #include "src/compiler/gap-resolver.h"
 #include "src/compiler/node-matchers.h"
 #include "src/compiler/osr.h"
-#include "src/scopes.h"
 
 namespace v8 {
 namespace internal {
@@ -462,10 +462,7 @@ Condition FlagsConditionToCondition(FlagsCondition condition) {
 void CodeGenerator::AssembleDeconstructActivationRecord(int stack_param_delta) {
   int sp_slot_delta = TailCallFrameStackSlotDelta(stack_param_delta);
   if (sp_slot_delta > 0) {
-    __ Add(jssp, jssp, Operand(sp_slot_delta * kPointerSize));
-  }
-  if (frame()->needs_frame()) {
-    __ Pop(fp, lr);
+    __ Drop(sp_slot_delta);
   }
   frame_access_state()->SetFrameAccessToDefault();
 }
@@ -474,8 +471,12 @@ void CodeGenerator::AssembleDeconstructActivationRecord(int stack_param_delta) {
 void CodeGenerator::AssemblePrepareTailCall(int stack_param_delta) {
   int sp_slot_delta = TailCallFrameStackSlotDelta(stack_param_delta);
   if (sp_slot_delta < 0) {
-    __ Sub(jssp, jssp, Operand(-sp_slot_delta * kPointerSize));
+    __ Claim(-sp_slot_delta);
     frame_access_state()->IncreaseSPDelta(-sp_slot_delta);
+  }
+  if (frame()->needs_frame()) {
+    __ Ldr(lr, MemOperand(fp, StandardFrameConstants::kCallerPCOffset));
+    __ Ldr(fp, MemOperand(fp, StandardFrameConstants::kCallerFPOffset));
   }
   frame_access_state()->SetFrameAccessToSP();
 }
@@ -1022,8 +1023,14 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
     case kArm64Float64ToUint32:
       __ Fcvtzu(i.OutputRegister32(), i.InputDoubleRegister(0));
       break;
+    case kArm64Float32ToInt64:
+      __ Fcvtzs(i.OutputRegister64(), i.InputFloat32Register(0));
+      break;
     case kArm64Float64ToInt64:
       __ Fcvtzs(i.OutputRegister64(), i.InputDoubleRegister(0));
+      break;
+    case kArm64Float32ToUint64:
+      __ Fcvtzu(i.OutputRegister64(), i.InputFloat32Register(0));
       break;
     case kArm64Float64ToUint64:
       __ Fcvtzu(i.OutputRegister64(), i.InputDoubleRegister(0));

@@ -148,17 +148,10 @@ Node* BytecodeGraphBuilder::BuildLoadImmutableObjectField(Node* object,
 }
 
 
-Node* BytecodeGraphBuilder::BuildLoadGlobalObject() {
-  const Operator* load_op =
-      javascript()->LoadContext(0, Context::GLOBAL_OBJECT_INDEX, true);
-  return NewNode(load_op, GetFunctionContext());
-}
-
-
 Node* BytecodeGraphBuilder::BuildLoadNativeContextField(int index) {
-  Node* global = BuildLoadGlobalObject();
-  Node* native_context =
-      BuildLoadObjectField(global, JSGlobalObject::kNativeContextOffset);
+  const Operator* op =
+      javascript()->LoadContext(0, Context::NATIVE_CONTEXT_INDEX, true);
+  Node* native_context = NewNode(op, environment()->Context());
   return NewNode(javascript()->LoadContext(0, index, true), native_context);
 }
 
@@ -643,7 +636,20 @@ void BytecodeGraphBuilder::VisitPopContext(
 
 void BytecodeGraphBuilder::VisitCreateClosure(
     const interpreter::BytecodeArrayIterator& iterator) {
-  UNIMPLEMENTED();
+  Handle<SharedFunctionInfo> shared_info =
+      Handle<SharedFunctionInfo>::cast(iterator.GetConstantForIndexOperand(0));
+  PretenureFlag tenured =
+      iterator.GetImmediateOperand(1) ? TENURED : NOT_TENURED;
+  const Operator* op = javascript()->CreateClosure(shared_info, tenured);
+  Node* closure = NewNode(op);
+  AddEmptyFrameStateInputs(closure);
+  environment()->BindAccumulator(closure);
+}
+
+
+void BytecodeGraphBuilder::VisitCreateClosureWide(
+    const interpreter::BytecodeArrayIterator& iterator) {
+  VisitCreateClosure(iterator);
 }
 
 
@@ -803,7 +809,13 @@ void BytecodeGraphBuilder::VisitNew(
 
 void BytecodeGraphBuilder::VisitThrow(
     const interpreter::BytecodeArrayIterator& iterator) {
-  UNIMPLEMENTED();
+  Node* value = environment()->LookupAccumulator();
+  // TODO(mythria): Change to Runtime::kThrow when we have deoptimization
+  // information support in the interpreter.
+  NewNode(javascript()->CallRuntime(Runtime::kReThrow, 1), value);
+  Node* control = NewNode(common()->Throw(), value);
+  UpdateControlDependencyToLeaveFunction(control);
+  environment()->BindAccumulator(value);
 }
 
 
@@ -1009,27 +1021,35 @@ void BytecodeGraphBuilder::VisitTestInstanceOf(
 }
 
 
+void BytecodeGraphBuilder::BuildCastOperator(
+    const Operator* js_op, const interpreter::BytecodeArrayIterator& iterator) {
+  Node* node = NewNode(js_op, environment()->LookupAccumulator());
+  AddEmptyFrameStateInputs(node);
+  environment()->BindAccumulator(node);
+}
+
+
 void BytecodeGraphBuilder::VisitToBoolean(
     const interpreter::BytecodeArrayIterator& iterator) {
-  UNIMPLEMENTED();
+  BuildCastOperator(javascript()->ToBoolean(), iterator);
 }
 
 
 void BytecodeGraphBuilder::VisitToName(
     const interpreter::BytecodeArrayIterator& iterator) {
-  UNIMPLEMENTED();
+  BuildCastOperator(javascript()->ToName(), iterator);
 }
 
 
 void BytecodeGraphBuilder::VisitToNumber(
     const interpreter::BytecodeArrayIterator& iterator) {
-  UNIMPLEMENTED();
+  BuildCastOperator(javascript()->ToNumber(), iterator);
 }
 
 
 void BytecodeGraphBuilder::VisitToObject(
     const interpreter::BytecodeArrayIterator& iterator) {
-  UNIMPLEMENTED();
+  BuildCastOperator(javascript()->ToObject(), iterator);
 }
 
 

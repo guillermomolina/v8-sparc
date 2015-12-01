@@ -4,11 +4,11 @@
 
 #include "src/compiler/code-generator.h"
 
+#include "src/ast/scopes.h"
 #include "src/compiler/code-generator-impl.h"
 #include "src/compiler/gap-resolver.h"
 #include "src/compiler/node-matchers.h"
 #include "src/compiler/osr.h"
-#include "src/scopes.h"
 #include "src/x87/assembler-x87.h"
 #include "src/x87/frames-x87.h"
 #include "src/x87/macro-assembler-x87.h"
@@ -341,9 +341,6 @@ void CodeGenerator::AssembleDeconstructActivationRecord(int stack_param_delta) {
   if (sp_slot_delta > 0) {
     __ add(esp, Immediate(sp_slot_delta * kPointerSize));
   }
-  if (frame()->needs_frame()) {
-    __ pop(ebp);
-  }
   frame_access_state()->SetFrameAccessToDefault();
 }
 
@@ -353,6 +350,9 @@ void CodeGenerator::AssemblePrepareTailCall(int stack_param_delta) {
   if (sp_slot_delta < 0) {
     __ sub(esp, Immediate(-sp_slot_delta * kPointerSize));
     frame_access_state()->IncreaseSPDelta(-sp_slot_delta);
+  }
+  if (frame()->needs_frame()) {
+    __ mov(ebp, MemOperand(ebp, 0));
   }
   frame_access_state()->SetFrameAccessToSP();
 }
@@ -1091,11 +1091,8 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
     case kX87Float64Round: {
       RoundingMode mode =
           static_cast<RoundingMode>(MiscField::decode(instr->opcode()));
-      if (mode == MiscField::encode(kRoundDown)) {
-        __ X87SetRC(0x0400);
-      } else {
-        __ X87SetRC(0x0c00);
-      }
+      // Set the correct round mode in x87 control register
+      __ X87SetRC((mode << 10));
 
       if (!instr->InputAt(0)->IsDoubleRegister()) {
         InstructionOperand* input = instr->InputAt(0);

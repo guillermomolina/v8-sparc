@@ -192,7 +192,7 @@ void LCodeGen::DoPrologue(LPrologue* instr) {
         // Load parameter from stack.
         __ ld(a0, MemOperand(fp, parameter_offset));
         // Store it in the context.
-        MemOperand target = ContextOperand(cp, var->index());
+        MemOperand target = ContextMemOperand(cp, var->index());
         __ sd(a0, target);
         // Update the write barrier. This clobbers a3 and a0.
         if (need_write_barrier) {
@@ -2254,7 +2254,7 @@ void LCodeGen::DoBranch(LBranch* instr) {
         // spec object -> true.
         __ lbu(at, FieldMemOperand(map, Map::kInstanceTypeOffset));
         __ Branch(instr->TrueLabel(chunk_),
-                  ge, at, Operand(FIRST_SPEC_OBJECT_TYPE));
+                  ge, at, Operand(FIRST_JS_RECEIVER_TYPE));
       }
 
       if (expected.Contains(ToBooleanStub::STRING)) {
@@ -2629,15 +2629,15 @@ void LCodeGen::EmitClassOfTest(Label* is_true,
     // for both being a function type and being in the object type range.
     STATIC_ASSERT(NUM_OF_CALLABLE_SPEC_OBJECT_TYPES == 2);
     STATIC_ASSERT(FIRST_NONCALLABLE_SPEC_OBJECT_TYPE ==
-                  FIRST_SPEC_OBJECT_TYPE + 1);
+                  FIRST_JS_RECEIVER_TYPE + 1);
     STATIC_ASSERT(LAST_NONCALLABLE_SPEC_OBJECT_TYPE ==
-                  LAST_SPEC_OBJECT_TYPE - 1);
-    STATIC_ASSERT(LAST_SPEC_OBJECT_TYPE == LAST_TYPE);
+                  LAST_JS_RECEIVER_TYPE - 1);
+    STATIC_ASSERT(LAST_JS_RECEIVER_TYPE == LAST_TYPE);
 
     __ GetObjectType(input, temp, temp2);
-    __ Branch(is_false, lt, temp2, Operand(FIRST_SPEC_OBJECT_TYPE));
-    __ Branch(is_true, eq, temp2, Operand(FIRST_SPEC_OBJECT_TYPE));
-    __ Branch(is_true, eq, temp2, Operand(LAST_SPEC_OBJECT_TYPE));
+    __ Branch(is_false, lt, temp2, Operand(FIRST_JS_RECEIVER_TYPE));
+    __ Branch(is_true, eq, temp2, Operand(FIRST_JS_RECEIVER_TYPE));
+    __ Branch(is_true, eq, temp2, Operand(LAST_JS_RECEIVER_TYPE));
   } else {
     // Faster code path to avoid two compares: subtract lower bound from the
     // actual type and do a signed compare with the width of the type range.
@@ -2849,7 +2849,7 @@ void LCodeGen::DoLoadContextSlot(LLoadContextSlot* instr) {
   Register context = ToRegister(instr->context());
   Register result = ToRegister(instr->result());
 
-  __ ld(result, ContextOperand(context, instr->slot_index()));
+  __ ld(result, ContextMemOperand(context, instr->slot_index()));
   if (instr->hydrogen()->RequiresHoleCheck()) {
     __ LoadRoot(at, Heap::kTheHoleValueRootIndex);
 
@@ -2869,7 +2869,7 @@ void LCodeGen::DoStoreContextSlot(LStoreContextSlot* instr) {
   Register context = ToRegister(instr->context());
   Register value = ToRegister(instr->value());
   Register scratch = scratch0();
-  MemOperand target = ContextOperand(context, instr->slot_index());
+  MemOperand target = ContextMemOperand(context, instr->slot_index());
 
   Label skip_assignment;
 
@@ -3405,14 +3405,13 @@ void LCodeGen::DoWrapReceiver(LWrapReceiver* instr) {
 
   __ GetObjectType(receiver, scratch, scratch);
   DeoptimizeIf(lt, instr, Deoptimizer::kNotAJavaScriptObject, scratch,
-               Operand(FIRST_SPEC_OBJECT_TYPE));
+               Operand(FIRST_JS_RECEIVER_TYPE));
   __ Branch(&result_in_receiver);
 
   __ bind(&global_object);
   __ ld(result, FieldMemOperand(function, JSFunction::kContextOffset));
-  __ ld(result,
-        ContextOperand(result, Context::GLOBAL_OBJECT_INDEX));
-  __ ld(result, FieldMemOperand(result, JSGlobalObject::kGlobalProxyOffset));
+  __ ld(result, ContextMemOperand(result, Context::NATIVE_CONTEXT_INDEX));
+  __ ld(result, ContextMemOperand(result, Context::GLOBAL_PROXY_INDEX));
 
   if (result.is(receiver)) {
     __ bind(&result_in_receiver);
@@ -4029,7 +4028,7 @@ void LCodeGen::DoCallNewArray(LCallNewArray* instr) {
 
   if (instr->arity() == 0) {
     ArrayNoArgumentConstructorStub stub(isolate(), kind, override_mode);
-    CallCode(stub.GetCode(), RelocInfo::CONSTRUCT_CALL, instr);
+    CallCode(stub.GetCode(), RelocInfo::CODE_TARGET, instr);
   } else if (instr->arity() == 1) {
     Label done;
     if (IsFastPackedElementsKind(kind)) {
@@ -4043,17 +4042,17 @@ void LCodeGen::DoCallNewArray(LCallNewArray* instr) {
       ArraySingleArgumentConstructorStub stub(isolate(),
                                               holey_kind,
                                               override_mode);
-      CallCode(stub.GetCode(), RelocInfo::CONSTRUCT_CALL, instr);
+      CallCode(stub.GetCode(), RelocInfo::CODE_TARGET, instr);
       __ jmp(&done);
       __ bind(&packed_case);
     }
 
     ArraySingleArgumentConstructorStub stub(isolate(), kind, override_mode);
-    CallCode(stub.GetCode(), RelocInfo::CONSTRUCT_CALL, instr);
+    CallCode(stub.GetCode(), RelocInfo::CODE_TARGET, instr);
     __ bind(&done);
   } else {
     ArrayNArgumentsConstructorStub stub(isolate(), kind, override_mode);
-    CallCode(stub.GetCode(), RelocInfo::CONSTRUCT_CALL, instr);
+    CallCode(stub.GetCode(), RelocInfo::CODE_TARGET, instr);
   }
 }
 
@@ -5616,9 +5615,9 @@ Condition LCodeGen::EmitTypeofIs(Label* true_label,
     __ JumpIfSmi(input, false_label);
     __ LoadRoot(at, Heap::kNullValueRootIndex);
     __ Branch(USE_DELAY_SLOT, true_label, eq, at, Operand(input));
-    STATIC_ASSERT(LAST_SPEC_OBJECT_TYPE == LAST_TYPE);
+    STATIC_ASSERT(LAST_JS_RECEIVER_TYPE == LAST_TYPE);
     __ GetObjectType(input, scratch, scratch1());
-    __ Branch(false_label, lt, scratch1(), Operand(FIRST_SPEC_OBJECT_TYPE));
+    __ Branch(false_label, lt, scratch1(), Operand(FIRST_JS_RECEIVER_TYPE));
     // Check for callable or undetectable objects => false.
     __ lbu(scratch, FieldMemOperand(scratch, Map::kBitFieldOffset));
     __ And(at, scratch,
@@ -5810,7 +5809,7 @@ void LCodeGen::DoForInPrepareMap(LForInPrepareMap* instr) {
   __ And(at, object, kSmiTagMask);
   DeoptimizeIf(eq, instr, Deoptimizer::kSmi, at, Operand(zero_reg));
 
-  STATIC_ASSERT(FIRST_JS_PROXY_TYPE == FIRST_SPEC_OBJECT_TYPE);
+  STATIC_ASSERT(FIRST_JS_PROXY_TYPE == FIRST_JS_RECEIVER_TYPE);
   __ GetObjectType(object, a1, a1);
   DeoptimizeIf(le, instr, Deoptimizer::kNotAJavaScriptObject, a1,
                Operand(LAST_JS_PROXY_TYPE));

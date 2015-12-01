@@ -708,26 +708,8 @@ void MacroAssembler::InvokeBuiltin(int native_context_index, InvokeFlag flag,
   // arguments match the expected number of arguments. Fake a
   // parameter count to avoid emitting code to do the check.
   ParameterCount expected(0);
-  GetBuiltinEntry(r8, native_context_index);
-  InvokeCode(r8, no_reg, expected, expected, flag, call_wrapper);
-}
-
-
-void MacroAssembler::GetBuiltinFunction(Register target,
-                                        int native_context_index) {
-  // Load the builtins object into target register.
-  movp(target, Operand(rsi, Context::SlotOffset(Context::GLOBAL_OBJECT_INDEX)));
-  movp(target, FieldOperand(target, JSGlobalObject::kNativeContextOffset));
-  movp(target, ContextOperand(target, native_context_index));
-}
-
-
-void MacroAssembler::GetBuiltinEntry(Register target,
-                                     int native_context_index) {
-  DCHECK(!target.is(rdi));
-  // Load the JavaScript builtin function from the builtins object.
-  GetBuiltinFunction(rdi, native_context_index);
-  movp(target, FieldOperand(rdi, JSFunction::kCodeEntryOffset));
+  LoadNativeContextSlot(native_context_index, rdi);
+  InvokeFunctionCode(rdi, no_reg, expected, expected, flag, call_wrapper);
 }
 
 
@@ -963,6 +945,26 @@ void MacroAssembler::Cvttsd2si(Register dst, const Operand& src) {
     vcvttsd2si(dst, src);
   } else {
     cvttsd2si(dst, src);
+  }
+}
+
+
+void MacroAssembler::Cvttss2siq(Register dst, XMMRegister src) {
+  if (CpuFeatures::IsSupported(AVX)) {
+    CpuFeatureScope scope(this, AVX);
+    vcvttss2siq(dst, src);
+  } else {
+    cvttss2siq(dst, src);
+  }
+}
+
+
+void MacroAssembler::Cvttss2siq(Register dst, const Operand& src) {
+  if (CpuFeatures::IsSupported(AVX)) {
+    CpuFeatureScope scope(this, AVX);
+    vcvttss2siq(dst, src);
+  } else {
+    cvttss2siq(dst, src);
   }
 }
 
@@ -4019,25 +4021,25 @@ void MacroAssembler::InvokeFunction(Register function,
                                     const CallWrapper& call_wrapper) {
   DCHECK(function.is(rdi));
   movp(rsi, FieldOperand(function, JSFunction::kContextOffset));
-  // Advances r8 to the end of the Code object header, to the start of
-  // the executable code.
-  movp(r8, FieldOperand(rdi, JSFunction::kCodeEntryOffset));
-  InvokeCode(r8, new_target, expected, actual, flag, call_wrapper);
+  InvokeFunctionCode(rdi, new_target, expected, actual, flag, call_wrapper);
 }
 
 
-void MacroAssembler::InvokeCode(Register code,
-                                Register new_target,
-                                const ParameterCount& expected,
-                                const ParameterCount& actual,
-                                InvokeFlag flag,
-                                const CallWrapper& call_wrapper) {
+void MacroAssembler::InvokeFunctionCode(Register function, Register new_target,
+                                        const ParameterCount& expected,
+                                        const ParameterCount& actual,
+                                        InvokeFlag flag,
+                                        const CallWrapper& call_wrapper) {
   // You can't call a function without a valid frame.
   DCHECK(flag == JUMP_FUNCTION || has_frame());
-
-  // Ensure new target is passed in the correct register. Otherwise clear the
-  // appropriate register in case new target is not given.
+  DCHECK(function.is(rdi));
   DCHECK_IMPLIES(new_target.is_valid(), new_target.is(rdx));
+
+  if (call_wrapper.NeedsDebugStepCheck()) {
+    FloodFunctionIfStepping(function, new_target, expected, actual);
+  }
+
+  // Clear the new.target register if not given.
   if (!new_target.is_valid()) {
     LoadRoot(rdx, Heap::kUndefinedValueRootIndex);
   }
@@ -4052,6 +4054,10 @@ void MacroAssembler::InvokeCode(Register code,
                  Label::kNear,
                  call_wrapper);
   if (!definitely_mismatches) {
+    // We call indirectly through the code field in the function to
+    // allow recompilation to take effect without changing any of the
+    // call sites.
+    Operand code = FieldOperand(function, JSFunction::kCodeEntryOffset);
     if (flag == CALL_FUNCTION) {
       call_wrapper.BeforeCall(CallSize(code));
       call(code);
@@ -4128,6 +4134,49 @@ void MacroAssembler::InvokePrologue(const ParameterCount& expected,
     }
     bind(&invoke);
   }
+}
+
+
+void MacroAssembler::FloodFunctionIfStepping(Register fun, Register new_target,
+                                             const ParameterCount& expected,
+                                             const ParameterCount& actual) {
+  Label skip_flooding;
+  ExternalReference debug_step_action =
+      ExternalReference::debug_last_step_action_address(isolate());
+  Operand debug_step_action_operand = ExternalOperand(debug_step_action);
+  cmpb(debug_step_action_operand, Immediate(StepIn));
+  j(not_equal, &skip_flooding);
+  {
+    FrameScope frame(this,
+                     has_frame() ? StackFrame::NONE : StackFrame::INTERNAL);
+    if (expected.is_reg()) {
+      Integer32ToSmi(expected.reg(), expected.reg());
+      Push(expected.reg());
+    }
+    if (actual.is_reg()) {
+      Integer32ToSmi(actual.reg(), actual.reg());
+      Push(actual.reg());
+    }
+    if (new_target.is_valid()) {
+      Push(new_target);
+    }
+    Push(fun);
+    Push(fun);
+    CallRuntime(Runtime::kDebugPrepareStepInIfStepping, 1);
+    Pop(fun);
+    if (new_target.is_valid()) {
+      Pop(new_target);
+    }
+    if (actual.is_reg()) {
+      Pop(actual.reg());
+      SmiToInteger64(actual.reg(), actual.reg());
+    }
+    if (expected.is_reg()) {
+      Pop(expected.reg());
+      SmiToInteger64(expected.reg(), expected.reg());
+    }
+  }
+  bind(&skip_flooding);
 }
 
 
@@ -4355,10 +4404,7 @@ void MacroAssembler::CheckAccessGlobalProxy(Register holder_reg,
     Check(not_equal, kWeShouldNotHaveAnEmptyLexicalContext);
   }
   // Load the native context of the current context.
-  int offset =
-      Context::kHeaderSize + Context::GLOBAL_OBJECT_INDEX * kPointerSize;
-  movp(scratch, FieldOperand(scratch, offset));
-  movp(scratch, FieldOperand(scratch, JSGlobalObject::kNativeContextOffset));
+  movp(scratch, ContextOperand(scratch, Context::NATIVE_CONTEXT_INDEX));
 
   // Check the context is a native context.
   if (emit_debug_code()) {
@@ -5014,26 +5060,14 @@ void MacroAssembler::LoadContext(Register dst, int context_chain_length) {
 }
 
 
-void MacroAssembler::LoadGlobalProxy(Register dst) {
-  movp(dst, GlobalObjectOperand());
-  movp(dst, FieldOperand(dst, JSGlobalObject::kGlobalProxyOffset));
-}
-
-
 void MacroAssembler::LoadTransitionedArrayMapConditional(
     ElementsKind expected_kind,
     ElementsKind transitioned_kind,
     Register map_in_out,
     Register scratch,
     Label* no_map_match) {
-  // Load the global or builtins object from the current context.
-  movp(scratch,
-       Operand(rsi, Context::SlotOffset(Context::GLOBAL_OBJECT_INDEX)));
-  movp(scratch, FieldOperand(scratch, JSGlobalObject::kNativeContextOffset));
-
   // Check that the function's map is the same as the expected cached map.
-  movp(scratch, Operand(scratch,
-                        Context::SlotOffset(Context::JS_ARRAY_MAPS_INDEX)));
+  LoadNativeContextSlot(Context::JS_ARRAY_MAPS_INDEX, scratch);
 
   int offset = expected_kind * kPointerSize +
       FixedArrayBase::kHeaderSize;
@@ -5053,14 +5087,10 @@ static const int kRegisterPassedArguments = 4;
 static const int kRegisterPassedArguments = 6;
 #endif
 
-void MacroAssembler::LoadGlobalFunction(int index, Register function) {
-  // Load the global or builtins object from the current context.
-  movp(function,
-       Operand(rsi, Context::SlotOffset(Context::GLOBAL_OBJECT_INDEX)));
-  // Load the native context from the global or builtins object.
-  movp(function, FieldOperand(function, JSGlobalObject::kNativeContextOffset));
-  // Load the function from the native context.
-  movp(function, Operand(function, Context::SlotOffset(index)));
+
+void MacroAssembler::LoadNativeContextSlot(int index, Register dst) {
+  movp(dst, NativeContextOperand());
+  movp(dst, ContextOperand(dst, index));
 }
 
 
@@ -5199,10 +5229,10 @@ bool AreAliased(Register reg1,
 #endif
 
 
-CodePatcher::CodePatcher(byte* address, int size)
+CodePatcher::CodePatcher(Isolate* isolate, byte* address, int size)
     : address_(address),
       size_(size),
-      masm_(NULL, address, size + Assembler::kGap, CodeObjectRequired::kNo) {
+      masm_(isolate, address, size + Assembler::kGap, CodeObjectRequired::kNo) {
   // Create a new macro assembler pointing to the address of the code to patch.
   // The size is adjusted with kGap on order for the assembler to generate size
   // bytes of instructions without failing with buffer size constraints.
@@ -5212,7 +5242,7 @@ CodePatcher::CodePatcher(byte* address, int size)
 
 CodePatcher::~CodePatcher() {
   // Indicate that code has changed.
-  Assembler::FlushICacheWithoutIsolate(address_, size_);
+  Assembler::FlushICache(masm_.isolate(), address_, size_);
 
   // Check that the code was patched as expected.
   DCHECK(masm_.pc_ == address_ + size_);

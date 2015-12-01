@@ -4,8 +4,11 @@
 
 #include "src/full-codegen/full-codegen.h"
 
-#include "src/ast.h"
-#include "src/ast-numbering.h"
+#include "src/ast/ast.h"
+#include "src/ast/ast-numbering.h"
+#include "src/ast/prettyprinter.h"
+#include "src/ast/scopeinfo.h"
+#include "src/ast/scopes.h"
 #include "src/code-factory.h"
 #include "src/codegen.h"
 #include "src/compiler.h"
@@ -13,9 +16,6 @@
 #include "src/debug/liveedit.h"
 #include "src/isolate-inl.h"
 #include "src/macro-assembler.h"
-#include "src/prettyprinter.h"
-#include "src/scopeinfo.h"
-#include "src/scopes.h"
 #include "src/snapshot/snapshot.h"
 
 namespace v8 {
@@ -952,7 +952,12 @@ void FullCodeGenerator::VisitWithStatement(WithStatement* stmt) {
   Comment cmnt(masm_, "[ WithStatement");
   SetStatementPosition(stmt);
 
-  VisitForStackValue(stmt->expression());
+  VisitForAccumulatorValue(stmt->expression());
+  Callable callable = CodeFactory::ToObject(isolate());
+  __ Move(callable.descriptor().GetRegisterParameter(0), result_register());
+  __ Call(callable.code(), RelocInfo::CODE_TARGET);
+  PrepareForBailoutForId(stmt->ToObjectId(), NO_REGISTERS);
+  __ Push(result_register());
   PushFunctionArgumentForContextAllocation();
   __ CallRuntime(Runtime::kPushWithContext, 2);
   StoreToFrameField(StandardFrameConstants::kContextOffset, context_register());

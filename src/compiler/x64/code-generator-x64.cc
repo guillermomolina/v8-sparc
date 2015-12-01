@@ -4,11 +4,11 @@
 
 #include "src/compiler/code-generator.h"
 
+#include "src/ast/scopes.h"
 #include "src/compiler/code-generator-impl.h"
 #include "src/compiler/gap-resolver.h"
 #include "src/compiler/node-matchers.h"
 #include "src/compiler/osr.h"
-#include "src/scopes.h"
 #include "src/x64/assembler-x64.h"
 #include "src/x64/macro-assembler-x64.h"
 
@@ -578,9 +578,6 @@ void CodeGenerator::AssembleDeconstructActivationRecord(int stack_param_delta) {
   if (sp_slot_delta > 0) {
     __ addq(rsp, Immediate(sp_slot_delta * kPointerSize));
   }
-  if (frame()->needs_frame()) {
-    __ popq(rbp);
-  }
   frame_access_state()->SetFrameAccessToDefault();
 }
 
@@ -590,6 +587,9 @@ void CodeGenerator::AssemblePrepareTailCall(int stack_param_delta) {
   if (sp_slot_delta < 0) {
     __ subq(rsp, Immediate(-sp_slot_delta * kPointerSize));
     frame_access_state()->IncreaseSPDelta(-sp_slot_delta);
+  }
+  if (frame()->needs_frame()) {
+    __ movq(rbp, MemOperand(rbp, 0));
   }
   frame_access_state()->SetFrameAccessToSP();
 }
@@ -1043,6 +1043,13 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       __ AssertZeroExtended(i.OutputRegister());
       break;
     }
+    case kSSEFloat32ToInt64:
+      if (instr->InputAt(0)->IsDoubleRegister()) {
+        __ Cvttss2siq(i.OutputRegister(), i.InputDoubleRegister(0));
+      } else {
+        __ Cvttss2siq(i.OutputRegister(), i.InputOperand(0));
+      }
+      break;
     case kSSEFloat64ToInt64:
       if (instr->InputAt(0)->IsDoubleRegister()) {
         __ Cvttsd2siq(i.OutputRegister(), i.InputDoubleRegister(0));
@@ -1050,6 +1057,42 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
         __ Cvttsd2siq(i.OutputRegister(), i.InputOperand(0));
       }
       break;
+    case kSSEFloat32ToUint64: {
+      // There does not exist a Float32ToUint64 instruction, so we have to use
+      // the Float32ToInt64 instruction.
+      if (instr->InputAt(0)->IsDoubleRegister()) {
+        __ Cvttss2siq(i.OutputRegister(), i.InputDoubleRegister(0));
+      } else {
+        __ Cvttss2siq(i.OutputRegister(), i.InputOperand(0));
+      }
+      // Check if the result of the Float32ToInt64 conversion is positive, we
+      // are already done.
+      __ testq(i.OutputRegister(), i.OutputRegister());
+      Label done;
+      __ j(positive, &done);
+      // The result of the first conversion was negative, which means that the
+      // input value was not within the positive int64 range. We subtract 2^64
+      // and convert it again to see if it is within the uint64 range.
+      __ Move(kScratchDoubleReg, -9223372036854775808.0f);
+      if (instr->InputAt(0)->IsDoubleRegister()) {
+        __ addss(kScratchDoubleReg, i.InputDoubleRegister(0));
+      } else {
+        __ addss(kScratchDoubleReg, i.InputOperand(0));
+      }
+      __ Cvttss2siq(i.OutputRegister(), kScratchDoubleReg);
+      __ testq(i.OutputRegister(), i.OutputRegister());
+      // The only possible negative value here is 0x80000000000000000, which is
+      // used on x64 to indicate an integer overflow.
+      __ j(negative, &done);
+      // The input value is within uint64 range and the second conversion worked
+      // successfully, but we still have to undo the subtraction we did
+      // earlier.
+      __ movq(kScratchRegister, Immediate(1));
+      __ shlq(kScratchRegister, Immediate(63));
+      __ orq(i.OutputRegister(), kScratchRegister);
+      __ bind(&done);
+      break;
+    }
     case kSSEFloat64ToUint64: {
       // There does not exist a Float64ToUint64 instruction, so we have to use
       // the Float64ToInt64 instruction.

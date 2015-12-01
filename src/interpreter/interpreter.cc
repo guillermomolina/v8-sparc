@@ -216,7 +216,9 @@ void Interpreter::DoLoadGlobal(Callable ic,
                                compiler::InterpreterAssembler* assembler) {
   // Get the global object.
   Node* context = __ GetContext();
-  Node* global = __ LoadContextSlot(context, Context::GLOBAL_OBJECT_INDEX);
+  Node* native_context =
+      __ LoadContextSlot(context, Context::NATIVE_CONTEXT_INDEX);
+  Node* global = __ LoadContextSlot(native_context, Context::EXTENSION_INDEX);
 
   // Load the global via the LoadIC.
   Node* code_target = __ HeapConstant(ic.code());
@@ -330,7 +332,9 @@ void Interpreter::DoStoreGlobal(Callable ic,
                                 compiler::InterpreterAssembler* assembler) {
   // Get the global object.
   Node* context = __ GetContext();
-  Node* global = __ LoadContextSlot(context, Context::GLOBAL_OBJECT_INDEX);
+  Node* native_context =
+      __ LoadContextSlot(context, Context::NATIVE_CONTEXT_INDEX);
+  Node* global = __ LoadContextSlot(native_context, Context::EXTENSION_INDEX);
 
   // Store the global via the StoreIC.
   Node* code_target = __ HeapConstant(ic.code());
@@ -952,9 +956,8 @@ void Interpreter::DoCallJSRuntime(compiler::InterpreterAssembler* assembler) {
 
   // Get the function to call from the native context.
   Node* context = __ GetContext();
-  Node* global = __ LoadContextSlot(context, Context::GLOBAL_OBJECT_INDEX);
   Node* native_context =
-      __ LoadObjectField(global, JSGlobalObject::kNativeContextOffset);
+      __ LoadContextSlot(context, Context::NATIVE_CONTEXT_INDEX);
   Node* function = __ LoadContextSlot(native_context, context_index);
 
   // Call the function.
@@ -1356,20 +1359,31 @@ void Interpreter::DoCreateObjectLiteral(
 }
 
 
-// CreateClosure <tenured>
+// CreateClosure <index> <tenured>
 //
-// Creates a new closure for SharedFunctionInfo in the accumulator with the
-// PretenureFlag <tenured>.
+// Creates a new closure for SharedFunctionInfo at position |index| in the
+// constant pool and with the PretenureFlag <tenured>.
 void Interpreter::DoCreateClosure(compiler::InterpreterAssembler* assembler) {
   // TODO(rmcilroy): Possibly call FastNewClosureStub when possible instead of
   // calling into the runtime.
-  Node* shared = __ GetAccumulator();
-  Node* tenured_raw = __ BytecodeOperandImm(0);
+  Node* index = __ BytecodeOperandIdx(0);
+  Node* shared = __ LoadConstantPoolEntry(index);
+  Node* tenured_raw = __ BytecodeOperandImm(1);
   Node* tenured = __ SmiTag(tenured_raw);
   Node* result =
       __ CallRuntime(Runtime::kInterpreterNewClosure, shared, tenured);
   __ SetAccumulator(result);
   __ Dispatch();
+}
+
+
+// CreateClosureWide <index> <tenured>
+//
+// Creates a new closure for SharedFunctionInfo at position |index| in the
+// constant pool and with the PretenureFlag <tenured>.
+void Interpreter::DoCreateClosureWide(
+    compiler::InterpreterAssembler* assembler) {
+  return DoCreateClosure(assembler);
 }
 
 

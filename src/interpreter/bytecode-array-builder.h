@@ -7,7 +7,7 @@
 
 #include <vector>
 
-#include "src/ast.h"
+#include "src/ast/ast.h"
 #include "src/identity-map.h"
 #include "src/interpreter/bytecodes.h"
 #include "src/zone.h"
@@ -79,6 +79,7 @@ class BytecodeArrayBuilder {
   BytecodeArrayBuilder& LoadTheHole();
   BytecodeArrayBuilder& LoadTrue();
   BytecodeArrayBuilder& LoadFalse();
+  BytecodeArrayBuilder& LoadBooleanConstant(bool value);
 
   // Global loads to the accumulator and stores from the accumulator.
   BytecodeArrayBuilder& LoadGlobal(size_t name_index, int feedback_slot,
@@ -116,8 +117,9 @@ class BytecodeArrayBuilder {
                                            int feedback_slot,
                                            LanguageMode language_mode);
 
-  // Create a new closure for the SharedFunctionInfo in the accumulator.
-  BytecodeArrayBuilder& CreateClosure(PretenureFlag tenured);
+  // Create a new closure for the SharedFunctionInfo.
+  BytecodeArrayBuilder& CreateClosure(Handle<SharedFunctionInfo> shared_info,
+                                      PretenureFlag tenured);
 
   // Create a new arguments object in the accumulator.
   BytecodeArrayBuilder& CreateArguments(CreateArgumentsType type);
@@ -285,6 +287,7 @@ class BytecodeArrayBuilder {
 
   ZoneSet<int> free_temporaries_;
 
+  class PreviousBytecodeHelper;
   friend class TemporaryRegisterScope;
   DISALLOW_COPY_AND_ASSIGN(BytecodeArrayBuilder);
 };

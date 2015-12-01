@@ -911,7 +911,7 @@ TEST(ObjectProperties) {
   CHECK(Just(true) == JSReceiver::HasOwnProperty(obj, first));
 
   // delete first
-  JSReceiver::DeleteProperty(obj, first, SLOPPY).Check();
+  CHECK(Just(true) == JSReceiver::DeleteProperty(obj, first, SLOPPY));
   CHECK(Just(false) == JSReceiver::HasOwnProperty(obj, first));
 
   // add first and then second
@@ -921,9 +921,9 @@ TEST(ObjectProperties) {
   CHECK(Just(true) == JSReceiver::HasOwnProperty(obj, second));
 
   // delete first and then second
-  JSReceiver::DeleteProperty(obj, first, SLOPPY).Check();
+  CHECK(Just(true) == JSReceiver::DeleteProperty(obj, first, SLOPPY));
   CHECK(Just(true) == JSReceiver::HasOwnProperty(obj, second));
-  JSReceiver::DeleteProperty(obj, second, SLOPPY).Check();
+  CHECK(Just(true) == JSReceiver::DeleteProperty(obj, second, SLOPPY));
   CHECK(Just(false) == JSReceiver::HasOwnProperty(obj, first));
   CHECK(Just(false) == JSReceiver::HasOwnProperty(obj, second));
 
@@ -934,9 +934,9 @@ TEST(ObjectProperties) {
   CHECK(Just(true) == JSReceiver::HasOwnProperty(obj, second));
 
   // delete second and then first
-  JSReceiver::DeleteProperty(obj, second, SLOPPY).Check();
+  CHECK(Just(true) == JSReceiver::DeleteProperty(obj, second, SLOPPY));
   CHECK(Just(true) == JSReceiver::HasOwnProperty(obj, first));
-  JSReceiver::DeleteProperty(obj, first, SLOPPY).Check();
+  CHECK(Just(true) == JSReceiver::DeleteProperty(obj, first, SLOPPY));
   CHECK(Just(false) == JSReceiver::HasOwnProperty(obj, first));
   CHECK(Just(false) == JSReceiver::HasOwnProperty(obj, second));
 
@@ -2364,7 +2364,7 @@ static int NumberOfGlobalObjects() {
   // Subtract two to compensate for the two global objects (not global
   // JSObjects, of which there would only be one) that are part of the code stub
   // context, which is always present.
-  return count - 2;
+  return count - 1;
 }
 
 
@@ -2384,7 +2384,7 @@ TEST(LeakNativeContextViaMap) {
   }
 
   CcTest::heap()->CollectAllAvailableGarbage();
-  CHECK_EQ(4, NumberOfGlobalObjects());
+  CHECK_EQ(2, NumberOfGlobalObjects());
 
   {
     v8::HandleScope inner_scope(isolate);
@@ -2410,7 +2410,7 @@ TEST(LeakNativeContextViaMap) {
     isolate->ContextDisposedNotification();
   }
   CcTest::heap()->CollectAllAvailableGarbage();
-  CHECK_EQ(2, NumberOfGlobalObjects());
+  CHECK_EQ(1, NumberOfGlobalObjects());
   ctx2p.Reset();
   CcTest::heap()->CollectAllAvailableGarbage();
   CHECK_EQ(0, NumberOfGlobalObjects());
@@ -2433,7 +2433,7 @@ TEST(LeakNativeContextViaFunction) {
   }
 
   CcTest::heap()->CollectAllAvailableGarbage();
-  CHECK_EQ(4, NumberOfGlobalObjects());
+  CHECK_EQ(2, NumberOfGlobalObjects());
 
   {
     v8::HandleScope inner_scope(isolate);
@@ -2459,7 +2459,7 @@ TEST(LeakNativeContextViaFunction) {
     isolate->ContextDisposedNotification();
   }
   CcTest::heap()->CollectAllAvailableGarbage();
-  CHECK_EQ(2, NumberOfGlobalObjects());
+  CHECK_EQ(1, NumberOfGlobalObjects());
   ctx2p.Reset();
   CcTest::heap()->CollectAllAvailableGarbage();
   CHECK_EQ(0, NumberOfGlobalObjects());
@@ -2480,7 +2480,7 @@ TEST(LeakNativeContextViaMapKeyed) {
   }
 
   CcTest::heap()->CollectAllAvailableGarbage();
-  CHECK_EQ(4, NumberOfGlobalObjects());
+  CHECK_EQ(2, NumberOfGlobalObjects());
 
   {
     v8::HandleScope inner_scope(isolate);
@@ -2506,7 +2506,7 @@ TEST(LeakNativeContextViaMapKeyed) {
     isolate->ContextDisposedNotification();
   }
   CcTest::heap()->CollectAllAvailableGarbage();
-  CHECK_EQ(2, NumberOfGlobalObjects());
+  CHECK_EQ(1, NumberOfGlobalObjects());
   ctx2p.Reset();
   CcTest::heap()->CollectAllAvailableGarbage();
   CHECK_EQ(0, NumberOfGlobalObjects());
@@ -2527,7 +2527,7 @@ TEST(LeakNativeContextViaMapProto) {
   }
 
   CcTest::heap()->CollectAllAvailableGarbage();
-  CHECK_EQ(4, NumberOfGlobalObjects());
+  CHECK_EQ(2, NumberOfGlobalObjects());
 
   {
     v8::HandleScope inner_scope(isolate);
@@ -2557,7 +2557,7 @@ TEST(LeakNativeContextViaMapProto) {
     isolate->ContextDisposedNotification();
   }
   CcTest::heap()->CollectAllAvailableGarbage();
-  CHECK_EQ(2, NumberOfGlobalObjects());
+  CHECK_EQ(1, NumberOfGlobalObjects());
   ctx2p.Reset();
   CcTest::heap()->CollectAllAvailableGarbage();
   CHECK_EQ(0, NumberOfGlobalObjects());
@@ -3711,7 +3711,6 @@ TEST(IncrementalMarkingPreservesMonomorphicCallIC) {
 
 static Code* FindFirstIC(Code* code, Code::Kind kind) {
   int mask = RelocInfo::ModeMask(RelocInfo::CODE_TARGET) |
-             RelocInfo::ModeMask(RelocInfo::CONSTRUCT_CALL) |
              RelocInfo::ModeMask(RelocInfo::CODE_TARGET_WITH_ID);
   for (RelocIterator it(code, mask); !it.done(); it.next()) {
     RelocInfo* info = it.rinfo();

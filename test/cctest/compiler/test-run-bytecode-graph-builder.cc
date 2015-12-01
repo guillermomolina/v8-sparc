@@ -12,7 +12,7 @@
 #include "src/handles.h"
 #include "src/interpreter/bytecode-array-builder.h"
 #include "src/interpreter/interpreter.h"
-#include "src/parser.h"
+#include "src/parsing/parser.h"
 #include "test/cctest/cctest.h"
 
 namespace v8 {
@@ -88,6 +88,18 @@ class BytecodeGraphTester {
     return BytecodeGraphCallable<A...>(isolate_, GetFunction());
   }
 
+  Local<Message> CheckThrowsReturnMessage() {
+    TryCatch try_catch(reinterpret_cast<v8::Isolate*>(isolate_));
+    auto callable = GetCallable<>();
+    MaybeHandle<Object> no_result = callable();
+    CHECK(isolate_->has_pending_exception());
+    CHECK(try_catch.HasCaught());
+    CHECK(no_result.is_null());
+    isolate_->OptionalRescheduleException(true);
+    CHECK(!try_catch.Message().IsEmpty());
+    return try_catch.Message();
+  }
+
   static Handle<Object> NewObject(const char* script) {
     return v8::Utils::OpenHandle(*CompileRun(script));
   }
@@ -154,16 +166,14 @@ class BytecodeGraphTester {
   REPEAT_4(SEP, __VA_ARGS__) SEP() REPEAT_2(SEP, __VA_ARGS__) SEP() __VA_ARGS__
 
 
-template <int N>
+template <int N, typename T = Handle<Object>>
 struct ExpectedSnippet {
   const char* code_snippet;
-  Handle<Object> return_value_and_parameters[N + 1];
+  T return_value_and_parameters[N + 1];
 
-  inline Handle<Object> return_value() const {
-    return return_value_and_parameters[0];
-  }
+  inline T return_value() const { return return_value_and_parameters[0]; }
 
-  inline Handle<Object> parameter(int i) const {
+  inline T parameter(int i) const {
     DCHECK_GE(i, 0);
     DCHECK_LT(i, N);
     return return_value_and_parameters[1 + i];
@@ -582,6 +592,45 @@ TEST(BytecodeGraphBuilderCallNew) {
 }
 
 
+TEST(BytecodeGraphBuilderCreateClosure) {
+  HandleAndZoneScope scope;
+  Isolate* isolate = scope.main_isolate();
+  Zone* zone = scope.main_zone();
+  Factory* factory = isolate->factory();
+
+  ExpectedSnippet<0> snippets[] = {
+      {"function f() {\n"
+       "  function counter() { this.count = 20; }\n"
+       "  var c = new counter();\n"
+       "  return c.count;\n"
+       "}; f()",
+       {factory->NewNumberFromInt(20)}},
+      {"function f() {\n"
+       "  function counter(arg0) { this.count = 17; this.x = arg0; }\n"
+       "  var c = new counter(6);\n"
+       "  return c.count + c.x;\n"
+       "}; f()",
+       {factory->NewNumberFromInt(23)}},
+      {"function f() {\n"
+       "  function counter(arg0, arg1) {\n"
+       "    this.count = 17; this.x = arg0; this.y = arg1;\n"
+       "  }\n"
+       "  var c = new counter(3, 5);\n"
+       "  return c.count + c.x + c.y;\n"
+       "}; f()",
+       {factory->NewNumberFromInt(25)}},
+  };
+
+  size_t num_snippets = sizeof(snippets) / sizeof(snippets[0]);
+  for (size_t i = 0; i < num_snippets; i++) {
+    BytecodeGraphTester tester(isolate, zone, snippets[i].code_snippet);
+    auto callable = tester.GetCallable<>();
+    Handle<Object> return_value = callable().ToHandleChecked();
+    CHECK(return_value->SameValue(*snippets[i].return_value()));
+  }
+}
+
+
 TEST(BytecodeGraphBuilderCallRuntime) {
   HandleAndZoneScope scope;
   Isolate* isolate = scope.main_isolate();
@@ -654,6 +703,16 @@ TEST(BytecodeGraphBuilderGlobals) {
     Handle<Object> return_value = callable().ToHandleChecked();
     CHECK(return_value->SameValue(*snippets[i].return_value()));
   }
+}
+
+
+TEST(BytecodeGraphBuilderCast) {
+  // TODO(mythria): tests for ToBoolean, ToObject, ToName, ToNumber.
+  // They need other unimplemented features to test.
+  // ToBoolean -> If
+  // ToObject -> ForIn
+  // ToNumber -> Inc/Dec
+  // ToName -> CreateObjectLiteral
 }
 
 
@@ -910,6 +969,37 @@ TEST(BytecodeGraphBuilderTestIn) {
 
 TEST(BytecodeGraphBuilderTestInstanceOf) {
   // TODO(mythria): Add tests when CreateLiterals/CreateClousre are supported.
+}
+
+
+TEST(BytecodeGraphBuilderThrow) {
+  HandleAndZoneScope scope;
+  Isolate* isolate = scope.main_isolate();
+  Zone* zone = scope.main_zone();
+
+  // TODO(mythria): Add more tests when real try-catch and deoptimization
+  // information are supported.
+  ExpectedSnippet<0, const char*> snippets[] = {
+      {"throw undefined;", {"Uncaught undefined"}},
+      {"throw 1;", {"Uncaught 1"}},
+      {"throw 'Error';", {"Uncaught Error"}},
+      {"throw 'Error1'; throw 'Error2'", {"Uncaught Error1"}},
+      // TODO(mythria): Enable these tests when JumpIfTrue is supported.
+      // {"var a = true; if (a) { throw 'Error'; }", {"Error"}},
+  };
+
+  size_t num_snippets = sizeof(snippets) / sizeof(snippets[0]);
+  for (size_t i = 0; i < num_snippets; i++) {
+    ScopedVector<char> script(1024);
+    SNPrintF(script, "function %s() { %s }\n%s();", kFunctionName,
+             snippets[i].code_snippet, kFunctionName);
+    BytecodeGraphTester tester(isolate, zone, script.start());
+    v8::Local<v8::String> message = tester.CheckThrowsReturnMessage()->Get();
+    v8::Local<v8::String> expected_string = v8_str(snippets[i].return_value());
+    CHECK(
+        message->Equals(CcTest::isolate()->GetCurrentContext(), expected_string)
+            .FromJust());
+  }
 }
 
 }  // namespace compiler

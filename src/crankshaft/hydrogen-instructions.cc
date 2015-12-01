@@ -1526,7 +1526,7 @@ HValue* HChange::Canonicalize() {
 
 HValue* HWrapReceiver::Canonicalize() {
   if (HasNoUses()) return NULL;
-  if (receiver()->type().IsJSObject()) {
+  if (receiver()->type().IsJSReceiver()) {
     return receiver();
   }
   return this;
@@ -1622,7 +1622,7 @@ HValue* HUnaryMathOperation::Canonicalize() {
 
 
 HValue* HCheckInstanceType::Canonicalize() {
-  if ((check_ == IS_SPEC_OBJECT && value()->type().IsJSObject()) ||
+  if ((check_ == IS_JS_RECEIVER && value()->type().IsJSReceiver()) ||
       (check_ == IS_JS_ARRAY && value()->type().IsJSArray()) ||
       (check_ == IS_STRING && value()->type().IsString())) {
     return value();
@@ -1641,9 +1641,9 @@ void HCheckInstanceType::GetCheckInterval(InstanceType* first,
                                           InstanceType* last) {
   DCHECK(is_interval_check());
   switch (check_) {
-    case IS_SPEC_OBJECT:
-      *first = FIRST_SPEC_OBJECT_TYPE;
-      *last = LAST_SPEC_OBJECT_TYPE;
+    case IS_JS_RECEIVER:
+      *first = FIRST_JS_RECEIVER_TYPE;
+      *last = LAST_JS_RECEIVER_TYPE;
       return;
     case IS_JS_ARRAY:
       *first = *last = JS_ARRAY_TYPE;
@@ -1718,7 +1718,7 @@ HValue* HCheckValue::Canonicalize() {
 
 const char* HCheckInstanceType::GetCheckName() const {
   switch (check_) {
-    case IS_SPEC_OBJECT: return "object";
+    case IS_JS_RECEIVER: return "object";
     case IS_JS_ARRAY: return "array";
     case IS_JS_DATE:
       return "date";
@@ -3278,7 +3278,7 @@ bool HIsStringAndBranch::KnownSuccessorBlock(HBasicBlock** block) {
       value()->type().IsNull() ||
       value()->type().IsBoolean() ||
       value()->type().IsUndefined() ||
-      value()->type().IsJSObject()) {
+      value()->type().IsJSReceiver()) {
     *block = SecondSuccessor();
     return true;
   }

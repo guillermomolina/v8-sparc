@@ -4,14 +4,14 @@
 
 #if V8_TARGET_ARCH_ARM64
 
+#include "src/ast/scopes.h"
 #include "src/code-factory.h"
 #include "src/code-stubs.h"
 #include "src/codegen.h"
 #include "src/debug/debug.h"
 #include "src/full-codegen/full-codegen.h"
 #include "src/ic/ic.h"
-#include "src/parser.h"
-#include "src/scopes.h"
+#include "src/parsing/parser.h"
 
 #include "src/arm64/code-stubs-arm64.h"
 #include "src/arm64/frames-arm64.h"
@@ -119,7 +119,7 @@ void FullCodeGenerator::Generate() {
     int receiver_offset = info->scope()->num_parameters() * kXRegSize;
     __ Peek(x10, receiver_offset);
     __ AssertNotSmi(x10);
-    __ CompareObjectType(x10, x10, x11, FIRST_SPEC_OBJECT_TYPE);
+    __ CompareObjectType(x10, x10, x11, FIRST_JS_RECEIVER_TYPE);
     __ Assert(ge, kSloppyFunctionExpectsJSReceiverReceiver);
   }
 
@@ -1047,7 +1047,7 @@ void FullCodeGenerator::VisitForInStatement(ForInStatement* stmt) {
   // Convert the object to a JS object.
   Label convert, done_convert;
   __ JumpIfSmi(x0, &convert);
-  __ JumpIfObjectType(x0, x10, x11, FIRST_SPEC_OBJECT_TYPE, &done_convert, ge);
+  __ JumpIfObjectType(x0, x10, x11, FIRST_JS_RECEIVER_TYPE, &done_convert, ge);
   __ Bind(&convert);
   ToObjectStub stub(isolate());
   __ CallStub(&stub);
@@ -1057,7 +1057,7 @@ void FullCodeGenerator::VisitForInStatement(ForInStatement* stmt) {
 
   // Check for proxies.
   Label call_runtime;
-  STATIC_ASSERT(FIRST_JS_PROXY_TYPE == FIRST_SPEC_OBJECT_TYPE);
+  STATIC_ASSERT(FIRST_JS_PROXY_TYPE == FIRST_JS_RECEIVER_TYPE);
   __ JumpIfObjectType(x0, x10, x11, LAST_JS_PROXY_TYPE, &call_runtime, le);
 
   // Check cache validity in generated code. This is a fast case for
@@ -1116,7 +1116,7 @@ void FullCodeGenerator::VisitForInStatement(ForInStatement* stmt) {
 
   __ Mov(x1, Smi::FromInt(1));  // Smi indicates slow check.
   __ Peek(x10, 0);  // Get enumerated object.
-  STATIC_ASSERT(FIRST_JS_PROXY_TYPE == FIRST_SPEC_OBJECT_TYPE);
+  STATIC_ASSERT(FIRST_JS_PROXY_TYPE == FIRST_JS_RECEIVER_TYPE);
   // TODO(all): similar check was done already. Can we avoid it here?
   __ CompareObjectType(x10, x11, x12, LAST_JS_PROXY_TYPE);
   DCHECK(Smi::FromInt(0) == 0);
@@ -1264,9 +1264,9 @@ void FullCodeGenerator::EmitLoadGlobalCheckExtensions(VariableProxy* proxy,
   while (s != NULL) {
     if (s->num_heap_slots() > 0) {
       if (s->calls_sloppy_eval()) {
-        // Check that extension is NULL.
+        // Check that extension is "the hole".
         __ Ldr(temp, ContextMemOperand(current, Context::EXTENSION_INDEX));
-        __ Cbnz(temp, slow);
+        __ JumpIfNotRoot(temp, Heap::kTheHoleValueRootIndex, slow);
       }
       // Load next context in chain.
       __ Ldr(next, ContextMemOperand(current, Context::PREVIOUS_INDEX));
@@ -1287,9 +1287,9 @@ void FullCodeGenerator::EmitLoadGlobalCheckExtensions(VariableProxy* proxy,
     // Terminate at native context.
     __ Ldr(temp, FieldMemOperand(next, HeapObject::kMapOffset));
     __ JumpIfRoot(temp, Heap::kNativeContextMapRootIndex, &fast);
-    // Check that extension is NULL.
+    // Check that extension is "the hole".
     __ Ldr(temp, ContextMemOperand(next, Context::EXTENSION_INDEX));
-    __ Cbnz(temp, slow);
+    __ JumpIfNotRoot(temp, Heap::kTheHoleValueRootIndex, slow);
     // Load next context in chain.
     __ Ldr(next, ContextMemOperand(next, Context::PREVIOUS_INDEX));
     __ B(&loop);
@@ -1312,18 +1312,18 @@ MemOperand FullCodeGenerator::ContextSlotOperandCheckExtensions(Variable* var,
   for (Scope* s = scope(); s != var->scope(); s = s->outer_scope()) {
     if (s->num_heap_slots() > 0) {
       if (s->calls_sloppy_eval()) {
-        // Check that extension is NULL.
+        // Check that extension is "the hole".
         __ Ldr(temp, ContextMemOperand(context, Context::EXTENSION_INDEX));
-        __ Cbnz(temp, slow);
+        __ JumpIfNotRoot(temp, Heap::kTheHoleValueRootIndex, slow);
       }
       __ Ldr(next, ContextMemOperand(context, Context::PREVIOUS_INDEX));
       // Walk the rest of the chain without clobbering cp.
       context = next;
     }
   }
-  // Check that last extension is NULL.
+  // Check that last extension is "the hole".
   __ Ldr(temp, ContextMemOperand(context, Context::EXTENSION_INDEX));
-  __ Cbnz(temp, slow);
+  __ JumpIfNotRoot(temp, Heap::kTheHoleValueRootIndex, slow);
 
   // This function is used only for loads, not stores, so it's safe to
   // return an cp-based operand (the write barrier cannot be allowed to
@@ -1368,7 +1368,7 @@ void FullCodeGenerator::EmitGlobalVariableLoad(VariableProxy* proxy,
   Variable* var = proxy->var();
   DCHECK(var->IsUnallocatedOrGlobalSlot() ||
          (var->IsLookupSlot() && var->mode() == DYNAMIC_GLOBAL));
-  __ Ldr(LoadDescriptor::ReceiverRegister(), GlobalObjectMemOperand());
+  __ LoadGlobalObject(LoadDescriptor::ReceiverRegister());
   __ Mov(LoadDescriptor::NameRegister(), Operand(var->name()));
   __ Mov(LoadDescriptor::SlotRegister(),
          SmiFromSlot(proxy->VariableFeedbackSlot()));
@@ -2228,7 +2228,7 @@ void FullCodeGenerator::EmitVariableAssignment(Variable* var, Token::Value op,
   if (var->IsUnallocated()) {
     // Global var, const, or let.
     __ Mov(StoreDescriptor::NameRegister(), Operand(var->name()));
-    __ Ldr(StoreDescriptor::ReceiverRegister(), GlobalObjectMemOperand());
+    __ LoadGlobalObject(StoreDescriptor::ReceiverRegister());
     EmitLoadStoreICSlot(slot);
     CallStoreIC();
 
@@ -2738,7 +2738,7 @@ void FullCodeGenerator::VisitCallNew(CallNew* expr) {
   __ Mov(x3, SmiFromSlot(expr->CallNewFeedbackSlot()));
 
   CallConstructStub stub(isolate());
-  __ Call(stub.GetCode(), RelocInfo::CONSTRUCT_CALL);
+  __ Call(stub.GetCode(), RelocInfo::CODE_TARGET);
   PrepareForBailoutForId(expr->ReturnId(), TOS_REG);
   // Restore context register.
   __ Ldr(cp, MemOperand(fp, StandardFrameConstants::kContextOffset));
@@ -2773,7 +2773,7 @@ void FullCodeGenerator::EmitSuperConstructorCall(Call* expr) {
   __ Mov(x0, arg_count);
   __ Peek(x1, arg_count * kXRegSize);
 
-  __ Call(isolate()->builtins()->Construct(), RelocInfo::CONSTRUCT_CALL);
+  __ Call(isolate()->builtins()->Construct(), RelocInfo::CODE_TARGET);
 
   RecordJSReturnSite(expr);
 
@@ -2803,7 +2803,7 @@ void FullCodeGenerator::EmitIsSmi(CallRuntime* expr) {
 }
 
 
-void FullCodeGenerator::EmitIsSpecObject(CallRuntime* expr) {
+void FullCodeGenerator::EmitIsJSReceiver(CallRuntime* expr) {
   ZoneList<Expression*>* args = expr->arguments();
   DCHECK(args->length() == 1);
 
@@ -2817,7 +2817,7 @@ void FullCodeGenerator::EmitIsSpecObject(CallRuntime* expr) {
                          &if_true, &if_false, &fall_through);
 
   __ JumpIfSmi(x0, if_false);
-  __ CompareObjectType(x0, x10, x11, FIRST_SPEC_OBJECT_TYPE);
+  __ CompareObjectType(x0, x10, x11, FIRST_JS_RECEIVER_TYPE);
   PrepareForBailoutBeforeSplit(expr, true, if_true, if_false);
   Split(ge, if_true, if_false, fall_through);
 
@@ -3095,17 +3095,17 @@ void FullCodeGenerator::EmitClassOf(CallRuntime* expr) {
   // Assume that there are only two callable types, and one of them is at
   // either end of the type range for JS object types. Saves extra comparisons.
   STATIC_ASSERT(NUM_OF_CALLABLE_SPEC_OBJECT_TYPES == 2);
-  __ CompareObjectType(x0, x10, x11, FIRST_SPEC_OBJECT_TYPE);
+  __ CompareObjectType(x0, x10, x11, FIRST_JS_RECEIVER_TYPE);
   // x10: object's map.
   // x11: object's type.
   __ B(lt, &null);
   STATIC_ASSERT(FIRST_NONCALLABLE_SPEC_OBJECT_TYPE ==
-                FIRST_SPEC_OBJECT_TYPE + 1);
+                FIRST_JS_RECEIVER_TYPE + 1);
   __ B(eq, &function);
 
-  __ Cmp(x11, LAST_SPEC_OBJECT_TYPE);
+  __ Cmp(x11, LAST_JS_RECEIVER_TYPE);
   STATIC_ASSERT(LAST_NONCALLABLE_SPEC_OBJECT_TYPE ==
-                LAST_SPEC_OBJECT_TYPE - 1);
+                LAST_JS_RECEIVER_TYPE - 1);
   __ B(eq, &function);
   // Assume that there is no larger type.
   STATIC_ASSERT(LAST_NONCALLABLE_SPEC_OBJECT_TYPE == LAST_TYPE - 1);
@@ -3531,7 +3531,7 @@ void FullCodeGenerator::EmitDefaultConstructorCallSuper(CallRuntime* expr) {
 
   __ bind(&args_set_up);
   __ Peek(x1, Operand(x0, LSL, kPointerSizeLog2));
-  __ Call(isolate()->builtins()->Construct(), RelocInfo::CONSTRUCT_CALL);
+  __ Call(isolate()->builtins()->Construct(), RelocInfo::CODE_TARGET);
 
   // Restore context register.
   __ Ldr(cp, MemOperand(fp, StandardFrameConstants::kContextOffset));
@@ -3820,11 +3820,7 @@ void FullCodeGenerator::EmitCreateIterResultObject(CallRuntime* expr) {
   Register boolean_done = x3;
   Register empty_fixed_array = x4;
   Register untagged_result = x5;
-  __ Ldr(map_reg, GlobalObjectMemOperand());
-  __ Ldr(map_reg,
-         FieldMemOperand(map_reg, JSGlobalObject::kNativeContextOffset));
-  __ Ldr(map_reg,
-         ContextMemOperand(map_reg, Context::ITERATOR_RESULT_MAP_INDEX));
+  __ LoadNativeContextSlot(Context::ITERATOR_RESULT_MAP_INDEX, map_reg);
   __ Pop(boolean_done);
   __ Pop(result_value);
   __ LoadRoot(empty_fixed_array, Heap::kEmptyFixedArrayRootIndex);
@@ -3854,9 +3850,7 @@ void FullCodeGenerator::EmitLoadJSRuntimeFunction(CallRuntime* expr) {
   __ LoadRoot(x0, Heap::kUndefinedValueRootIndex);
   __ Push(x0);
 
-  __ Ldr(x0, GlobalObjectMemOperand());
-  __ Ldr(x0, FieldMemOperand(x0, JSGlobalObject::kNativeContextOffset));
-  __ Ldr(x0, ContextMemOperand(x0, expr->context_index()));
+  __ LoadNativeContextSlot(expr->context_index(), x0);
 }
 
 
@@ -3945,7 +3939,7 @@ void FullCodeGenerator::VisitUnaryOperation(UnaryOperation* expr) {
         bool is_this = var->HasThisName(isolate());
         DCHECK(is_sloppy(language_mode()) || is_this);
         if (var->IsUnallocatedOrGlobalSlot()) {
-          __ Ldr(x12, GlobalObjectMemOperand());
+          __ LoadGlobalObject(x12);
           __ Mov(x11, Operand(var->name()));
           __ Push(x12, x11);
           __ CallRuntime(Runtime::kDeleteProperty_Sloppy, 2);
@@ -4347,8 +4341,8 @@ void FullCodeGenerator::EmitLiteralCompareTypeof(Expression* expr,
     ASM_LOCATION("FullCodeGenerator::EmitLiteralCompareTypeof object_string");
     __ JumpIfSmi(x0, if_false);
     __ JumpIfRoot(x0, Heap::kNullValueRootIndex, if_true);
-    STATIC_ASSERT(LAST_SPEC_OBJECT_TYPE == LAST_TYPE);
-    __ JumpIfObjectType(x0, x10, x11, FIRST_SPEC_OBJECT_TYPE, if_false, lt);
+    STATIC_ASSERT(LAST_JS_RECEIVER_TYPE == LAST_TYPE);
+    __ JumpIfObjectType(x0, x10, x11, FIRST_JS_RECEIVER_TYPE, if_false, lt);
     // Check for callable or undetectable objects => false.
     __ Ldrb(x10, FieldMemOperand(x10, Map::kBitFieldOffset));
     __ TestAndSplit(x10, (1 << Map::kIsCallable) | (1 << Map::kIsUndetectable),
@@ -4772,11 +4766,7 @@ void FullCodeGenerator::EmitCreateIteratorResult(bool done) {
   Register boolean_done = x3;
   Register empty_fixed_array = x4;
   Register untagged_result = x5;
-  __ Ldr(map_reg, GlobalObjectMemOperand());
-  __ Ldr(map_reg,
-         FieldMemOperand(map_reg, JSGlobalObject::kNativeContextOffset));
-  __ Ldr(map_reg,
-         ContextMemOperand(map_reg, Context::ITERATOR_RESULT_MAP_INDEX));
+  __ LoadNativeContextSlot(Context::ITERATOR_RESULT_MAP_INDEX, map_reg);
   __ Pop(result_value);
   __ LoadRoot(boolean_done,
               done ? Heap::kTrueValueRootIndex : Heap::kFalseValueRootIndex);
@@ -4831,21 +4821,19 @@ void FullCodeGenerator::PushFunctionArgumentForContextAllocation() {
       closure_scope->is_module_scope()) {
     // Contexts nested in the native context have a canonical empty function
     // as their closure, not the anonymous closure containing the global
-    // code.  Pass a smi sentinel and let the runtime look up the empty
-    // function.
+    // code.
     DCHECK(kSmiTag == 0);
-    __ Push(xzr);
+    __ LoadNativeContextSlot(Context::CLOSURE_INDEX, x10);
   } else if (closure_scope->is_eval_scope()) {
     // Contexts created by a call to eval have the same closure as the
     // context calling eval, not the anonymous closure containing the eval
     // code.  Fetch it from the context.
     __ Ldr(x10, ContextMemOperand(cp, Context::CLOSURE_INDEX));
-    __ Push(x10);
   } else {
     DCHECK(closure_scope->is_function_scope());
     __ Ldr(x10, MemOperand(fp, JavaScriptFrameConstants::kFunctionOffset));
-    __ Push(x10);
   }
+  __ Push(x10);
 }
 
 
@@ -4915,7 +4903,8 @@ void BackEdgeTable::PatchAt(Code* unoptimized_code,
                             Code* replacement_code) {
   // Turn the jump into a nop.
   Address branch_address = pc - 3 * kInstructionSize;
-  PatchingAssembler patcher(branch_address, 1);
+  Isolate* isolate = unoptimized_code->GetIsolate();
+  PatchingAssembler patcher(isolate, branch_address, 1);
 
   DCHECK(Instruction::Cast(branch_address)
              ->IsNop(Assembler::INTERRUPT_CODE_NOP) ||
@@ -4949,25 +4938,17 @@ void BackEdgeTable::PatchAt(Code* unoptimized_code,
   Address interrupt_address_pointer =
       reinterpret_cast<Address>(load) + load->ImmPCOffset();
   DCHECK((Memory::uint64_at(interrupt_address_pointer) ==
-          reinterpret_cast<uint64_t>(unoptimized_code->GetIsolate()
-                                         ->builtins()
-                                         ->OnStackReplacement()
-                                         ->entry())) ||
+          reinterpret_cast<uint64_t>(
+              isolate->builtins()->OnStackReplacement()->entry())) ||
          (Memory::uint64_at(interrupt_address_pointer) ==
-          reinterpret_cast<uint64_t>(unoptimized_code->GetIsolate()
-                                         ->builtins()
-                                         ->InterruptCheck()
-                                         ->entry())) ||
+          reinterpret_cast<uint64_t>(
+              isolate->builtins()->InterruptCheck()->entry())) ||
          (Memory::uint64_at(interrupt_address_pointer) ==
-          reinterpret_cast<uint64_t>(unoptimized_code->GetIsolate()
-                                         ->builtins()
-                                         ->OsrAfterStackCheck()
-                                         ->entry())) ||
+          reinterpret_cast<uint64_t>(
+              isolate->builtins()->OsrAfterStackCheck()->entry())) ||
          (Memory::uint64_at(interrupt_address_pointer) ==
-          reinterpret_cast<uint64_t>(unoptimized_code->GetIsolate()
-                                         ->builtins()
-                                         ->OnStackReplacement()
-                                         ->entry())));
+          reinterpret_cast<uint64_t>(
+              isolate->builtins()->OnStackReplacement()->entry())));
   Memory::uint64_at(interrupt_address_pointer) =
       reinterpret_cast<uint64_t>(replacement_code->entry());
 

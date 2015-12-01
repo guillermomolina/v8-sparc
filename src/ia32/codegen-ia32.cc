@@ -187,13 +187,13 @@ class LabelConverter {
 };
 
 
-MemMoveFunction CreateMemMoveFunction() {
+MemMoveFunction CreateMemMoveFunction(Isolate* isolate) {
   size_t actual_size;
   // Allocate buffer in executable space.
   byte* buffer =
       static_cast<byte*>(base::OS::Allocate(1 * KB, &actual_size, true));
-  if (buffer == NULL) return NULL;
-  MacroAssembler masm(NULL, buffer, static_cast<int>(actual_size),
+  if (buffer == nullptr) return nullptr;
+  MacroAssembler masm(isolate, buffer, static_cast<int>(actual_size),
                       CodeObjectRequired::kNo);
   LabelConverter conv(buffer);
 
@@ -507,7 +507,7 @@ MemMoveFunction CreateMemMoveFunction() {
   CodeDesc desc;
   masm.GetCode(&desc);
   DCHECK(!RelocInfo::RequiresRelocation(desc));
-  Assembler::FlushICacheWithoutIsolate(buffer, actual_size);
+  Assembler::FlushICache(isolate, buffer, actual_size);
   base::OS::ProtectCode(buffer, actual_size);
   // TODO(jkummerow): It would be nice to register this code creation event
   // with the PROFILE / GDBJIT system.
@@ -991,7 +991,8 @@ void MathExpGenerator::EmitMathExp(MacroAssembler* masm,
 CodeAgingHelper::CodeAgingHelper(Isolate* isolate) {
   USE(isolate);
   DCHECK(young_sequence_.length() == kNoCodeAgeSequenceLength);
-  CodePatcher patcher(young_sequence_.start(), young_sequence_.length());
+  CodePatcher patcher(isolate, young_sequence_.start(),
+                      young_sequence_.length());
   patcher.masm()->push(ebp);
   patcher.masm()->mov(ebp, esp);
   patcher.masm()->push(esi);
@@ -1038,7 +1039,7 @@ void Code::PatchPlatformCodeAge(Isolate* isolate,
     Assembler::FlushICache(isolate, sequence, young_length);
   } else {
     Code* stub = GetCodeAgeStub(isolate, age, parity);
-    CodePatcher patcher(sequence, young_length);
+    CodePatcher patcher(isolate, sequence, young_length);
     patcher.masm()->call(stub->instruction_start(), RelocInfo::NONE32);
   }
 }
