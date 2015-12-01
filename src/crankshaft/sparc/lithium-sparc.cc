@@ -1001,11 +1001,6 @@ LInstruction* LChunkBuilder::DoAllocate(HAllocate* instr) {
 }
 
 
-LInstruction* LChunkBuilder::DoRegExpLiteral(HRegExpLiteral* instr) {
-    UNIMPLEMENTED();
-}
-
-
 LInstruction* LChunkBuilder::DoOsrEntry(HOsrEntry* instr) {
     UNIMPLEMENTED();
 }

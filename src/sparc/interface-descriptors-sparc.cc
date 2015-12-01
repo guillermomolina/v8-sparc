@@ -118,6 +118,12 @@ void TypeofDescriptor::InitializePlatformSpecific(
 }
 
 
+void FastCloneRegExpDescriptor::InitializePlatformSpecific(
+    CallInterfaceDescriptorData* data) {
+ UNIMPLEMENTED();
+}
+
+
 void FastCloneShallowArrayDescriptor::InitializePlatformSpecific(
     CallInterfaceDescriptorData* data) {
  UNIMPLEMENTED();

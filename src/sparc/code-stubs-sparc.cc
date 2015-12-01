@@ -201,7 +201,7 @@ void RestoreRegistersStateStub::GenerateAheadOfTime(Isolate* isolate) {
 
 
 void CodeStub::GenerateFPStubs(Isolate* isolate) {
-    UNIMPLEMENTED();
+    WARNING("CodeStub::GenerateFPStubs");
 }
 
 
@@ -210,13 +210,35 @@ void CEntryStub::GenerateAheadOfTime(Isolate* isolate) {
 }
 
 
+
+
+
 void CEntryStub::Generate(MacroAssembler* masm) {
-    UNIMPLEMENTED();
+    WARNING("CEntryStub::Generate");
+  __ retl(); 
+  __ delayed()->nop(); 
 }
 
 
+// This is the entry point from C++. 5 arguments are provided in o0-o4.
+// See use of the CALL_GENERATED_CODE macro for example in src/execution.cc.
+// Input:
+//   o0: code entry.
+//   o1: function.
+//   o2: receiver.
+//   o3: argc.
+//   o4: argv.
+// Output:
+//   o0: result.
 void JSEntryStub::Generate(MacroAssembler* masm) {
     WARNING("JSEntryStub::Generate");
+  // Clear any pending exceptions.
+  __ set(Operand(isolate()->factory()->the_hole_value()),g1);
+  __ set(Operand(ExternalReference(Isolate::kPendingExceptionAddress, isolate())), g2);
+  __ stx(g1, MemOperand(g2));
+
+  __ retl(); 
+  __ delayed()->mov(o2, o0); 
 }
 
 
@@ -473,7 +495,7 @@ void NameDictionaryLookupStub::Generate(MacroAssembler* masm) {
 
 void StoreBufferOverflowStub::GenerateFixedRegStubsAheadOfTime(
     Isolate* isolate) {
-   UNIMPLEMENTED(); 
+    WARNING("StoreBufferOverflowStub::GenerateFixedRegStubsAheadOfTime");
 }
 
 
@@ -505,7 +527,7 @@ void RecordWriteStub::CheckNeedsToInformIncrementalMarker(
 
 
 void StubFailureTrampolineStub::Generate(MacroAssembler* masm) {
-   UNIMPLEMENTED(); 
+    WARNING("StubFailureTrampolineStub::Generate");
 }
 
 
@@ -619,7 +641,7 @@ void VectorKeyedStoreICStub::GenerateImpl(MacroAssembler* masm, bool in_frame) {
 
 
 void ProfileEntryHookStub::MaybeCallEntryHook(MacroAssembler* masm) {
-   UNIMPLEMENTED(); 
+   WARNING("ProfileEntryHookStub::MaybeCallEntryHook"); 
 }
 
 

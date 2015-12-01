@@ -265,6 +265,7 @@ typedef DoubleRegister FloatRegister;
 
 // Register aliases
 #define cp g5
+#define kRootRegister g7          // Roots array pointer.
 #define kLithiumScratchReg l0
 #define kLithiumScratchReg2 l1
 #define kLithiumScratchDouble f60
@@ -332,31 +333,40 @@ public:
   // The high 8 bits are set to zero.
   void label_at_put(Label* L, int at_offset);
 
-
-   // Read/Modify the code target address in the branch/call instruction at pc.
-  static Address target_address_at(Address pc) { UNIMPLEMENTED(); }
+  static Address target_address_at(Address pc);
   static void set_target_address_at(Address pc,
                                     Address target,
                                     ICacheFlushMode icache_flush_mode =
-                                        FLUSH_ICACHE_IF_NEEDED) { UNIMPLEMENTED(); }
-  INLINE(static Address target_address_at(Address pc, Address constant_pool))  { UNIMPLEMENTED(); }
+                                        FLUSH_ICACHE_IF_NEEDED);
+
+   // Read/Modify the code target address in the branch/call instruction at pc.
+ INLINE(static Address target_address_at(Address pc, Address constant_pool)) {
+    return target_address_at(pc);
+  }
   INLINE(static void set_target_address_at(
       Address pc, Address constant_pool, Address target,
-      ICacheFlushMode icache_flush_mode = FLUSH_ICACHE_IF_NEEDED))  { UNIMPLEMENTED(); }
-  INLINE(static Address target_address_at(Address pc, Code* code))  { UNIMPLEMENTED(); }
+      ICacheFlushMode icache_flush_mode = FLUSH_ICACHE_IF_NEEDED)) {
+    set_target_address_at(pc, target, icache_flush_mode);
+  }
+  INLINE(static Address target_address_at(Address pc, Code* code)) {
+    Address constant_pool = code ? code->constant_pool() : NULL;
+    return target_address_at(pc, constant_pool);
+  }
   INLINE(static void set_target_address_at(Address pc,
                                            Code* code,
                                            Address target,
                                            ICacheFlushMode icache_flush_mode =
-                                               FLUSH_ICACHE_IF_NEEDED))  { UNIMPLEMENTED(); }
+                                               FLUSH_ICACHE_IF_NEEDED)) {
+    Address constant_pool = code ? code->constant_pool() : NULL;
+    set_target_address_at(pc, constant_pool, target, icache_flush_mode);
+  }
 
   // Return the code target address at a call site from the return address
   // of that call in the instruction stream.
   inline static Address target_address_from_return_address(Address pc);
 
   // This sets the branch destination (which gets loaded at the call address).
-  // This is for calls and branches within generated code.  The serializer
-  // has already deserialized the lui/ori instructions etc.
+  // This is for calls and branches within generated code.  T
   inline static void deserialization_set_special_target_at(
       Address instruction_payload, Code* code, Address target)  { UNIMPLEMENTED(); }
 
@@ -509,7 +519,7 @@ protected:
   int64_t buffer_space() const { return reloc_info_writer.pos() - pc_; }
   
   // Record reloc info for current pc_.
-  void RecordRelocInfo(RelocInfo::Mode rmode, int data = 0);
+  void RecordRelocInfo(RelocInfo::Mode rmode, intptr_t data = 0);
 
   // Decode instruction(s) at pos and return backchain to previous
   // label reference or kEndOfChain.
@@ -992,8 +1002,8 @@ public:
 
   // pp 149
 
-  inline void call(int disp30 );
-  inline void call( Label* L );
+  inline virtual void call(int disp30 );
+  inline virtual void call( Label* L );
 
   // pp 150
 
@@ -1248,7 +1258,7 @@ public:
   // pp 213
 
   inline void rett( Register s1, Register s2);
-  inline void rett( Register s1, int simm13a/*, relocInfo::relocType rt = relocInfo::none*/);
+  inline void rett( Register s1, int simm13a);
 
   // pp 214
 
@@ -1269,7 +1279,7 @@ public:
 
   // pp 217
 
-  inline void sethi( int imm22a, Register d/*, RelocationHolder const& rspec = RelocationHolder() */);
+  inline virtual void sethi( int imm22a, Register d);
   // pp 218
 
   void sll(  Register s1, Register s2, Register d ) { Emit( op(arith_op) | rd(d) | op3(sll_op3) | rs1(s1) | sx(0) | rs2(s2) ); }

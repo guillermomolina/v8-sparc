@@ -1161,11 +1161,6 @@ void LCodeGen::DoToFastProperties(LToFastProperties* instr) {
 }
 
 
-void LCodeGen::DoRegExpLiteral(LRegExpLiteral* instr) {
-    UNIMPLEMENTED();
-}
-
-
 void LCodeGen::DoTypeof(LTypeof* instr) {
     UNIMPLEMENTED();
 }

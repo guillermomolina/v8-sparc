@@ -45,17 +45,17 @@ class JumpPatchSite BASE_EMBEDDED {
   // When initially emitting this ensure that a jump is always generated to skip
   // the inlined smi code.
   void EmitJumpIfNotSmi(Register reg, Label* target) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
   }
 
   // When initially emitting this ensure that a jump is never generated to skip
   // the inlined smi code.
   void EmitJumpIfSmi(Register reg, Label* target) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
   }
 
   void EmitPatchInfo() {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
   }
 
  private:
@@ -99,7 +99,7 @@ void FullCodeGenerator::Generate() {
 #endif
 
   if (FLAG_debug_code && info->ExpectsJSReceiverAsReceiver()) {
-    UNIMPLEMENTED();
+    WARNING("UNIMPLEMENTED");
   }
 
   // Open a frame scope to indicate that there is a frame on the stack.  The
@@ -108,36 +108,35 @@ void FullCodeGenerator::Generate() {
   FrameScope frame_scope(masm_, StackFrame::MANUAL);
 
   info->set_prologue_offset(masm_->pc_offset());
-  __ Prologue(info->IsCodePreAgingActive());
 
   { Comment cmnt(masm_, "[ Allocate locals");
     int locals_count = info->scope()->num_stack_slots();
+    __ Prologue(info->IsCodePreAgingActive(), locals_count);
     // Generators allocate locals, if any, in context slots.
     DCHECK(!IsGeneratorFunction(info->literal()->kind()) || locals_count == 0);
     if (locals_count > 0) {
       if (locals_count >= 128) {
-        UNIMPLEMENTED();
+        WARNING("UNIMPLEMENTED");
       }
       WARNING("Untested");
-      __ LoadRoot(g2, Heap::kUndefinedValueRootIndex);
-      __ add(sp, -locals_count * kPointerSize, sp);
+      __ LoadRoot(Heap::kUndefinedValueRootIndex, l0);
       if(locals_count < 18) {
         for( int i = 1; i <= locals_count; i++) 
-          __ stx(g2, MemOperand(fp, kStackBias - i * kPointerSize); 
+          __ stx(l1, MemOperand(fp, kStackBias - i * kPointerSize)); 
       } else {
-        __ add(fp, kStackBias - kPointerSize, g1);
-        __ add(fp, kStackBias - (locals_count + 1) * kPointerSize, g3);
-        __ stx(g2, MemOperand(g1));
+        __ add(fp, kStackBias - kPointerSize, l0);
+        __ add(fp, kStackBias - (locals_count + 1) * kPointerSize, l2);
+        __ stx(l1, MemOperand(l0));
         Label loop;
         __ bind(&loop);
-        __ add(g1, -kPointerSize, g1);
-        __ cmp(g1, g3);
+        __ add(l0, -kPointerSize, l0);
+        __ cmp(l0, l2);
         __ brx(notEqual, true, pt, &loop);
-        __ delayed()->stx(g2, MemOperand(g1));;	  
+        __ delayed()->stx(l1, MemOperand(l0));;	  
       }  
     }
   }
-
+/* 
   bool function_in_register_i0 = true;
 
   // Possibly allocate a local context.
@@ -197,7 +196,7 @@ void FullCodeGenerator::Generate() {
       }
     }
   }
-/*  PrepareForBailoutForId(BailoutId::FunctionContext(), NO_REGISTERS);
+ PrepareForBailoutForId(BailoutId::FunctionContext(), NO_REGISTERS);
 
   // Function register is trashed in case we bailout here. But since that
   // could happen only when we allocate a context the value of
@@ -312,153 +311,185 @@ void FullCodeGenerator::Generate() {
       DCHECK(loop_depth() == 0);
     }
   }
-
+*/
   // Always emit a 'return undefined' in case control fell off the end of
   // the body.
   { Comment cmnt(masm_, "[ return <undefined>;");
-    __ LoadRoot(rax, Heap::kUndefinedValueRootIndex);
+    __ LoadRoot(Heap::kUndefinedValueRootIndex, o0);
     EmitReturnSequence();
-  }*/
+  }
 }
 
 
 void FullCodeGenerator::ClearAccumulator() {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitProfilingCounterDecrement(int delta) {
-      UNIMPLEMENTED();
+      WARNING("FullCodeGenerator::EmitProfilingCounterDecrement");
 }
 
 
 void FullCodeGenerator::EmitProfilingCounterReset() {
-      UNIMPLEMENTED();
+      WARNING("FullCodeGenerator::EmitProfilingCounterReset");
 }
 
 
 void FullCodeGenerator::EmitBackEdgeBookkeeping(IterationStatement* stmt,
                                                 Label* back_edge_target) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitReturnSequence() {
-      UNIMPLEMENTED();
+  Comment cmnt(masm_, "[ Return sequence");
+  if (return_label_.is_bound()) {
+    __ jmp(&return_label_);
+  } else {
+    __ bind(&return_label_);
+    if (FLAG_trace) {
+      __ mov(i0, o0);
+      __ CallRuntime(Runtime::kTraceExit, 1);
+    }
+    // Pretend that the exit is a backwards jump to the entry.
+    int weight = 1;
+    if (info_->ShouldSelfOptimize()) {
+      weight = FLAG_interrupt_budget / FLAG_self_opt_count;
+    } else {
+      int distance = masm_->pc_offset();
+      weight = Min(kMaxBackEdgeWeight,
+                   Max(1, distance / kCodeSizeMultiplier));
+    }
+    EmitProfilingCounterDecrement(weight);
+    Label ok;
+	__ brx(notEqual, true, pt, &ok);
+	__ delayed()->nop();
+ //   __ j(positive, &ok, Label::kNear);
+    __ mov(i0, o0);
+    __ Call(isolate()->builtins()->InterruptCheck(),
+            RelocInfo::CODE_TARGET);
+    EmitProfilingCounterReset();
+    __ bind(&ok);
+
+    SetReturnPosition(literal());
+    __ ret(); 
+    __ delayed()->restore(); // free the stack
+  }
 }
 
 
 void FullCodeGenerator::StackValueContext::Plug(Variable* var) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EffectContext::Plug(Heap::RootListIndex index) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::AccumulatorValueContext::Plug(
     Heap::RootListIndex index) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::StackValueContext::Plug(
     Heap::RootListIndex index) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::TestContext::Plug(Heap::RootListIndex index) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EffectContext::Plug(Handle<Object> lit) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::AccumulatorValueContext::Plug(
     Handle<Object> lit) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::StackValueContext::Plug(Handle<Object> lit) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::TestContext::Plug(Handle<Object> lit) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EffectContext::DropAndPlug(int count,
                                                    Register reg) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::AccumulatorValueContext::DropAndPlug(
     int count,
     Register reg) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::StackValueContext::DropAndPlug(int count,
                                                        Register reg) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::TestContext::DropAndPlug(int count,
                                                  Register reg) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EffectContext::Plug(Label* materialize_true,
                                             Label* materialize_false) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::AccumulatorValueContext::Plug(
     Label* materialize_true,
     Label* materialize_false) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::StackValueContext::Plug(
     Label* materialize_true,
     Label* materialize_false) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::TestContext::Plug(Label* materialize_true,
                                           Label* materialize_false) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::AccumulatorValueContext::Plug(bool flag) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::StackValueContext::Plug(bool flag) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::TestContext::Plug(bool flag) const {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
@@ -466,7 +497,7 @@ void FullCodeGenerator::DoTest(Expression* condition,
                                Label* if_true,
                                Label* if_false,
                                Label* fall_through) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
@@ -474,22 +505,24 @@ void FullCodeGenerator::Split(Condition cc,
                               Label* if_true,
                               Label* if_false,
                               Label* fall_through) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 MemOperand FullCodeGenerator::StackOperand(Variable* var) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
+      return MemOperand(sp);
 }
 
 
 MemOperand FullCodeGenerator::VarOperand(Variable* var, Register scratch) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
+      return MemOperand(fp);
 }
 
 
 void FullCodeGenerator::GetVar(Register dest, Variable* var) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
@@ -497,7 +530,7 @@ void FullCodeGenerator::SetVar(Variable* var,
                                Register src,
                                Register scratch0,
                                Register scratch1) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
@@ -505,157 +538,158 @@ void FullCodeGenerator::PrepareForBailoutBeforeSplit(Expression* expr,
                                                      bool should_normalize,
                                                      Label* if_true,
                                                      Label* if_false) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitDebugCheckDeclarationContext(Variable* variable) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::VisitVariableDeclaration(
     VariableDeclaration* declaration) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::VisitFunctionDeclaration(
     FunctionDeclaration* declaration) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::DeclareGlobals(Handle<FixedArray> pairs) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::DeclareModules(Handle<FixedArray> descriptions) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::VisitSwitchStatement(SwitchStatement* stmt) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::VisitForInStatement(ForInStatement* stmt) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitNewClosure(Handle<SharedFunctionInfo> info,
                                        bool pretenure) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitSetHomeObject(Expression* initializer, int offset,
                                           FeedbackVectorSlot slot) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitSetHomeObjectAccumulator(Expression* initializer,
                                                      int offset,
                                                      FeedbackVectorSlot slot) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitLoadGlobalCheckExtensions(VariableProxy* proxy,
                                                       TypeofMode typeof_mode,
                                                       Label* slow) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 MemOperand FullCodeGenerator::ContextSlotOperandCheckExtensions(Variable* var,
                                                                 Label* slow) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
+      return MemOperand(cp);
 }
 
 
 void FullCodeGenerator::EmitDynamicLookupFastCase(VariableProxy* proxy,
                                                   TypeofMode typeof_mode,
                                                   Label* slow, Label* done) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitGlobalVariableLoad(VariableProxy* proxy,
                                                TypeofMode typeof_mode) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitVariableLoad(VariableProxy* proxy,
                                          TypeofMode typeof_mode) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::VisitRegExpLiteral(RegExpLiteral* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitAccessor(ObjectLiteralProperty* property) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::VisitObjectLiteral(ObjectLiteral* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::VisitArrayLiteral(ArrayLiteral* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::VisitAssignment(Assignment* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::VisitYield(Yield* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitGeneratorResume(Expression *generator,
     Expression *value,
     JSGeneratorObject::ResumeMode resume_mode) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitCreateIteratorResult(bool done) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitNamedPropertyLoad(Property* prop) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitNamedSuperPropertyLoad(Property* prop) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitKeyedPropertyLoad(Property* prop) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitKeyedSuperPropertyLoad(Property* prop) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
@@ -663,354 +697,356 @@ void FullCodeGenerator::EmitInlineSmiBinaryOp(BinaryOperation* expr,
                                               Token::Value op,
                                               Expression* left_expr,
                                               Expression* right_expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitClassDefineProperties(ClassLiteral* lit) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitBinaryOp(BinaryOperation* expr, Token::Value op) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitAssignment(Expression* expr,
                                        FeedbackVectorSlot slot) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitStoreToStackLocalOrContextSlot(
     Variable* var, MemOperand location) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitVariableAssignment(Variable* var, Token::Value op,
                                                FeedbackVectorSlot slot) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitNamedPropertyAssignment(Assignment* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitNamedSuperPropertyStore(Property* prop) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitKeyedSuperPropertyStore(Property* prop) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitKeyedPropertyAssignment(Assignment* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::VisitProperty(Property* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::CallIC(Handle<Code> code,
                                TypeFeedbackId id) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 // Code common for calls using the IC.
 void FullCodeGenerator::EmitCallWithLoadIC(Call* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitSuperCallWithLoadIC(Call* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 // Code common for calls using the IC.
 void FullCodeGenerator::EmitKeyedCallWithLoadIC(Call* expr,
                                                 Expression* key) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitKeyedSuperCallWithLoadIC(Call* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitCall(Call* expr, ConvertReceiverMode mode) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitResolvePossiblyDirectEval(int arg_count) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 // See http://www.ecma-international.org/ecma-262/6.0/#sec-function-calls.
 void FullCodeGenerator::PushCalleeAndWithBaseObject(Call* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitPossiblyEvalCall(Call* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::VisitCallNew(CallNew* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitSuperConstructorCall(Call* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitIsSmi(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitIsSpecObject(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitIsSimdValue(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitIsFunction(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitIsMinusZero(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitIsArray(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitIsTypedArray(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitIsRegExp(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitIsJSProxy(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitIsConstructCall(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitObjectEquals(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitArguments(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitArgumentsLength(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitClassOf(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitValueOf(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitIsDate(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitDateField(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitOneByteSeqStringSetChar(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitTwoByteSeqStringSetChar(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitSetValueOf(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitToInteger(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitToName(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitStringCharFromCode(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitStringCharCodeAt(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitStringCharAt(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitCall(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitDefaultConstructorCallSuper(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitHasCachedArrayIndex(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitGetCachedArrayIndex(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitFastOneByteArrayJoin(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitDebugIsActive(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitCreateIterResultObject(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitLoadJSRuntimeFunction(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitCallJSRuntimeFunction(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::VisitCallRuntime(CallRuntime* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::VisitUnaryOperation(UnaryOperation* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::VisitCountOperation(CountOperation* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitLiteralCompareTypeof(Expression* expr,
                                                  Expression* sub_expr,
                                                  Handle<String> check) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::VisitCompareOperation(CompareOperation* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitLiteralCompareNil(CompareOperation* expr,
                                               Expression* sub_expr,
                                               NilValue nil) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::VisitThisFunction(ThisFunction* expr) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 Register FullCodeGenerator::result_register() {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
+      return no_reg;
 }
 
 
 Register FullCodeGenerator::context_register() {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
+      return no_reg;
 }
 
 
 void FullCodeGenerator::StoreToFrameField(int frame_offset, Register value) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::LoadContextField(Register dst, int context_index) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::PushFunctionArgumentForContextAllocation() {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
@@ -1018,22 +1054,22 @@ void FullCodeGenerator::PushFunctionArgumentForContextAllocation() {
 // Non-local control flow support.
 
 void FullCodeGenerator::EnterFinallyBlock() {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::ExitFinallyBlock() {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::ClearPendingMessage() {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
 void FullCodeGenerator::EmitLoadStoreICSlot(FeedbackVectorSlot slot) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
@@ -1044,7 +1080,7 @@ void BackEdgeTable::PatchAt(Code* unoptimized_code,
                             Address pc,
                             BackEdgeState target_state,
                             Code* replacement_code) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
 }
 
 
@@ -1052,7 +1088,8 @@ BackEdgeTable::BackEdgeState BackEdgeTable::GetBackEdgeState(
     Isolate* isolate,
     Code* unoptimized_code,
     Address pc) {
-      UNIMPLEMENTED();
+      WARNING("UNIMPLEMENTED");
+      return BackEdgeTable::BackEdgeState();
 }
 
 }  // namespace internal

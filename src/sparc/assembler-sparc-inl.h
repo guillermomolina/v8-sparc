@@ -47,27 +47,29 @@ namespace v8 {
 namespace internal {
 
  bool CpuFeatures::SupportsCrankshaft() { return false; }   
-    
-// CHECK_NEXT
-static const int kNoCodeAgeSequenceLength = 5 * kInstructionSize;
 
-  inline void MacroAssembler::stx(Register d, const MemOperand& s) {
-    if(s.IsImmediateOffset())
-      Assembler::stx(d, s.base(), s.offset());
-    else
-      Assembler::stx(d, s.base(), s.regoffset());
+static const int kNoCodeAgeSequenceLength = 1 * kInstructionSize;
+
+ void Assembler::CheckBuffer() {
+  if (buffer_space() <= kGap) {
+    GrowBuffer();
   }
+}
 
 void RelocInfo::apply(intptr_t delta) {
     UNIMPLEMENTED();
 }
 
 Object* RelocInfo::target_object() {
-    UNIMPLEMENTED();
+  DCHECK(IsCodeTarget(rmode_) || rmode_ == EMBEDDED_OBJECT);
+  return reinterpret_cast<Object*>(Assembler::target_address_at(pc_, host_));
 }
 
+
 Handle<Object> RelocInfo::target_object_handle(Assembler* origin) {
-    UNIMPLEMENTED();
+  DCHECK(IsCodeTarget(rmode_) || rmode_ == EMBEDDED_OBJECT);
+  return Handle<Object>(
+      reinterpret_cast<Object**>(Assembler::target_address_at(pc_, host_)));
 }
 
 void RelocInfo::set_target_object(Object* target,
@@ -75,6 +77,36 @@ void RelocInfo::set_target_object(Object* target,
                                   ICacheFlushMode icache_flush_mode) {
     UNIMPLEMENTED();
 }
+
+Handle<Cell> RelocInfo::target_cell_handle() {
+    UNIMPLEMENTED();
+}
+
+Cell* RelocInfo::target_cell() {
+    UNIMPLEMENTED();
+}
+
+void RelocInfo::set_target_cell(Cell* cell,
+                                WriteBarrierMode write_barrier_mode,
+                                ICacheFlushMode icache_flush_mode) {
+    UNIMPLEMENTED();
+}
+
+Handle<Object> RelocInfo::code_age_stub_handle(Assembler* origin) {
+    UNIMPLEMENTED();
+}
+
+
+Code* RelocInfo::code_age_stub() {
+    UNIMPLEMENTED();
+}
+
+
+void RelocInfo::set_code_age_stub(Code* stub,
+                                  ICacheFlushMode icache_flush_mode) {
+    UNIMPLEMENTED();
+}
+
 
 Address RelocInfo::target_external_reference() {
     UNIMPLEMENTED();
@@ -108,35 +140,15 @@ Address RelocInfo::target_address() {
   return Assembler::target_address_at(pc_, host_);
 }
 
-Handle<Cell> RelocInfo::target_cell_handle() {
+void RelocInfo::set_target_address(Address target,
+                                   WriteBarrierMode write_barrier_mode,
+                                   ICacheFlushMode icache_flush_mode) {
     UNIMPLEMENTED();
 }
 
-Cell* RelocInfo::target_cell() {
+int RelocInfo::target_address_size() {
     UNIMPLEMENTED();
 }
-
-void RelocInfo::set_target_cell(Cell* cell,
-                                WriteBarrierMode write_barrier_mode,
-                                ICacheFlushMode icache_flush_mode) {
-    UNIMPLEMENTED();
-}
-
-Handle<Object> RelocInfo::code_age_stub_handle(Assembler* origin) {
-    UNIMPLEMENTED();
-}
-
-
-Code* RelocInfo::code_age_stub() {
-    UNIMPLEMENTED();
-}
-
-
-void RelocInfo::set_code_age_stub(Code* stub,
-                                  ICacheFlushMode icache_flush_mode) {
-    UNIMPLEMENTED();
-}
-
 
 Address RelocInfo::debug_call_address() {
     UNIMPLEMENTED();
@@ -151,15 +163,6 @@ bool RelocInfo::IsPatchedDebugBreakSlotSequence() {
     UNIMPLEMENTED();
 }
 
-void RelocInfo::set_target_address(Address target,
-                                   WriteBarrierMode write_barrier_mode,
-                                   ICacheFlushMode icache_flush_mode) {
-    UNIMPLEMENTED();
-}
-
-int RelocInfo::target_address_size() {
-    UNIMPLEMENTED();
-}
 
 void RelocInfo::WipeOut() {
     UNIMPLEMENTED();
@@ -217,13 +220,6 @@ void RelocInfo::Visit(Heap* heap) {
 
 Address RelocInfo::constant_pool_entry_address() {
   UNIMPLEMENTED();
-}
-
-
- void Assembler::CheckBuffer() {
-  if (buffer_space() <= kGap) {
-    GrowBuffer();
-  }
 }
 
 Address Assembler::target_address_from_return_address(Address pc) {

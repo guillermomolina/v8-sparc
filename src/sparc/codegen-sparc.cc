@@ -17,17 +17,13 @@ namespace internal {
 #define __ masm.
 
 
-UnaryMathFunction CreateExpFunction() {
+UnaryMathFunctionWithIsolate CreateExpFunction(Isolate* isolate) {
     UNIMPLEMENTED();
 }
 
 
-UnaryMathFunction CreateSqrtFunction() {
-//#if defined(USE_SIMULATOR)
-  return &std::sqrt;
-//#else
- //   UNIMPLEMENTED();
-//#endif
+UnaryMathFunctionWithIsolate CreateSqrtFunction(Isolate* isolate) {
+    UNIMPLEMENTED();
 }
 
 #undef __
@@ -118,13 +114,8 @@ static const uint32_t kCodeAgePatchFirstInstruction = 0x00010180;
 #endif
 
 
-CodeAgingHelper::CodeAgingHelper() {
-  DCHECK(young_sequence_.length() == kNoCodeAgeSequenceLength);
-  // The sequence of instructions that is patched out for aging code is the
-  // following boilerplate stack-building prologue that is found both in
-  // FUNCTION and OPTIMIZED_FUNCTION code:
-  CodePatcher patcher(young_sequence_.start(), young_sequence_.length());
-  patcher.masm()->Save();
+CodeAgingHelper::CodeAgingHelper(Isolate* isolate) {
+    WARNING("CodeAgingHelper::CodeAgingHelper");
 }
 
 
@@ -136,7 +127,8 @@ bool CodeAgingHelper::IsOld(byte* candidate) const {
 
 
 bool Code::IsYoungSequence(Isolate* isolate, byte* sequence) {
-    UNIMPLEMENTED();
+    WARNING("Code::IsYoungSequence");
+    return false;
 }
 
 

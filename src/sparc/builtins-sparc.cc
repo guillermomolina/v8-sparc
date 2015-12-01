@@ -94,6 +94,11 @@ void Builtins::Generate_JSBuiltinsConstructStub(MacroAssembler* masm) {
      WARNING("Builtins::Generate_JSBuiltinsConstructStub");
 }
 
+void Builtins::Generate_ConstructedNonConstructable(MacroAssembler* masm) {
+    WARNING("Builtins::Generate_JSConstructStubApi");
+}
+
+
 void Builtins::Generate_JSConstructStubApi(MacroAssembler* masm) {
     WARNING("Builtins::Generate_JSConstructStubApi");
 }
@@ -228,6 +233,11 @@ void Builtins::Generate_NotifyDeoptimized(MacroAssembler* masm) {
 
 void Builtins::Generate_NotifySoftDeoptimized(MacroAssembler* masm) {
     WARNING("Builtins::Generate_NotifySoftDeoptimized");
+}
+
+
+void Builtins::Generate_HandleFastApiCall(MacroAssembler* masm) {
+        WARNING("Builtins::Generate_NotifySoftDeoptimized");
 }
 
 

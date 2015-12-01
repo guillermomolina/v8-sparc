@@ -32,6 +32,8 @@ const Register kRuntimeCallFunctionRegister = {Register::kCode_i1};
 const Register kRuntimeCallArgCountRegister = {Register::kCode_i0};
 
 
+const Register kScratchRegister = { Register::kCode_g1 };
+
 // Flags used for AllocateHeapNumber
 enum TaggingMode {
   // Tag the result.
@@ -49,16 +51,45 @@ enum PointersToHereCheck {
 enum LinkRegisterStatus { kLRHasNotBeenSaved, kLRHasBeenSaved };
 enum RAStatus { kRAHasNotBeenSaved, kRAHasBeenSaved };
 
-// Class Operand represents a shifter operand in data processing instructions
+// -----------------------------------------------------------------------------
+// Machine instruction Operands.
+const int kSmiShift = kSmiTagSize + kSmiShiftSize;
+const uint64_t kSmiShiftMask = (1UL << kSmiShift) - 1;
+// Class Operand represents a shifter operand in data processing instructions.
 class Operand BASE_EMBEDDED {
  public:
-   INLINE(explicit Operand(Register rm)) { UNIMPLEMENTED(); }
-private:
- 
-  friend class Assembler;
+  // Immediate.
+  INLINE(explicit Operand(int64_t immediate,
+         RelocInfo::Mode rmode = RelocInfo::NONE64));
+  INLINE(explicit Operand(const ExternalReference& f));
+  INLINE(explicit Operand(const char* s));
+  INLINE(explicit Operand(Object** opp));
+  INLINE(explicit Operand(Context** cpp));
+  explicit Operand(Handle<Object> handle);
+  INLINE(explicit Operand(Smi* value));
+
+  // Register.
+  INLINE(explicit Operand(Register rm));
+
+  // Return true if this is a register operand.
+  INLINE(bool is_reg() const);
+
+  bool must_output_reloc_info(const MacroAssembler* masm) const;
+
+  inline int64_t immediate() const {
+    DCHECK(!is_reg());
+    return imm64_;
+  }
+
+  Register rm() const { return rm_; }
+
+ private:
+  Register rm_;
+  int64_t imm64_;  // Valid if rm_ == no_reg.
+  RelocInfo::Mode rmode_;
+
   friend class MacroAssembler;
 };
-
 
 // Class MemOperand represents a memory operand in load and store instructions
 class MemOperand BASE_EMBEDDED {
@@ -94,14 +125,22 @@ public:
   // not use isolate-dependent functionality. In this case, it's the
   // responsibility of the caller to never invoke such function on the
   // macro assembler.
-  MacroAssembler(Isolate* isolate, void* buffer, int size);
- 
+  MacroAssembler(Isolate* isolate, byte* buffer, unsigned buffer_size,
+                 CodeObjectRequired create_code_object);
+
   // support for delayed instructions
   MacroAssembler* delayed() { Assembler::delayed();  return this; }
  
   inline void Save(int locals_count = 0);
  
+  void sethi(const Operand& src, Register d);  
+  void set(const Operand& src, Register d);
   void set64(int64_t value, Register d, Register tmp);
+ /*
+  // compute the number of instructions for a sethi/set
+  static int  insts_for_sethi( int64_t a, bool worst_case = false );
+  static int  worst_case_insts_for_set();
+*/
 
   // traps as per trap.h (SPARC ABI?)
 
@@ -188,11 +227,17 @@ public:
   inline void cmp(  Register s1, Register s2 ) { subcc( s1, s2, g0 ); }
   inline void cmp(  Register s1, int simm13a ) { subcc( s1, simm13a, g0 ); }
 
+  inline void jmp( Register s1, Register s2 );
+  inline void jmp( Register s1, int simm13a );
+
+  inline void callr( Register s1, Register s2 );
+  inline void callr( Register s1, int simm13a );
+
   inline void tst( Register s ) { orcc( g0, s, g0 ); }
 
   inline void ret()   { jmpl( i7, 2 * kInstructionSize, g0 ); }
   inline void retl()  { jmpl( o7, 2 * kInstructionSize, g0 ); }
- 
+  
   // sign-extend 32 to 64
   inline void signx( Register s, Register d ) { sra( s, g0, d); }
   inline void signx( Register d )             { sra( d, g0, d); }
@@ -240,9 +285,6 @@ public:
   inline void clrh( Register s1, int simm13a);
   inline void clr(  Register s1, int simm13a);
   inline void clrx( Register s1, int simm13a);
-
-  // Generates function and stub prologue code.
-  void Prologue(bool code_pre_aging);
   
   // copy & clear upper word
   inline void clruw( Register s, Register d ) { srl( s, g0, d); }
@@ -257,12 +299,18 @@ public:
   }
   inline void mov( int simm13a, Register d) { or3( g0, simm13a, d); }
 
-  using Assembler::stb;
-  using Assembler::sth;
-  using Assembler::stw;
-  using Assembler::stx;
-  using Assembler::std;
-  
+  using Assembler::ldsb;
+  using Assembler::ldsh;
+  using Assembler::ldsw;
+  using Assembler::ldub;
+  using Assembler::lduh;
+  using Assembler::lduw;
+  using Assembler::ldx;
+  using Assembler::ldd;
+ 
+  inline void ld(Register s1, Register s2, Register d);
+  inline void ld(Register s1, int simm13a, Register d);
+ 
   // MemOperand based Loads and Stores
   inline void ldsb(const MemOperand& s, Register d);
   inline void ldsh(const MemOperand& s, Register d);
@@ -271,39 +319,87 @@ public:
   inline void lduh(const MemOperand& s, Register d);
   inline void lduw(const MemOperand& s, Register d);
   inline void ldx(const MemOperand& s, Register d);
+  inline void ld(const MemOperand& s, Register d);
   inline void ldd(const MemOperand& s, Register d);
   inline void lddf(const MemOperand& s, FloatRegister d);
+
+  
+  using Assembler::stb;
+  using Assembler::sth;
+  using Assembler::stw;
+  using Assembler::stx;
+  using Assembler::std;
+
+  inline void st(Register d, Register s1, Register s2);
+  inline void st(Register d, Register s1, int simm13a);
+  
   inline void stb(Register d, const MemOperand& s);
   inline void sth(Register d, const MemOperand& s);
   inline void stw(Register d, const MemOperand& s);
   inline void stx(Register d, const MemOperand& s);
   inline void std(Register d, const MemOperand& s);
+  inline void st(Register d, const MemOperand& s);
   inline void stdf(FloatRegister d, const MemOperand& s);
+
+  // Generates function and stub prologue code.
+  void Prologue(bool code_pre_aging, int locals_count);
   
+  // Size of the generated code in bytes
+  uint64_t SizeOfGeneratedCode() const {
+    DCHECK((pc_ >= buffer_) && (pc_ < (buffer_ + buffer_size_)));
+    return pc_ - buffer_;
+  }
+
+  // Return the code size generated from label to the current position.
+  uint64_t SizeOfCodeGeneratedSince(const Label* label) {
+    DCHECK(label->is_bound());
+    DCHECK(pc_offset() >= label->pos());
+    DCHECK(pc_offset() < buffer_size_);
+    return pc_offset() - label->pos();
+  }
+
+  // Check the size of the code generated since the given label. This function
+  // is used primarily to work around comparisons between signed and unsigned
+  // quantities, since V8 uses both.
+  // TODO(jbramley): Work out what sign to use for these things and if possible,
+  // change things to be consistent.
+  void AssertSizeOfCodeGeneratedSince(const Label* label, ptrdiff_t size) {
+    DCHECK(size >= 0);
+    DCHECK(static_cast<uint64_t>(size) == SizeOfCodeGeneratedSince(label));
+  }
+
+  // Return the number of instructions generated from label to the
+  // current position.
+  uint64_t InstructionsGeneratedSince(const Label* label) {
+    return SizeOfCodeGeneratedSince(label) / kInstructionSize;
+  }
   
-  // Returns the size of a call in instructions. Note, the value returned is
-  // only valid as long as no entries are added to the constant pool between
-  // checking the call size and emitting the actual call.
-  static int CallSize(Register target)  { UNIMPLEMENTED(); }
-  int CallSize(Address target, RelocInfo::Mode rmode, Condition condition = always) { UNIMPLEMENTED(); }
+  void Jump(Register target) { UNIMPLEMENTED(); }
+  void Jump(Address target, RelocInfo::Mode rmode, Condition cond = always) { UNIMPLEMENTED(); }
+  void Jump(Handle<Code> code, RelocInfo::Mode rmode, Condition cond = always) { UNIMPLEMENTED(); }
+  void Jump(intptr_t target, RelocInfo::Mode rmode, Condition cond = always) { UNIMPLEMENTED(); }
+
+  void Call(Register target) { UNIMPLEMENTED(); }
+  void Call(Label* target) { UNIMPLEMENTED(); }
+  void Call(Address target, RelocInfo::Mode rmode);
+  void Call(Handle<Code> code,
+            RelocInfo::Mode rmode = RelocInfo::CODE_TARGET,
+            TypeFeedbackId ast_id = TypeFeedbackId::None());
+
+  // For every Call variant, there is a matching CallSize function that returns
+  // the size (in bytes) of the call sequence.
+  static int CallSize(Register target) { UNIMPLEMENTED(); }
+  static int CallSize(Label* target) { UNIMPLEMENTED(); }
+  static int CallSize(Address target, RelocInfo::Mode rmode);
+  static int CallSize(Handle<Code> code,
+                      RelocInfo::Mode rmode = RelocInfo::CODE_TARGET,
+                      TypeFeedbackId ast_id = TypeFeedbackId::None()) { UNIMPLEMENTED(); }
+  
   static int CallSizeNotPredictableCodeSize(Address target,
                                             RelocInfo::Mode rmode,
                                             Condition condition = always) { UNIMPLEMENTED(); }
-
-  // Jump, Call, and Ret pseudo instructions implementing inter-working.
-  void Jump(Register target) { UNIMPLEMENTED(); }
   void JumpToJSEntry(Register target) { UNIMPLEMENTED(); }
-  void Jump(Handle<Code> code, RelocInfo::Mode rmode, Condition condition = always) { UNIMPLEMENTED(); }
-  void Call(Register target) { UNIMPLEMENTED(); }
   void CallJSEntry(Register target) { UNIMPLEMENTED(); }
-  void Call(Address target, RelocInfo::Mode rmode, Condition condition = always) { UNIMPLEMENTED(); }
-  int CallSize(Handle<Code> code,
-               RelocInfo::Mode rmode = RelocInfo::CODE_TARGET,
-               TypeFeedbackId ast_id = TypeFeedbackId::None(),
-               Condition condition = always) { UNIMPLEMENTED(); }
-  void Call(Handle<Code> code, RelocInfo::Mode rmode = RelocInfo::CODE_TARGET,
-            TypeFeedbackId ast_id = TypeFeedbackId::None(),
-            Condition condition = always) { UNIMPLEMENTED(); }
   void Ret()  { UNIMPLEMENTED(); }
  
   // Emit code to discard a non-negative number of pointer-sized elements
@@ -311,8 +407,6 @@ public:
   void Drop(int count) { UNIMPLEMENTED(); }
 
   void Ret(int drop)  { UNIMPLEMENTED(); }
-
-  void Call(Label* target) { UNIMPLEMENTED(); }
 
   // Emit call to the code we are currently generating.
   void CallSelf() {
@@ -326,11 +420,9 @@ public:
   void Move(DoubleRegister dst, DoubleRegister src) { UNIMPLEMENTED(); }
 
   // Load an object from the root table.
-  void LoadRoot(Register destination, Heap::RootListIndex index,
-                Condition condition = always) { UNIMPLEMENTED(); }
+  void LoadRoot(Heap::RootListIndex index, Register destination);
   // Store an object to the root table.
-  void StoreRoot(Register source, Heap::RootListIndex index,
-                 Condition condition = always) { UNIMPLEMENTED(); }
+  void StoreRoot(Register source, Heap::RootListIndex index);
 
   void PushRoot(Heap::RootListIndex index) { UNIMPLEMENTED(); }
 
@@ -354,19 +446,6 @@ public:
                   bool load_constant_pool_pointer_reg = false);
   // Returns the pc offset at which the frame ends.
   int LeaveFrame(StackFrame::Type type, int stack_adjustment = 0);
- 
-  // Tail call of a runtime routine (jump).
-  // Like JumpToExternalReference, but also takes care of passing the number
-  // of parameters.
-  void TailCallExternalReference(const ExternalReference& ext,
-                                 int num_arguments,
-                                 int result_size);
- 
-  // Convenience function: tail call a runtime routine (jump).
-  void TailCallRuntime(Runtime::FunctionId fid,
-                       int num_arguments,
-                       int result_size);
-
 
    // Allocates a heap number or jumps to the gc_required label if the young
   // space is full and a scavenge is needed. All registers are clobbered also
@@ -404,25 +483,41 @@ public:
   // ---------------------------------------------------------------------------
   // Runtime calls
 
-  // Call a code stub.
-  void CallStub(CodeStub* stub, TypeFeedbackId ast_id = TypeFeedbackId::None(),
-                Condition condition = always) { UNIMPLEMENTED(); }
+  void CallStub(CodeStub* stub, TypeFeedbackId ast_id = TypeFeedbackId::None());
+  void TailCallStub(CodeStub* stub);
+  
+  void CallRuntime(const Runtime::Function* f,
+                   int num_arguments,
+                   SaveFPRegsMode save_doubles = kDontSaveFPRegs);
 
-  // Call a runtime routine.
-  void CallRuntime(const Runtime::Function* f, int num_arguments,
-                   SaveFPRegsMode save_doubles = kDontSaveFPRegs) { UNIMPLEMENTED(); }
-  void CallRuntimeSaveDoubles(Runtime::FunctionId id)  { UNIMPLEMENTED(); }
+  void CallRuntime(Runtime::FunctionId id,
+                   int num_arguments,
+                   SaveFPRegsMode save_doubles = kDontSaveFPRegs) {
+    CallRuntime(Runtime::FunctionForId(id), num_arguments, save_doubles);
+  }
 
-  // Convenience function: Same as above, but takes the fid instead.
-  void CallRuntime(Runtime::FunctionId id, int num_arguments,
-                   SaveFPRegsMode save_doubles = kDontSaveFPRegs) { UNIMPLEMENTED(); }
+  void CallRuntimeSaveDoubles(Runtime::FunctionId id) {
+    const Runtime::Function* function = Runtime::FunctionForId(id);
+    CallRuntime(function, function->nargs, kSaveFPRegs);
+  }
 
   // Convenience function: call an external reference.
   void CallExternalReference(const ExternalReference& ext, int num_arguments) { UNIMPLEMENTED(); }
 
 
-  // Call a code stub.
-  void TailCallStub(CodeStub* stub, Condition condition = always) { UNIMPLEMENTED(); }
+ 
+  // Tail call of a runtime routine (jump).
+  // Like JumpToExternalReference, but also takes care of passing the number
+  // of parameters.
+  void TailCallExternalReference(const ExternalReference& ext,
+                                 int num_arguments,
+                                 int result_size);
+ 
+  // Convenience function: tail call a runtime routine (jump).
+  void TailCallRuntime(Runtime::FunctionId fid,
+                       int num_arguments,
+                       int result_size);
+
 
   Handle<Object> CodeObject() {
     DCHECK(!code_object_.is_null());
