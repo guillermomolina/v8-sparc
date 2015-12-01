@@ -1,7 +1,7 @@
 // Copyright 2015 the V8 project authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-/*
+
 #include <iostream>
 
 #include "include/libplatform/libplatform.h"
@@ -66,7 +66,7 @@ int main(int argc, char* argv[]) {
   delete platform;
   return 0;
 }
-*/
+/*
 
 #include <iostream>
 
@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
   byte* buffer = static_cast<byte*>(v8::base::OS::Allocate(
       Assembler::kMinimalBufferSize, &actual_size, true));
   CHECK(buffer);
-  MacroAssembler masm(NULL, buffer, static_cast<int>(actual_size));
+  MacroAssembler masm(NULL, buffer, static_cast<int>(actual_size), CodeObjectRequired::kNo);
 
   // Assemble a simple function that copies argument 2 and returns it.
   int locals_count = 18;
@@ -114,23 +114,11 @@ int main(int argc, char* argv[]) {
   __ delayed()->stx(g2, MemOperand(g1));;
   __ ret(); 
   __ delayed()->restore(); // free the stack
-/*
-        save    %sp, -320, %sp
-        add     %fp, 2039, %g1
-        add     %fp, 1895, %g3
-        mov     1, %g2
-.LL3:
-        stx     %g2, [%g1]
-        add     %g1, -8, %g1
-        cxbne   %g1, %g3, .LL3
-        nop
-
-*/
   CodeDesc desc;
   masm.GetCode(&desc);
   // Call the function from C++.
- /* int result =  */FUNCTION_CAST<F2>(buffer)(3, 2);
- /* CHECK_EQ(2, result);*/
+  int result =  FUNCTION_CAST<F2>(buffer)(3, 2);
+ CHECK_EQ(2, result);
 
   v8::V8::Dispose();
   v8::V8::ShutdownPlatform();
@@ -139,3 +127,4 @@ int main(int argc, char* argv[]) {
 }
   
 #undef __
+*/
