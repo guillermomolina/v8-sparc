@@ -62,7 +62,7 @@ TEST(MacroAssemblerSPARCReturnOperation) {
   byte* buffer = static_cast<byte*>(v8::base::OS::Allocate(
       Assembler::kMinimalBufferSize, &actual_size, true));
   CHECK(buffer);
-  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size));
+  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size),CodeObjectRequired::kNo);
 
   // Assemble a simple function that copies argument 2 and returns it.
   __ retl(); 
@@ -83,7 +83,7 @@ TEST(MacroAssemblerSPARCStackOperations) {
   byte* buffer = static_cast<byte*>(v8::base::OS::Allocate(
       Assembler::kMinimalBufferSize, &actual_size, true));
   CHECK(buffer);
-  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size));
+  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size),CodeObjectRequired::kNo);
 
   // Assemble a simple function that copies argument 2 and returns it.
   __ save(sp, -176, sp); // Make room in stack
@@ -107,7 +107,7 @@ TEST(MacroAssemblerSPARCArithmeticOperations) {
   byte* buffer = static_cast<byte*>(v8::base::OS::Allocate(
       Assembler::kMinimalBufferSize, &actual_size, true));
   CHECK(buffer);
-  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size));
+  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size),CodeObjectRequired::kNo);
 
   // Assemble a simple function that adds arguments returning the sum.
   __ retl();
@@ -128,7 +128,7 @@ TEST(MacroAssemblerSPARCCmpOperation) {
   byte* buffer = static_cast<byte*>(v8::base::OS::Allocate(
       Assembler::kMinimalBufferSize, &actual_size, true));
   CHECK(buffer);
-  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size));
+  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size),CodeObjectRequired::kNo);
 
   // Assemble an instruction that compares two arguments, return 0 if equal or 1 if not equal
   __ cmp(o0, o1);
@@ -157,7 +157,7 @@ TEST(MacroAssemblerSPARCBranchForwardBackward) {
   byte* buffer = static_cast<byte*>(v8::base::OS::Allocate(
       Assembler::kMinimalBufferSize, &actual_size, true));
   CHECK(buffer);
-  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size));
+  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size),CodeObjectRequired::kNo);
 
   Label label1;
   __ bp( always, false,  xcc,  pt, &label1 );
@@ -192,7 +192,7 @@ TEST(MacroAssemblerSPARCFAdd) {
   byte* buffer = static_cast<byte*>(v8::base::OS::Allocate(
       Assembler::kMinimalBufferSize, &actual_size, true));
   CHECK(buffer);
-  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size));
+  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size),CodeObjectRequired::kNo);
 
   __ retl();
   __ delayed()->fadd(FloatRegister::D, f0, f2, f0); 
@@ -212,7 +212,7 @@ TEST(MacroAssemblerSPARCImmediate8) {
   byte* buffer = static_cast<byte*>(v8::base::OS::Allocate(
       Assembler::kMinimalBufferSize, &actual_size, true));
   CHECK(buffer);
-  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size));
+  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size),CodeObjectRequired::kNo);
 
   __ set64(0x56, o0, g1);
   __ retl();
@@ -233,7 +233,7 @@ TEST(MacroAssemblerSPARCImmediate16) {
   byte* buffer = static_cast<byte*>(v8::base::OS::Allocate(
       Assembler::kMinimalBufferSize, &actual_size, true));
   CHECK(buffer);
-  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size));
+  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size),CodeObjectRequired::kNo);
 
   __ set64(0x3456, o0, g1);
   __ retl();
@@ -254,7 +254,7 @@ TEST(MacroAssemblerSPARCImmediate32) {
   byte* buffer = static_cast<byte*>(v8::base::OS::Allocate(
       Assembler::kMinimalBufferSize, &actual_size, true));
   CHECK(buffer);
-  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size));
+  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size),CodeObjectRequired::kNo);
 
   __ set64(0xF0123456, o0, g1);
   __ retl();
@@ -275,7 +275,7 @@ TEST(MacroAssemblerSPARCImmediate64) {
   byte* buffer = static_cast<byte*>(v8::base::OS::Allocate(
       Assembler::kMinimalBufferSize, &actual_size, true));
   CHECK(buffer);
-  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size));
+  MacroAssembler masm(CcTest::i_isolate(), buffer, static_cast<int>(actual_size),CodeObjectRequired::kNo);
 
   __ set64(0x789ABCDEF0123456, o0, g1);
   __ retl();
