@@ -1500,10 +1500,10 @@ TEST(TestCodeFlushingIncrementalAbort) {
   // disabled.
   int position = 0;
   Handle<Object> breakpoint_object(Smi::FromInt(0), isolate);
-  EnableDebugger();
+  EnableDebugger(CcTest::isolate());
   isolate->debug()->SetBreakPoint(function, breakpoint_object, &position);
   isolate->debug()->ClearAllBreakPoints();
-  DisableDebugger();
+  DisableDebugger(CcTest::isolate());
 
   // Force optimization now that code flushing is disabled.
   { v8::HandleScope scope(CcTest::isolate());
@@ -1643,8 +1643,7 @@ int CountNativeContexts() {
     count++;
     object = Context::cast(object)->get(Context::NEXT_CONTEXT_LINK);
   }
-  // Subtract one to compensate for the code stub context that is always present
-  return count - 1;
+  return count;
 }
 
 
@@ -1783,8 +1782,7 @@ static int CountNativeContextsWithGC(Isolate* isolate, int n) {
         Handle<Object>(Context::cast(*object)->get(Context::NEXT_CONTEXT_LINK),
                        isolate);
   }
-  // Subtract one to compensate for the code stub context that is always present
-  return count - 1;
+  return count;
 }
 
 
@@ -1869,7 +1867,7 @@ TEST(TestSizeOfRegExpCode) {
 
   // Adjust source below and this check to match
   // RegExpImple::kRegExpTooLargeToOptimize.
-  DCHECK_EQ(i::RegExpImpl::kRegExpTooLargeToOptimize, 20 * KB);
+  CHECK_EQ(i::RegExpImpl::kRegExpTooLargeToOptimize, 20 * KB);
 
   // Compile a regexp that is much larger if we are using regexp optimizations.
   CompileRun(
@@ -2361,10 +2359,7 @@ static int NumberOfGlobalObjects() {
   for (HeapObject* obj = iterator.next(); obj != NULL; obj = iterator.next()) {
     if (obj->IsJSGlobalObject()) count++;
   }
-  // Subtract two to compensate for the two global objects (not global
-  // JSObjects, of which there would only be one) that are part of the code stub
-  // context, which is always present.
-  return count - 1;
+  return count;
 }
 
 
@@ -3476,7 +3471,7 @@ TEST(TransitionArraySimpleToFull) {
   CompileRun("o = new F;"
              "root = new F");
   root = GetByName("root");
-  DCHECK(TransitionArray::IsSimpleTransition(root->map()->raw_transitions()));
+  CHECK(TransitionArray::IsSimpleTransition(root->map()->raw_transitions()));
   AddPropertyTo(2, root, "happy");
 
   // Count number of live transitions after marking.  Note that one transition
@@ -4620,7 +4615,7 @@ TEST(DeferredHandles) {
   }
   // An entire block of handles has been filled.
   // Next handle would require a new block.
-  DCHECK(data->next == data->limit);
+  CHECK(data->next == data->limit);
 
   DeferredHandleScope deferred(isolate);
   DummyVisitor visitor;
@@ -4643,8 +4638,8 @@ TEST(IncrementalMarkingStepMakesBigProgressWithLargeObjects) {
   }
   // This big step should be sufficient to mark the whole array.
   marking->Step(100 * MB, IncrementalMarking::NO_GC_VIA_STACK_GUARD);
-  DCHECK(marking->IsComplete() ||
-         marking->IsReadyToOverApproximateWeakClosure());
+  CHECK(marking->IsComplete() ||
+        marking->IsReadyToOverApproximateWeakClosure());
 }
 
 
@@ -4785,7 +4780,7 @@ TEST(CellsInOptimizedCodeAreWeak) {
     heap->CollectAllGarbage();
   }
 
-  DCHECK(code->marked_for_deoptimization());
+  CHECK(code->marked_for_deoptimization());
 }
 
 
@@ -4826,7 +4821,7 @@ TEST(ObjectsInOptimizedCodeAreWeak) {
     heap->CollectAllGarbage();
   }
 
-  DCHECK(code->marked_for_deoptimization());
+  CHECK(code->marked_for_deoptimization());
 }
 
 
@@ -5515,7 +5510,7 @@ TEST(Regress357137) {
           .ToLocalChecked(),
       v8::FunctionTemplate::New(isolate, RequestInterrupt));
   v8::Local<v8::Context> context = v8::Context::New(isolate, NULL, global);
-  DCHECK(!context.IsEmpty());
+  CHECK(!context.IsEmpty());
   v8::Context::Scope cscope(context);
 
   v8::Local<v8::Value> result = CompileRun(

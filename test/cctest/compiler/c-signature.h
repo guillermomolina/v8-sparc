@@ -5,7 +5,7 @@
 #ifndef V8_COMPILER_C_SIGNATURE_H_
 #define V8_COMPILER_C_SIGNATURE_H_
 
-#include "src/compiler/machine-type.h"
+#include "src/machine-type.h"
 
 namespace v8 {
 namespace internal {
@@ -115,7 +115,8 @@ class CSignatureOf : public CSignature {
     if (return_count_ == 1) storage_[0] = MachineTypeForC<Ret>();
   }
   void Set(int index, MachineType type) {
-    DCHECK(index >= 0 && index < kParamCount);
+    CHECK_LE(0, index);
+    CHECK_LT(index, kParamCount);
     reps_[return_count_ + index] = type;
   }
 };

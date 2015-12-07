@@ -2958,7 +2958,7 @@ THREADED_TEST(ArrayBuffer_ApiInternalToExternal) {
 
   CHECK_EQ(1024, static_cast<int>(ab_contents.ByteLength()));
   uint8_t* data = static_cast<uint8_t*>(ab_contents.Data());
-  DCHECK(data != NULL);
+  CHECK(data != NULL);
   CHECK(env->Global()->Set(env.local(), v8_str("ab"), ab).FromJust());
 
   v8::Local<v8::Value> result = CompileRun("ab.byteLength");
@@ -3234,7 +3234,7 @@ THREADED_TEST(SharedArrayBuffer_ApiInternalToExternal) {
 
   CHECK_EQ(1024, static_cast<int>(ab_contents.ByteLength()));
   uint8_t* data = static_cast<uint8_t*>(ab_contents.Data());
-  DCHECK(data != NULL);
+  CHECK(data != NULL);
   CHECK(env->Global()->Set(env.local(), v8_str("ab"), ab).FromJust());
 
   v8::Local<v8::Value> result = CompileRun("ab.byteLength");
@@ -9179,7 +9179,7 @@ THREADED_TEST(CrossDomainDelete) {
 }
 
 
-THREADED_TEST(CrossDomainIsPropertyEnumerable) {
+THREADED_TEST(CrossDomainPropertyIsEnumerable) {
   LocalContext env1;
   v8::HandleScope handle_scope(env1->GetIsolate());
   v8::Local<Context> env2 = Context::New(env1->GetIsolate());
@@ -9850,7 +9850,10 @@ TEST(AccessControlES5) {
   CHECK(global1->Set(context1, v8_str("other"), global0).FromJust());
 
   // Regression test for issue 1154.
-  CHECK(CompileRun("Object.keys(other).length == 0")
+  CHECK(CompileRun("Object.keys(other).length == 1")
+            ->BooleanValue(context1)
+            .FromJust());
+  CHECK(CompileRun("Object.keys(other)[0] == 'accessible_prop'")
             ->BooleanValue(context1)
             .FromJust());
   CHECK(CompileRun("other.blocked_prop").IsEmpty());
@@ -10573,7 +10576,7 @@ THREADED_TEST(HiddenPrototypeIdentityHash) {
   int hash = o->GetIdentityHash();
   USE(hash);
   CHECK(o->Set(context.local(), v8_str("foo"), v8_num(42)).FromJust());
-  DCHECK_EQ(hash, o->GetIdentityHash());
+  CHECK_EQ(hash, o->GetIdentityHash());
 }
 
 
@@ -10733,8 +10736,8 @@ THREADED_TEST(Regress91517) {
   // Call the runtime version of GetOwnPropertyNames() on the natively
   // created object through JavaScript.
   CHECK(context->Global()->Set(context.local(), v8_str("obj"), o4).FromJust());
-  // PROPERTY_ATTRIBUTES_NONE = 0
-  CompileRun("var names = %GetOwnPropertyNames(obj, 0);");
+  // PROPERTY_FILTER_NONE = 0
+  CompileRun("var names = %GetOwnPropertyKeys(obj, 0);");
 
   ExpectInt32("names.length", 1006);
   ExpectTrue("names.indexOf(\"baz\") >= 0");
@@ -10797,8 +10800,8 @@ THREADED_TEST(Regress269562) {
   // the natively created object through JavaScript.
   CHECK(context->Global()->Set(context.local(), v8_str("obj"), o2).FromJust());
   CHECK(context->Global()->Set(context.local(), v8_str("sym"), sym).FromJust());
-  // PROPERTY_ATTRIBUTES_NONE = 0
-  CompileRun("var names = %GetOwnPropertyNames(obj, 0);");
+  // PROPERTY_FILTER_NONE = 0
+  CompileRun("var names = %GetOwnPropertyKeys(obj, 0);");
 
   ExpectInt32("names.length", 7);
   ExpectTrue("names.indexOf(\"foo\") >= 0");
@@ -10882,7 +10885,7 @@ THREADED_TEST(SetPrototypeThrows) {
   v8::TryCatch try_catch(isolate);
   CHECK(o1->SetPrototype(context.local(), o0).IsNothing());
   CHECK(!try_catch.HasCaught());
-  DCHECK(!CcTest::i_isolate()->has_pending_exception());
+  CHECK(!CcTest::i_isolate()->has_pending_exception());
 
   CHECK_EQ(42, CompileRun("function f() { return 42; }; f()")
                    ->Int32Value(context.local())
@@ -13218,8 +13221,7 @@ static int GetGlobalObjectsCount() {
         count++;
       }
     }
-  // Subtract one to compensate for the code stub context that is always present
-  return count - 1;
+  return count;
 }
 
 
@@ -13751,12 +13753,12 @@ void SetFunctionEntryHookTest::RunLoopInNewEnv(v8::Isolate* isolate) {
   CompileRun(script);
   bar_func_ = i::Handle<i::JSFunction>::cast(
           v8::Utils::OpenHandle(*env->Global()->Get(v8_str("bar"))));
-  DCHECK(!bar_func_.is_null());
+  CHECK(!bar_func_.is_null());
 
   foo_func_ =
       i::Handle<i::JSFunction>::cast(
            v8::Utils::OpenHandle(*env->Global()->Get(v8_str("foo"))));
-  DCHECK(!foo_func_.is_null());
+  CHECK(!foo_func_.is_null());
 
   v8::Local<v8::Value> value = CompileRun("bar();");
   CHECK(value->IsNumber());
@@ -15956,7 +15958,7 @@ void AnalyzeStackInNativeCode(const v8::FunctionCallbackInfo<v8::Value>& args) {
   const int kDisplayNameIsNotString = 6;
   const int kFunctionNameIsNotString = 7;
 
-  DCHECK(args.Length() == 1);
+  CHECK(args.Length() == 1);
 
   v8::Local<v8::Context> context = args.GetIsolate()->GetCurrentContext();
   int testGroup = args[0]->Int32Value(context).FromJust();
@@ -16795,8 +16797,6 @@ TEST(SourceURLInStackTrace) {
   i::ScopedVector<char> code(1024);
   i::SNPrintF(code, source, "//# sourceURL=eval_url");
   CHECK(CompileRun(code.start())->IsUndefined());
-  i::SNPrintF(code, source, "//@ sourceURL=eval_url");
-  CHECK(CompileRun(code.start())->IsUndefined());
 }
 
 
@@ -16877,8 +16877,6 @@ TEST(InlineScriptWithSourceURLInStackTrace) {
   i::ScopedVector<char> code(1024);
   i::SNPrintF(code, source, "//# sourceURL=source_url");
   CHECK(CompileRunWithOrigin(code.start(), "url", 0, 1)->IsUndefined());
-  i::SNPrintF(code, source, "//@ sourceURL=source_url");
-  CHECK(CompileRunWithOrigin(code.start(), "url", 0, 1)->IsUndefined());
 }
 
 
@@ -16922,8 +16920,6 @@ TEST(DynamicWithSourceURLInStackTrace) {
 
   i::ScopedVector<char> code(1024);
   i::SNPrintF(code, source, "//# sourceURL=source_url");
-  CHECK(CompileRunWithOrigin(code.start(), "url", 0, 0)->IsUndefined());
-  i::SNPrintF(code, source, "//@ sourceURL=source_url");
   CHECK(CompileRunWithOrigin(code.start(), "url", 0, 0)->IsUndefined());
 }
 
@@ -20146,7 +20142,7 @@ TEST(Regress385349) {
   HandleScope handle_scope(isolate);
   isolate->SetAutorunMicrotasks(false);
   Local<Context> context = Context::New(isolate);
-  v8::Debug::SetDebugEventListener(DebugEventInObserver);
+  v8::Debug::SetDebugEventListener(isolate, DebugEventInObserver);
   {
     Context::Scope context_scope(context);
     CompileRun("var obj = {};"
@@ -20155,7 +20151,7 @@ TEST(Regress385349) {
   }
   isolate->RunMicrotasks();
   isolate->SetAutorunMicrotasks(true);
-  v8::Debug::SetDebugEventListener(NULL);
+  v8::Debug::SetDebugEventListener(isolate, nullptr);
 }
 
 
@@ -21009,7 +21005,7 @@ TEST(AccessCheckThrows) {
   CheckCorrectThrow("%DeleteProperty_Strict(other, '1')");
   CheckCorrectThrow("%HasOwnProperty(other, 'x')");
   CheckCorrectThrow("%HasProperty('x', other)");
-  CheckCorrectThrow("%IsPropertyEnumerable(other, 'x')");
+  CheckCorrectThrow("%PropertyIsEnumerable(other, 'x')");
   // PROPERTY_ATTRIBUTES_NONE = 0
   CheckCorrectThrow("%DefineAccessorPropertyUnchecked("
                         "other, 'x', null, null, 1)");
@@ -21631,7 +21627,7 @@ class ApiCallOptimizationChecker {
         wrap_function.start(), key, key, key, key, key, key);
     v8::TryCatch try_catch(isolate);
     CompileRun(source.start());
-    DCHECK(!try_catch.HasCaught());
+    CHECK(!try_catch.HasCaught());
     CHECK_EQ(9, count);
   }
 };
@@ -22691,7 +22687,7 @@ TEST(StreamingWithDebuggingEnabledLate) {
   v8::ScriptOrigin origin(v8_str("http://foo.com"));
   char* full_source = TestSourceStream::FullSourceString(chunks);
 
-  EnableDebugger();
+  EnableDebugger(isolate);
 
   v8::Local<Script> script = v8::ScriptCompiler::Compile(
       isolate, &source, v8_str(full_source), origin);
@@ -22702,7 +22698,7 @@ TEST(StreamingWithDebuggingEnabledLate) {
 
   delete[] full_source;
 
-  DisableDebugger();
+  DisableDebugger(isolate);
 }
 
 
@@ -22869,7 +22865,7 @@ void TestInvalidCacheData(v8::ScriptCompiler::CompileOptions option) {
   int length = 16;
   v8::ScriptCompiler::CachedData* cached_data =
       new v8::ScriptCompiler::CachedData(data, length);
-  DCHECK(!cached_data->rejected);
+  CHECK(!cached_data->rejected);
   v8::ScriptOrigin origin(v8_str("origin"));
   v8::ScriptCompiler::Source source(v8_str("42"), origin, cached_data);
   v8::Local<v8::Script> script =
@@ -23392,7 +23388,7 @@ TEST(StrongObjectDelete) {
   v8::HandleScope scope(isolate);
   Local<Object> obj;
   {
-    v8::TryCatch try_catch;
+    v8::TryCatch try_catch(isolate);
     obj = Local<Object>::Cast(CompileRun(
         "'use strong';"
         "({});"));

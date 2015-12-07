@@ -96,11 +96,10 @@ class NamedEntriesDetector {
 
 static const v8::HeapGraphNode* GetGlobalObject(
     const v8::HeapSnapshot* snapshot) {
-  CHECK_EQ(3, snapshot->GetRoot()->GetChildrenCount());
-  // The 0th-child is (GC Roots), 1st is code stubs context, 2nd is the user
-  // root.
+  CHECK_EQ(2, snapshot->GetRoot()->GetChildrenCount());
+  // The 0th-child is (GC Roots), 1st is the user root.
   const v8::HeapGraphNode* global_obj =
-      snapshot->GetRoot()->GetChild(2)->GetToNode();
+      snapshot->GetRoot()->GetChild(1)->GetToNode();
   CHECK_EQ(0, strncmp("Object", const_cast<i::HeapEntry*>(
       reinterpret_cast<const i::HeapEntry*>(global_obj))->name(), 6));
   return global_obj;
@@ -863,7 +862,7 @@ class TestJSONStream : public v8::OutputStream {
     return kContinue;
   }
   virtual WriteResult WriteUint32Chunk(uint32_t* buffer, int chars_written) {
-    DCHECK(false);
+    CHECK(false);
     return kAbort;
   }
   void WriteTo(i::Vector<char> dest) { buffer_.WriteTo(dest); }
@@ -993,7 +992,7 @@ TEST(HeapSnapshotJSONSerialization) {
   v8::Local<v8::String> ref_string =
       CompileRun(STRING_LITERAL_FOR_TEST)->ToString(isolate);
 #undef STRING_LITERAL_FOR_TEST
-  CHECK_LT(0, strcmp(*v8::String::Utf8Value(ref_string),
+  CHECK_EQ(0, strcmp(*v8::String::Utf8Value(ref_string),
                      *v8::String::Utf8Value(string)));
 }
 
@@ -1032,13 +1031,13 @@ class TestStatsStream : public v8::OutputStream {
   virtual ~TestStatsStream() {}
   virtual void EndOfStream() { ++eos_signaled_; }
   virtual WriteResult WriteAsciiChunk(char* buffer, int chars_written) {
-    DCHECK(false);
+    CHECK(false);
     return kAbort;
   }
   virtual WriteResult WriteHeapStatsChunk(v8::HeapStatsUpdate* buffer,
                                           int updates_written) {
     ++intervals_count_;
-    DCHECK(updates_written);
+    CHECK(updates_written);
     updates_written_ += updates_written;
     entries_count_ = 0;
     if (first_interval_index_ == -1 && updates_written != 0)
@@ -2121,7 +2120,6 @@ TEST(NoDebugObjectInSnapshot) {
   CHECK(ValidateSnapshot(snapshot));
   const v8::HeapGraphNode* root = snapshot->GetRoot();
   int globals_count = 0;
-  bool found = false;
   for (int i = 0; i < root->GetChildrenCount(); ++i) {
     const v8::HeapGraphEdge* edge = root->GetChild(i);
     if (edge->GetType() == v8::HeapGraphEdge::kShortcut) {
@@ -2129,13 +2127,10 @@ TEST(NoDebugObjectInSnapshot) {
       const v8::HeapGraphNode* global = edge->GetToNode();
       const v8::HeapGraphNode* foo =
           GetProperty(global, v8::HeapGraphEdge::kProperty, "foo");
-      if (foo != nullptr) {
-        found = true;
-      }
+      CHECK(foo);
     }
   }
-  CHECK_EQ(2, globals_count);
-  CHECK(found);
+  CHECK_EQ(1, globals_count);
 }
 
 
@@ -2657,7 +2652,7 @@ TEST(ArrayBufferSharedBackingStore) {
 
   CHECK_EQ(1024, static_cast<int>(ab_contents.ByteLength()));
   void* data = ab_contents.Data();
-  DCHECK(data != NULL);
+  CHECK(data != NULL);
   v8::Local<v8::ArrayBuffer> ab2 =
       v8::ArrayBuffer::New(isolate, data, ab_contents.ByteLength());
   CHECK(ab2->IsExternal());

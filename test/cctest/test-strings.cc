@@ -79,7 +79,7 @@ class MyRandomNumberGenerator {
   }
 
   bool next(double threshold) {
-    DCHECK(threshold >= 0.0 && threshold <= 1.0);
+    CHECK(threshold >= 0.0 && threshold <= 1.0);
     if (threshold == 1.0) return true;
     if (threshold == 0.0) return false;
     uint32_t value = next() % 100000;
@@ -1477,6 +1477,6 @@ TEST(FormatMessage) {
       MessageTemplate::FormatMessage(MessageTemplate::kPropertyNotFunction,
                                      arg0, arg1, arg2).ToHandleChecked();
   Handle<String> expected = isolate->factory()->NewStringFromAsciiChecked(
-      "Property 'arg0' of object arg1 is not a function");
+      "'arg0' returned for property 'arg1' of object 'arg2' is not a function");
   CHECK(String::Equals(result, expected));
 }
