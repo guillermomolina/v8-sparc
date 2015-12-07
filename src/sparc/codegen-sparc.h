@@ -5,7 +5,7 @@
 #ifndef V8_SPARC_CODEGEN_SPARC_H_
 #define V8_SPARC_CODEGEN_SPARC_H_
 
-#include "src/ast.h"
+#include "src/ast/ast.h"
 #include "src/macro-assembler.h"
 
 namespace v8 {

@@ -19,6 +19,7 @@ void NamedLoadHandlerCompiler::GenerateLoadViaGetter(
     MacroAssembler* masm, Handle<Map> map, Register receiver, Register holder,
     int accessor_index, int expected_arguments, Register scratch) {
     WARNING("NamedLoadHandlerCompiler::GenerateLoadViaGetter");
+    __ breakpoint_trap();
 }
 
 
@@ -26,6 +27,7 @@ void NamedStoreHandlerCompiler::GenerateStoreViaSetter(
     MacroAssembler* masm, Handle<Map> map, Register receiver, Register holder,
     int accessor_index, int expected_arguments, Register scratch) {
     WARNING("NamedStoreHandlerCompiler::GenerateStoreViaSetter");
+    __ breakpoint_trap();
 }
 
 
@@ -106,11 +108,13 @@ static void StoreIC_PushArgs(MacroAssembler* masm) {
 
 void NamedStoreHandlerCompiler::GenerateSlow(MacroAssembler* masm) {
    WARNING("NamedStoreHandlerCompiler::GenerateSlow");
+    __ breakpoint_trap();
 }
 
 
 void ElementHandlerCompiler::GenerateStoreSlow(MacroAssembler* masm) {
   WARNING("ElementHandlerCompiler::GenerateStoreSlow");
+    __ breakpoint_trap();
 }
 
 

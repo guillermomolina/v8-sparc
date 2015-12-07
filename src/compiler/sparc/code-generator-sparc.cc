@@ -9,7 +9,7 @@
 #include "src/compiler/node-matchers.h"
 #include "src/compiler/osr.h"
 #include "src/sparc/macro-assembler-sparc.h"
-#include "src/scopes.h"
+#include "src/ast/scopes.h"
 
 namespace v8 {
 namespace internal {

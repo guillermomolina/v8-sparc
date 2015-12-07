@@ -21,6 +21,7 @@ void Builtins::Generate_Adaptor(MacroAssembler* masm,
                                 CFunctionId id,
                                 BuiltinExtraArguments extra_args) {
     WARNING("Builtins::Generate_Adaptor");
+    __ breakpoint_trap();
 }
 
 /*
@@ -39,22 +40,26 @@ static void GenerateLoadArrayFunction(MacroAssembler* masm, Register result) {
 
 void Builtins::Generate_InternalArrayCode(MacroAssembler* masm) {
     WARNING("Builtins::Generate_InternalArrayCode");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_ArrayCode(MacroAssembler* masm) {
     WARNING("Builtins::Generate_ArrayCode");
+    __ breakpoint_trap();
 }
 
 
 // static
 void Builtins::Generate_StringConstructor(MacroAssembler* masm) {
     WARNING("Builtins::Generate_StringConstructor");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_StringConstructor_ConstructStub(MacroAssembler* masm) {
     WARNING("Builtins::Generate_StringConstructor_ConstructStub");
+    __ breakpoint_trap();
 }
 
 
@@ -76,6 +81,7 @@ static void GenerateTailCallToSharedCode(MacroAssembler* masm) {
 
 void Builtins::Generate_InOptimizationQueue(MacroAssembler* masm) {
     WARNING("Builtins::Generate_InOptimizationQueue");
+    __ breakpoint_trap();
 }
 
 
@@ -87,20 +93,24 @@ void Builtins::Generate_InOptimizationQueue(MacroAssembler* masm) {
 
 void Builtins::Generate_JSConstructStubGeneric(MacroAssembler* masm) {
     WARNING("Builtins::Generate_JSConstructStubGeneric");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_JSBuiltinsConstructStub(MacroAssembler* masm) {
      WARNING("Builtins::Generate_JSBuiltinsConstructStub");
+    __ breakpoint_trap();
 }
 
 void Builtins::Generate_ConstructedNonConstructable(MacroAssembler* masm) {
     WARNING("Builtins::Generate_JSConstructStubApi");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_JSConstructStubApi(MacroAssembler* masm) {
     WARNING("Builtins::Generate_JSConstructStubApi");
+    __ breakpoint_trap();
 }
 
 
@@ -113,47 +123,84 @@ enum IsTagged { kArgcIsSmiTagged, kArgcIsUntaggedInt };
     WARNING("Builtins::");
 }*/
 
-
-/*static void Generate_JSEntryTrampolineHelper(MacroAssembler* masm,
+  // Called from Generate_JS_Entry
+// Input:
+//   o0: new.target.
+//   o1: function.
+//   o2: receiver.
+//   o3: argc.
+//   o4: argv.
+// Output:
+//   o0: result.
+static void Generate_JSEntryTrampolineHelper(MacroAssembler* masm,
                                              bool is_construct) {
-    WARNING("Builtins::");
-}*/
+  ProfileEntryHookStub::MaybeCallEntryHook(masm);
 
+  // Clear the context before we push it when entering the internal frame.
+  __ clr(cp);
+  
+    // Enter an internal frame.
+  {
+    FrameScope scope(masm, StackFrame::INTERNAL);
+    
+    // Setup the context (we need to use the caller context from the isolate).
+    ExternalReference context_address(Isolate::kContextAddress,
+                                      masm->isolate());
+    __ set( Operand(context_address), cp);
+    __ ld_ptr(MemOperand(cp), cp);
+
+    __ InitializeRootRegister();
+
+    __ breakpoint_trap();
+
+    Handle<Code> builtin = is_construct
+                               ? masm->isolate()->builtins()->Construct()
+                               : masm->isolate()->builtins()->Call();
+    __ Call(builtin, RelocInfo::CODE_TARGET);
+  }
+  __ ret();
+  __ delayed()->nop();
+}
 
 void Builtins::Generate_JSEntryTrampoline(MacroAssembler* masm) {
-    WARNING("Builtins::Generate_JSEntryTrampoline");
+  Generate_JSEntryTrampolineHelper(masm, false);
 }
 
 
 void Builtins::Generate_JSConstructEntryTrampoline(MacroAssembler* masm) {
-    WARNING("Builtins::Generate_JSConstructEntryTrampoline");
+  Generate_JSEntryTrampolineHelper(masm, true);
 }
 
 
 void Builtins::Generate_InterpreterEntryTrampoline(MacroAssembler* masm) {
     WARNING("Builtins::Generate_InterpreterEntryTrampoline");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_InterpreterExitTrampoline(MacroAssembler* masm) {
     WARNING("Builtins::Generate_InterpreterExitTrampoline");
+    __ breakpoint_trap();
 }
 
 
 // static
 void Builtins::Generate_InterpreterPushArgsAndCall(MacroAssembler* masm) {
     WARNING("Builtins::Generate_InterpreterPushArgsAndCall");
+    __ breakpoint_trap();
 }
 
 
 // static
 void Builtins::Generate_InterpreterPushArgsAndConstruct(MacroAssembler* masm) {
     WARNING("Builtins::Generate_InterpreterPushArgsAndConstruct");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_CompileLazy(MacroAssembler* masm) {
     WARNING("Builtins::Generate_CompileLazy");
+    __ breakpoint_trap();
 }
 
 
@@ -164,16 +211,19 @@ void Builtins::Generate_CompileLazy(MacroAssembler* masm) {
 
 void Builtins::Generate_CompileOptimized(MacroAssembler* masm) {
     WARNING("Builtins::Generate_CompileOptimized");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_CompileOptimizedConcurrent(MacroAssembler* masm) {
     WARNING("Builtins::Generate_CompileOptimizedConcurrent");
+    __ breakpoint_trap();
 }
 
 
 static void GenerateMakeCodeYoungAgainCommon(MacroAssembler* masm) {
     WARNING("Builtins::GenerateMakeCodeYoungAgainCommon");
+    __ breakpoint_trap();
 }
 
 #define DEFINE_CODE_AGE_BUILTIN_GENERATOR(C)                 \
@@ -191,16 +241,19 @@ CODE_AGE_LIST(DEFINE_CODE_AGE_BUILTIN_GENERATOR)
 
 void Builtins::Generate_MarkCodeAsExecutedOnce(MacroAssembler* masm) {
     WARNING("Builtins::Generate_MarkCodeAsExecutedOnce");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_MarkCodeAsExecutedTwice(MacroAssembler* masm) {
     WARNING("Builtins::Generate_MarkCodeAsExecutedTwice");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_MarkCodeAsToBeExecutedOnce(MacroAssembler* masm) {
     WARNING("Builtins::Generate_MarkCodeAsToBeExecutedOnce");
+    __ breakpoint_trap();
 }
 
 
@@ -212,11 +265,13 @@ void Builtins::Generate_MarkCodeAsToBeExecutedOnce(MacroAssembler* masm) {
 
 void Builtins::Generate_NotifyStubFailure(MacroAssembler* masm) {
     WARNING("Builtins::Generate_NotifyStubFailure");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_NotifyStubFailureSaveDoubles(MacroAssembler* masm) {
     WARNING("Builtins::Generate_NotifyStubFailureSaveDoubles");
+    __ breakpoint_trap();
 }
 
 
@@ -228,37 +283,44 @@ void Builtins::Generate_NotifyStubFailureSaveDoubles(MacroAssembler* masm) {
 
 void Builtins::Generate_NotifyDeoptimized(MacroAssembler* masm) {
     WARNING("Builtins::Generate_NotifyDeoptimized");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_NotifySoftDeoptimized(MacroAssembler* masm) {
     WARNING("Builtins::Generate_NotifySoftDeoptimized");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_HandleFastApiCall(MacroAssembler* masm) {
         WARNING("Builtins::Generate_NotifySoftDeoptimized");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_NotifyLazyDeoptimized(MacroAssembler* masm) {
     WARNING("Builtins::Generate_NotifyLazyDeoptimized");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_OnStackReplacement(MacroAssembler* masm) {
     WARNING("Builtins::Generate_OnStackReplacement");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_OsrAfterStackCheck(MacroAssembler* masm) {
     WARNING("Builtins::Generate_OsrAfterStackCheck");
+    __ breakpoint_trap();
 }
 
 
 // static
 void Builtins::Generate_FunctionCall(MacroAssembler* masm) {
     WARNING("Builtins::Generate_FunctionCall");
+    __ breakpoint_trap();
 }
 
 
@@ -277,23 +339,34 @@ void Builtins::Generate_FunctionCall(MacroAssembler* masm) {
 }*/
 
 
-/*static void Generate_ConstructHelper(MacroAssembler* masm) {
-    WARNING("Builtins::");
-}*/
+static void Generate_ConstructHelper(MacroAssembler* masm) {
+    WARNING("Generate_ConstructHelper");
+    __ nop();
+    __ nop();
+    __ nop();
+    __ nop();
+    __ breakpoint_trap();
+    __ nop();
+    __ nop();
+    __ nop();
+    __ nop();
+ }
 
 
 void Builtins::Generate_FunctionApply(MacroAssembler* masm) {
     WARNING("Builtins::Generate_FunctionApply");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_ReflectApply(MacroAssembler* masm) {
     WARNING("Builtins::Generate_ReflectApply");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_ReflectConstruct(MacroAssembler* masm) {
-    WARNING("Builtins::Generate_ReflectConstruct");
+    Generate_ConstructHelper(masm);
 }
 
 
@@ -317,34 +390,40 @@ void Builtins::Generate_ReflectConstruct(MacroAssembler* masm) {
 void Builtins::Generate_CallFunction(MacroAssembler* masm,
                                      ConvertReceiverMode mode) {
     WARNING("Builtins::Generate_CallFunction");
+    __ breakpoint_trap();
 }
 
 
 // static
 void Builtins::Generate_Call(MacroAssembler* masm, ConvertReceiverMode mode) {
     WARNING("Builtins::Generate_Call");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_ConstructFunction(MacroAssembler* masm) {
     WARNING("Builtins::Generate_ConstructFunction");
+    __ breakpoint_trap();
 }
 
 
 // static
 void Builtins::Generate_ConstructProxy(MacroAssembler* masm) {
     WARNING("Builtins::Generate_ConstructProxy");
+    __ breakpoint_trap();
 }
 
 
 // static
 void Builtins::Generate_Construct(MacroAssembler* masm) {
     WARNING("Builtins::Generate_Construct");
+    __ breakpoint_trap();
 }
 
 
 void Builtins::Generate_ArgumentsAdaptorTrampoline(MacroAssembler* masm) {
     WARNING("Builtins::Generate_ArgumentsAdaptorTrampoline");
+    __ breakpoint_trap();
 }
 
 

@@ -14,19 +14,28 @@
 namespace v8 {
 namespace internal {
 
+// Number of registers
+const int kNumRegisters = 32;
+
+// FP support.
+const int kNumDoubleRegisters = 64;
+
+    
 #ifdef  _LP64
 #define LP64_ONLY(code) code
 #define NOT_LP64(code)
     const unsigned kStackBias = 2047;
     const unsigned kFixedFrameSize = 176;
+    const unsigned kInstructionsPerPachableSet = 8;
 #else  // !_LP64
 #define LP64_ONLY(code)
 #define NOT_LP64(code) code
     const unsigned kStackBias = 0;
     const unsigned kFixedFrameSize = 96;
+    const unsigned kInstructionsPerPachableSet = 2;
 #endif // _LP64
   
-const int wordSize = sizeof(char*);
+const int kWordSize = sizeof(char*);
 
 // On SPARC all instructions are 32 bits.
 typedef int32_t Instr;
@@ -325,11 +334,76 @@ enum FPUCondition {
     ASI_ST_BLKINIT_MRU_PRIMARY = 0xF2
     // add more from book as needed
   };
+/*
+// -----------------------------------------------------------------------------
+// Instruction abstraction.
 
-
+// The class Instruction enables access to individual fields defined in the PPC
+// architecture instruction set encoding.
+// Note that the Assembler uses typedef int32_t Instr.
+//
+// Example: Test whether the instruction at ptr does set the condition code
+// bits.
+//
+// bool InstructionSetsConditionCodes(byte* ptr) {
+//   Instruction* instr = Instruction::At(ptr);
+//   int type = instr->TypeValue();
+//   return ((type == 0) || (type == 1)) && instr->HasS();
+// }
+//
 class Instruction {
  public:
- 
+  enum { kInstrSize = 4, kInstrSizeLog2 = 2, kPCReadOffset = 8 };
+
+// Helper macro to define static accessors.
+// We use the cast to char* trick to bypass the strict anti-aliasing rules.
+#define DECLARE_STATIC_TYPED_ACCESSOR(return_type, Name) \
+  static inline return_type Name(Instr instr) {          \
+    char* temp = reinterpret_cast<char*>(&instr);        \
+    return reinterpret_cast<Instruction*>(temp)->Name(); \
+  }
+
+#define DECLARE_STATIC_ACCESSOR(Name) DECLARE_STATIC_TYPED_ACCESSOR(int, Name)
+
+  // Get the raw instruction bits.
+  inline Instr InstructionBits() const {
+    return *reinterpret_cast<const Instr*>(this);
+  }
+
+  // Set the raw instruction bits to value.
+  inline void SetInstructionBits(Instr value) {
+    *reinterpret_cast<Instr*>(this) = value;
+  }
+
+  // Read one particular bit out of the instruction bits.
+  inline int Bit(int nr) const { return (InstructionBits() >> nr) & 1; }
+
+  // Read a bit field's value out of the instruction bits.
+  inline int Bits(int hi, int lo) const {
+    return (InstructionBits() >> lo) & ((2 << (hi - lo)) - 1);
+  }
+
+  // Read a bit field out of the instruction bits.
+  inline int BitField(int hi, int lo) const {
+    return InstructionBits() & (((2 << (hi - lo)) - 1) << lo);
+  }
+
+  // Static support.
+
+  // Read one particular bit out of the instruction bits.
+  static inline int Bit(Instr instr, int nr) { return (instr >> nr) & 1; }
+
+  // Read the value of a bit field out of the instruction bits.
+  static inline int Bits(Instr instr, int hi, int lo) {
+    return (instr >> lo) & ((2 << (hi - lo)) - 1);
+  }
+
+
+  // Read a bit field out of the instruction bits.
+  static inline int BitField(Instr instr, int hi, int lo) {
+    return instr & (((2 << (hi - lo)) - 1) << lo);
+  }
+
   // Instructions are read of out a code stream. The only way to get a
   // reference to an instruction is to convert a pointer. There is no way
   // to allocate or create instances of class Instruction.
@@ -338,13 +412,31 @@ class Instruction {
     return reinterpret_cast<Instruction*>(pc);
   }
 
-  template<typename T> V8_INLINE static Instruction* Cast(T src) {
-    return reinterpret_cast<Instruction*>(src);
-  }
 
  private:
   // We need to prevent the creation of instances of class Instruction.
   DISALLOW_IMPLICIT_CONSTRUCTORS(Instruction);
+};
+*/
+
+// Helper functions for converting between register numbers and names.
+class Registers {
+ public:
+  // Lookup the register number for the name provided.
+  static int Number(const char* name);
+
+ private:
+  static const char* names_[kNumRegisters];
+};
+
+// Helper functions for converting between FP register numbers and names.
+class DoubleRegisters {
+ public:
+  // Lookup the register number for the name provided.
+  static int Number(const char* name);
+
+ private:
+  static const char* names_[kNumDoubleRegisters];
 };
 
 }  // namespace internal

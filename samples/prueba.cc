@@ -21,7 +21,12 @@ class ArrayBufferAllocator : public v8::ArrayBuffer::Allocator {
 };
 
 
+void SetFlagsFromString(const char* flags) {
+  v8::V8::SetFlagsFromString(flags, static_cast<int>(strlen(flags)));
+}
+
 int main(int argc, char* argv[]) {
+  SetFlagsFromString("--print_all_code");
   // Initialize V8.
   V8::InitializeICU();
   V8::InitializeExternalStartupData(argv[0]);

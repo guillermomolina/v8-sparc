@@ -228,17 +228,97 @@ void CEntryStub::Generate(MacroAssembler* masm) {
 //   o2: receiver.
 //   o3: argc.
 //   o4: argv.
-// Output:
-//   o0: result.
-void JSEntryStub::Generate(MacroAssembler* masm) {
-    WARNING("JSEntryStub::Generate");
-  // Clear any pending exceptions.
-  __ set(Operand(isolate()->factory()->the_hole_value()),g1);
-  __ set(Operand(ExternalReference(Isolate::kPendingExceptionAddress, isolate())), g2);
-  __ stx(g1, MemOperand(g2));
 
-  __ retl(); 
-  __ delayed()->mov(o2, o0); 
+    //
+    // +---------------+ <--- sp + 0
+    // |               |
+    // . reg save area .
+    // |               |
+    // +---------------+ <--- sp + 0x40
+    // |               |
+    // . extra 7 slots .
+    // |               |
+    // +---------------+ <--- sp + 0x5c
+    // |               |
+
+// Output:
+//   i0: result.
+void JSEntryStub::Generate(MacroAssembler* masm) {
+
+  ProfileEntryHookStub::MaybeCallEntryHook(masm);
+  
+  // Set up frame
+    __ Save(0); // I don't know how much to reserve for now
+
+  
+  /* const Argument code_entry = Argument(0, false); 
+  const Argument function = Argument(1, false);
+  const Argument receiver = Argument(2, false);
+  const Argument argc = Argument(3, false);
+  const Argument argv = Argument(4, false);*/
+ 
+  // In SPARC we don't Save callee saved registers on the stack.
+  
+   __ InitializeRootRegister();    
+
+    WARNING("JSEntryStub::Generate - TODO: Save callee saved registers on the stack");
+
+   
+    // Build an entry frame (see layout below).
+    WARNING("JSEntryStub::Generate - TODO: Build an entry frame");
+  
+  // If this is the outermost JS call, set js_entry_sp value.
+    WARNING("JSEntryStub::Generate - TODO: If this is the outermost JS call, set js_entry_sp value");
+    
+  // Jump to a faked try block that does the invoke, with a faked catch
+  // block that sets the pending exception.
+    WARNING("JSEntryStub::Generate - TODO: Jump to a faked try block that does the invoke");
+    
+  // Clear any pending exceptions.
+  __ LoadRoot(Heap::kTheHoleValueRootIndex, g1);
+  __ set(Operand(ExternalReference(Isolate::kPendingExceptionAddress, isolate())), g2);
+  __ st_ptr(g1, MemOperand(g2));
+
+  // Invoke the function by calling through JS entry trampoline builtin.
+  // Notice that we cannot store a reference to the trampoline code directly in
+  // this stub, because runtime stubs are not traversed when doing GC.
+
+  // Copy C++ arguments
+  __ mov(i0, o0);
+  __ mov(i1, o1);
+  __ mov(i2, o2);
+  __ mov(i3, o3);
+  __ mov(i4, o4);
+  
+  if (type() == StackFrame::ENTRY_CONSTRUCT) {
+    ExternalReference construct_entry(Builtins::kJSConstructEntryTrampoline,
+                                      isolate());
+    __ set(Operand(construct_entry), g1);
+  } else {
+    ExternalReference entry(Builtins::kJSEntryTrampoline, isolate());
+    __ set(Operand(entry), g1);
+  }
+  __ ld_ptr(MemOperand(g1), g1);  // Deref address.
+  // Call JSEntryTrampoline.
+  __ callr(g1, Code::kHeaderSize - kHeapObjectTag);
+  __ delayed()->nop();
+  
+
+    // Unlink this frame from the handler chain.
+   WARNING("JSEntryStub::Generate - TODO: Unlink this frame from the handler chain");
+
+   // Check if the current stack frame is marked as the outermost JS frame.
+   WARNING("JSEntryStub::Generate - TODO: Check the current stack frame");
+
+   // Restore the top frame descriptors from the stack.
+   WARNING("JSEntryStub::Generate - TODO: Restore the top frame descriptors from the stack");
+  
+   // Restore callee saved registers from the stack.
+   WARNING("JSEntryStub::Generate - TODO: Restore callee saved registers from the stack");
+
+  // Restore frame pointer and return.
+  __ ret(); 
+  __ delayed()->restore(); 
 }
 
 

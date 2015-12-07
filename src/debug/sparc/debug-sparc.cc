@@ -24,15 +24,15 @@ void DebugCodegen::GenerateSlot(MacroAssembler* masm, RelocInfo::Mode mode,
 }
 
 
-void DebugCodegen::ClearDebugBreakSlot(Address pc) {
-    UNIMPLEMENTED();
+void DebugCodegen::ClearDebugBreakSlot(Isolate* isolate, Address pc) {
+  CodePatcher patcher(isolate, pc, Assembler::kDebugBreakSlotInstructions);
+  EmitDebugBreakSlot(patcher.masm());
 }
 
-
-void DebugCodegen::PatchDebugBreakSlot(Address pc, Handle<Code> code) {
-    UNIMPLEMENTED();
+void DebugCodegen::PatchDebugBreakSlot(Isolate* isolate, Address pc,
+                                       Handle<Code> code) {
+    WARNING("DebugCodegen::PatchDebugBreakSlot");    
 }
-
 
 void DebugCodegen::GenerateDebugBreakStub(MacroAssembler* masm,
                                           DebugBreakCallHelperMode mode) {

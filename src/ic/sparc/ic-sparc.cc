@@ -72,6 +72,7 @@ namespace internal {
 
 void LoadIC::GenerateNormal(MacroAssembler* masm, LanguageMode language_mode) {
      WARNING("LoadIC::GenerateNormal");
+    __ breakpoint_trap();
 }
 
 
@@ -88,29 +89,34 @@ void LoadIC::GenerateNormal(MacroAssembler* masm, LanguageMode language_mode) {
 
 void LoadIC::GenerateMiss(MacroAssembler* masm) {
      WARNING("LoadIC::GenerateMiss");
+    __ breakpoint_trap();
 }
 
 
 void LoadIC::GenerateRuntimeGetProperty(MacroAssembler* masm,
                                         LanguageMode language_mode) {
      WARNING("LoadIC::GenerateRuntimeGetProperty");
+    __ breakpoint_trap();
 }
 
 
 void KeyedLoadIC::GenerateMiss(MacroAssembler* masm) {
      WARNING("KeyedLoadIC::GenerateMiss");
+    __ breakpoint_trap();
 }
 
 
 void KeyedLoadIC::GenerateRuntimeGetProperty(MacroAssembler* masm,
                                              LanguageMode language_mode) {
      WARNING("KeyedLoadIC::GenerateRuntimeGetProperty");
+    __ breakpoint_trap();
 }
 
 
 void KeyedLoadIC::GenerateMegamorphic(MacroAssembler* masm,
                                       LanguageMode language_mode) {
      WARNING("KeyedLoadIC::GenerateMegamorphic");
+    __ breakpoint_trap();
 }
 
 
@@ -126,6 +132,7 @@ void KeyedLoadIC::GenerateMegamorphic(MacroAssembler* masm,
 void KeyedStoreIC::GenerateMegamorphic(MacroAssembler* masm,
                                        LanguageMode language_mode) {
      WARNING("KeyedStoreIC::GenerateMegamorphic");
+    __ breakpoint_trap();
 }
 
 
@@ -136,21 +143,25 @@ void KeyedStoreIC::GenerateMegamorphic(MacroAssembler* masm,
 
 void KeyedStoreIC::GenerateMiss(MacroAssembler* masm) {
      WARNING("KeyedStoreIC::GenerateMiss");
+__ breakpoint_trap();
 }
 
 
 void StoreIC::GenerateMegamorphic(MacroAssembler* masm) {
      WARNING("StoreIC::GenerateMegamorphic");
+    __ breakpoint_trap();
 }
 
 
 void StoreIC::GenerateMiss(MacroAssembler* masm) {
      WARNING("StoreIC::GenerateMiss");
+    __ breakpoint_trap();
 }
 
 
 void StoreIC::GenerateNormal(MacroAssembler* masm) {
      WARNING("StoreIC::GenerateNormal");
+    __ breakpoint_trap();
 }
 
 
@@ -168,6 +179,10 @@ bool CompareIC::HasInlinedSmiCode(Address address) {
      return false;
 }
 
+void PatchInlinedSmiCode(Isolate* isolate, Address address,
+                         InlinedSmiCheck check) {
+         WARNING("PatchInlinedSmiCode");
+}
 
 void PatchInlinedSmiCode(Address address, InlinedSmiCheck check) {
      WARNING("PatchInlinedSmiCode");

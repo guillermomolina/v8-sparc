@@ -51,6 +51,17 @@ bool Operand::must_output_reloc_info(const MacroAssembler* masm) const {
   return true;
 }
 
+MemOperand Argument::address_in_frame() const {
+  // Warning: In LP64 mode disp will occupy more than 10 bits, but
+  //          op codes such as ld or ldx, only access disp() to get
+  //          their simm13 argument.
+  int disp = ((_number - Argument::n_register_parameters + FrameConstants::memory_parameter_word_sp_offset) * kWordSize) + kStackBias;
+  if (is_in())
+    return MemOperand(fp, disp); // In argument.
+  else
+    return MemOperand(sp, disp); // Out argument.
+}
+
 MacroAssembler::MacroAssembler(Isolate* arg_isolate, byte* buffer,
                                unsigned buffer_size,
                                CodeObjectRequired create_code_object)
@@ -78,7 +89,7 @@ void MacroAssembler::sethi(const Operand& src, Register d) {
 # ifdef CHECK_DELAY
   assert_not_delayed();//(char*) "cannot put two instructions in delay slot");
 # endif
-  v9_dep();
+//  v9_dep();
 //  save_pc = pc();
 
   int msb32 = (int) (src.immediate() >> 32);
@@ -373,9 +384,8 @@ void MacroAssembler::ba_short(Label* L) {
 }
 
 int MacroAssembler::CallSize(Address target, RelocInfo::Mode rmode) { 
-    UNIMPLEMENTED();
- //   return (insts_for_sethi(reinterpret_cast<intptr_t>(target), true) + 2) * kInstructionSize;
-}
+    return (kInstructionsPerPachableSet + 3) * kInstructionSize;
+ }
 
 // MacroAssembler::CallSize is sensitive to changes in this function, as it
 // requires to know how many instructions are used to branch to the target.
@@ -387,17 +397,16 @@ void MacroAssembler::Call(Address target, RelocInfo::Mode rmode) {
   // Statement positions are expected to be recorded when the target
   // address is loaded.
   positions_recorder()->WriteRecordedPositions();
-  UNIMPLEMENTED();
-  sethi(Operand(reinterpret_cast<intptr_t>(target), rmode), kScratchRegister);
-  callr(kScratchRegister, low10(reinterpret_cast<intptr_t>(target)));
+  set(Operand(reinterpret_cast<intptr_t>(target), rmode), kScratchRegister);
+  ld_ptr(MemOperand(kScratchRegister), kScratchRegister);  // Deref address.
+  callr(kScratchRegister, g0);
   delayed()->nop();
   
 #ifdef DEBUG
   AssertSizeOfCodeGeneratedSince(&start_call, CallSize(target, rmode));
 #endif
 }
-
-
+  
 void MacroAssembler::Call(Handle<Code> code,
                           RelocInfo::Mode rmode,
                           TypeFeedbackId ast_id) {
@@ -425,19 +434,28 @@ bool MacroAssembler::AllowThisStubCall(CodeStub* stub) {
   return has_frame_ || !stub->SometimesSetsUpAFrame();
 }
 
- void MacroAssembler::EnterFrame(StackFrame::Type type,
-                                bool load_constant_pool_pointer_reg) {
-     UNIMPLEMENTED();
+void MacroAssembler::EnterFrame(StackFrame::Type type, bool load_constant_pool_pointer_reg) {
+  // Out-of-line constant pool not implemented on sparc.
+  UNREACHABLE();
 }
 
-int MacroAssembler::LeaveFrame(StackFrame::Type type, int stack_adjustment) {
-     UNIMPLEMENTED();
+void MacroAssembler::EnterFrame(StackFrame::Type type) {
+  Save(2);
+  set(Operand(Operand(CodeObject())), g1);
+  st_ptr(g1, temp_address_in_frame(0));
+  set(Operand(Smi::FromInt(type)), g1);
+  st_ptr(g1, temp_address_in_frame(1));
+}
+
+void MacroAssembler::LeaveFrame(StackFrame::Type type, int stack_adjustment) {
+  restore();
 }
 
 void MacroAssembler::TailCallExternalReference(const ExternalReference& ext,
                                                int num_arguments,
                                                int result_size) {
      WARNING("MacroAssembler::TailCallExternalReference");
+    breakpoint_trap();     
 }
 
 
@@ -480,9 +498,7 @@ void MacroAssembler::TailCallRuntime(Runtime::FunctionId fid,
 
 
 void MacroAssembler::LoadRoot(Heap::RootListIndex index, Register destination) {
-  // TODO(jbramley): Most root values are constants, and can be synthesized
-  // without a load. Refer to the ARM back end for details.
-  ldx(MemOperand(kRootRegister, index << kPointerSizeLog2), destination);
+  ld_ptr(MemOperand(kRootRegister, index << kPointerSizeLog2), destination);
 }
 
 
@@ -517,11 +533,12 @@ void MacroAssembler::RecordWrite(
 }
 
 
-CodePatcher::CodePatcher(byte* address, int instructions,
+
+CodePatcher::CodePatcher(Isolate* isolate, byte* address, int instructions,
                          FlushICache flush_cache)
     : address_(address),
-      size_(instructions* kInstructionSize),
-      masm_(NULL, address, size_ + Assembler::kGap, CodeObjectRequired::kNo),
+      size_(instructions * kInstructionSize),
+      masm_(isolate, address, size_ + Assembler::kGap, CodeObjectRequired::kNo),
       flush_cache_(flush_cache) {
   // Create a new macro assembler pointing to the address of the code to patch.
   // The size is adjusted with kGap on order for the assembler to generate size
@@ -533,14 +550,11 @@ CodePatcher::CodePatcher(byte* address, int instructions,
 CodePatcher::~CodePatcher() {
   // Indicate that code has changed.
   if (flush_cache_ == FLUSH) {
-    Assembler::FlushICacheWithoutIsolate(address_, size_);
+    Assembler::FlushICache(masm_.isolate(), address_, size_);
   }
-  
-  WARNING("CodePatcher::~CodePatcher");
-/*
   // Check that the code was patched as expected.
   DCHECK(masm_.pc_ == address_ + size_);
-  DCHECK(masm_.reloc_info_writer.pos() == address_ + size_ + Assembler::kGap);*/
+  DCHECK(masm_.reloc_info_writer.pos() == address_ + size_ + Assembler::kGap);
 }
 
 

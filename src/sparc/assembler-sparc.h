@@ -102,6 +102,24 @@ namespace internal {
 // and best performance in optimized code.
 
 struct Register {
+  enum {
+    log_set_size        = 3,                          // the number of bits to encode the set register number
+    number_of_sets      = 4,                          // the number of registers sets (in, local, out, global)
+    number_of_registers = number_of_sets << log_set_size,
+
+    iset_no = 3,  ibase = iset_no << log_set_size,    // the in     register set
+    lset_no = 2,  lbase = lset_no << log_set_size,    // the local  register set
+    oset_no = 1,  obase = oset_no << log_set_size,    // the output register set
+    gset_no = 0,  gbase = gset_no << log_set_size     // the global register set
+  };
+
+  friend Register as_Register(int encoding);
+  // set specific construction
+  friend Register as_iRegister(int number);
+  friend Register as_lRegister(int number);
+  friend Register as_oRegister(int number);
+  friend Register as_gRegister(int number);
+
   enum Code {
 #define REGISTER_CODE(R) kCode_##R,
     GENERAL_REGISTERS(REGISTER_CODE)
@@ -130,8 +148,41 @@ struct Register {
   }
   const char* ToString();
   bool IsAllocatable() const;
-  bool is_even() const  { return (code() & 1) == 0; }
-  bool is_valid() const { return 0 <= reg_code && reg_code < kNumRegisters; }
+ 
+  bool is_valid() const                              { return 0 <= reg_code && reg_code < kNumRegisters; }
+  bool is_even() const                                { return (code() & 1) == 0; }
+  bool is_in() const                                  { return (code() >> log_set_size) == iset_no; }
+  bool is_local() const                               { return (code() >> log_set_size) == lset_no; }
+  bool is_out() const                                 { return (code() >> log_set_size) == oset_no; }
+  bool is_global() const                              { return (code() >> log_set_size) == gset_no; }
+
+  // derived registers, offsets, and addresses
+  Register successor() const                          { return from_code(code() + 1); }
+
+  int input_number() const {
+    DCHECK(is_in());//, "must be input register");
+    return code() - ibase;
+  }
+
+  Register after_save() const {
+    DCHECK(is_out() || is_global());//, "register not visible after save");
+    if(is_out())
+        return from_code(code() + (ibase - obase));
+    return from_code(code());
+  }
+
+  Register after_restore() const {
+    DCHECK(is_in() || is_global());//, "register not visible after restore");
+    if(is_in())
+        return from_code(code() + (obase - ibase));
+    return from_code(code()); 
+  }
+
+  int sp_offset_in_saved_window() const {
+    DCHECK(is_in() || is_local());//, "only i and l registers are saved in frame");
+    return code() - lbase;
+  }
+  
   bool is(Register reg) const { return reg_code == reg.reg_code; }
   int code() const {
     DCHECK(is_valid());
@@ -162,6 +213,16 @@ struct Register {
 GENERAL_REGISTERS(DECLARE_REGISTER)
 #undef DECLARE_REGISTER
 const Register no_reg = {Register::kCode_no_reg};
+
+inline Register as_Register(int code) {
+  return Register::from_code(code);
+}
+
+// set specific construction
+inline Register as_iRegister(int number)            { return as_Register(Register::ibase + number); }
+inline Register as_lRegister(int number)            { return as_Register(Register::lbase + number); }
+inline Register as_oRegister(int number)            { return as_Register(Register::obase + number); }
+inline Register as_gRegister(int number)            { return as_Register(Register::gbase + number); }
 
 
 // Coprocessor register.
@@ -263,9 +324,15 @@ const DoubleRegister no_double_reg = {DoubleRegister::kCode_no_reg};
 typedef DoubleRegister FPURegister;
 typedef DoubleRegister FloatRegister;
 
+
+// construction
+inline FloatRegister as_FloatRegister(int code) {
+  return FloatRegister::from_code(code);;
+}
+
 // Register aliases
 #define cp g5
-#define kRootRegister g7          // Roots array pointer.
+#define kRootRegister g4          // Roots array pointer.
 #define kLithiumScratchReg l0
 #define kLithiumScratchReg2 l1
 #define kLithiumScratchDouble f60
@@ -333,32 +400,30 @@ public:
   // The high 8 bits are set to zero.
   void label_at_put(Label* L, int at_offset);
 
+  // Read/Modify the code target address in the branch/call instruction at pc.
   static Address target_address_at(Address pc);
-  static void set_target_address_at(Address pc,
-                                    Address target,
-                                    ICacheFlushMode icache_flush_mode =
-                                        FLUSH_ICACHE_IF_NEEDED);
-
-   // Read/Modify the code target address in the branch/call instruction at pc.
- INLINE(static Address target_address_at(Address pc, Address constant_pool)) {
+  static void set_target_address_at(
+      Isolate* isolate, Address pc, Address target,
+      ICacheFlushMode icache_flush_mode = FLUSH_ICACHE_IF_NEEDED);
+  // On MIPS there is no Constant Pool so we skip that parameter.
+  INLINE(static Address target_address_at(Address pc, Address constant_pool)) {
     return target_address_at(pc);
   }
   INLINE(static void set_target_address_at(
-      Address pc, Address constant_pool, Address target,
+      Isolate* isolate, Address pc, Address constant_pool, Address target,
       ICacheFlushMode icache_flush_mode = FLUSH_ICACHE_IF_NEEDED)) {
-    set_target_address_at(pc, target, icache_flush_mode);
+    set_target_address_at(isolate, pc, target, icache_flush_mode);
   }
   INLINE(static Address target_address_at(Address pc, Code* code)) {
     Address constant_pool = code ? code->constant_pool() : NULL;
     return target_address_at(pc, constant_pool);
   }
-  INLINE(static void set_target_address_at(Address pc,
-                                           Code* code,
-                                           Address target,
-                                           ICacheFlushMode icache_flush_mode =
-                                               FLUSH_ICACHE_IF_NEEDED)) {
+  INLINE(static void set_target_address_at(
+      Isolate* isolate, Address pc, Code* code, Address target,
+      ICacheFlushMode icache_flush_mode = FLUSH_ICACHE_IF_NEEDED)) {
     Address constant_pool = code ? code->constant_pool() : NULL;
-    set_target_address_at(pc, constant_pool, target, icache_flush_mode);
+    set_target_address_at(isolate, pc, constant_pool, target,
+                          icache_flush_mode);
   }
 
   // Return the code target address at a call site from the return address
@@ -366,14 +431,18 @@ public:
   inline static Address target_address_from_return_address(Address pc);
 
   // This sets the branch destination (which gets loaded at the call address).
-  // This is for calls and branches within generated code.  T
+  // This is for calls and branches within generated code.  The serializer
+  // has already deserialized the lui/ori instructions etc.
   inline static void deserialization_set_special_target_at(
-      Address instruction_payload, Code* code, Address target)  { UNIMPLEMENTED(); }
+      Isolate* isolate, Address instruction_payload, Code* code,
+      Address target) {
+      UNIMPLEMENTED();
+  }
 
   // This sets the internal reference at the pc.
   inline static void deserialization_set_target_internal_reference_at(
-      Address pc, Address target,
-      RelocInfo::Mode mode = RelocInfo::INTERNAL_REFERENCE) { UNIMPLEMENTED(); }
+      Isolate* isolate, Address pc, Address target,
+      RelocInfo::Mode mode = RelocInfo::INTERNAL_REFERENCE);
 
 
   // Difference between address of current opcode and target address offset.
@@ -477,7 +546,7 @@ public:
   void dp(uintptr_t data) { dc64(data); }
 
 
-  Instruction* pc() const { return Instruction::Cast(pc_); }
+//  Instruction* pc() const { return Instruction::Cast(pc_); }
 
   // Read/patch instructions
   Instr instr_at(int pos) { return *reinterpret_cast<Instr*>(buffer_ + pos); }
@@ -1265,7 +1334,7 @@ public:
   void save(    Register s1, Register s2, Register d ) { Emit( op(arith_op) | rd(d) | op3(save_op3) | rs1(s1) | rs2(s2) ); }
   void save(    Register s1, int simm13a, Register d ) {
     // make sure frame is at least large enough for the register save area
-   DCHECK(-simm13a >= 16 * wordSize);//, "frame too small");
+   DCHECK(-simm13a >= 16 * kWordSize);//, "frame too small");
     Emit( op(arith_op) | rd(d) | op3(save_op3) | rs1(s1) | immed(true) | simm(simm13a, 13) );
   }
 
@@ -1532,11 +1601,10 @@ private:
   
   friend class RelocInfo;
   friend class CodePatcher;
-
   PositionsRecorder positions_recorder_;
   friend class PositionsRecorder;
   friend class EnsureSpace;
-
+  friend class Decoder;
 };
 
 

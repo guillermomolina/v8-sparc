@@ -135,6 +135,163 @@ inline void MacroAssembler::fbp( FPUCondition c, bool a, CC cc, Predict p, Label
   Assembler::fbp(c, a, cc, p, L);
 }
 
+
+
+// Use the right loads/stores for the platform
+inline void MacroAssembler::ld_ptr( Register s1, Register s2, Register d ) {
+#ifdef _LP64
+  Assembler::ldx(s1, s2, d);
+#else
+             ld( s1, s2, d);
+#endif
+}
+
+inline void MacroAssembler::ld_ptr( Register s1, int simm13a, Register d ) {
+#ifdef _LP64
+  Assembler::ldx(s1, simm13a, d);
+#else
+             ld( s1, simm13a, d);
+#endif
+}
+
+
+inline void MacroAssembler::ld_ptr(const MemOperand& s, Register d) {
+#ifdef _LP64
+  ldx(s, d);
+#else
+  ld( s, d);
+#endif
+}
+
+inline void MacroAssembler::st_ptr( Register d, Register s1, Register s2 ) {
+#ifdef _LP64
+  Assembler::stx(d, s1, s2);
+#else
+             st( d, s1, s2);
+#endif
+}
+
+inline void MacroAssembler::st_ptr( Register d, Register s1, int simm13a ) {
+#ifdef _LP64
+  Assembler::stx(d, s1, simm13a);
+#else
+             st( d, s1, simm13a);
+#endif
+}
+
+inline void MacroAssembler::st_ptr(Register d, const MemOperand& s) {
+#ifdef _LP64
+  stx(d, s);
+#else
+  st( d, s);
+#endif
+}
+
+// Use the right loads/stores for the platform
+inline void MacroAssembler::ld_long( Register s1, Register s2, Register d ) {
+#ifdef _LP64
+  Assembler::ldx(s1, s2, d);
+#else
+  Assembler::ldd(s1, s2, d);
+#endif
+}
+
+inline void MacroAssembler::ld_long( Register s1, int simm13a, Register d ) {
+#ifdef _LP64
+  Assembler::ldx(s1, simm13a, d);
+#else
+  Assembler::ldd(s1, simm13a, d);
+#endif
+}
+
+
+inline void MacroAssembler::ld_long(const MemOperand& s, Register d) {
+#ifdef _LP64
+  ldx(s, d);
+#else
+  ldd(s, d);
+#endif
+}
+
+inline void MacroAssembler::st_long( Register d, Register s1, Register s2 ) {
+#ifdef _LP64
+  Assembler::stx(d, s1, s2);
+#else
+  Assembler::std(d, s1, s2);
+#endif
+}
+
+inline void MacroAssembler::st_long( Register d, Register s1, int simm13a ) {
+#ifdef _LP64
+  Assembler::stx(d, s1, simm13a);
+#else
+  Assembler::std(d, s1, simm13a);
+#endif
+}
+
+
+inline void MacroAssembler::st_long( Register d, const MemOperand& s) {
+#ifdef _LP64
+  stx(d, s);
+#else
+  std(d, s);
+#endif
+}
+
+
+inline void MacroAssembler::load_argument( Argument& a, Register  d ) {
+  if (a.is_register())
+    mov(a.as_register(), d);
+  else
+    ld (a.as_address(),  d);
+}
+
+inline void MacroAssembler::store_argument( Register s, Argument& a ) {
+  if (a.is_register())
+    mov(s, a.as_register());
+  else
+    st_ptr (s, a.as_address());         // ABI says everything is right justified.
+}
+
+inline void MacroAssembler::store_ptr_argument( Register s, Argument& a ) {
+  if (a.is_register())
+    mov(s, a.as_register());
+  else
+    st_ptr (s, a.as_address());
+}
+
+
+#ifdef _LP64
+inline void MacroAssembler::store_float_argument( FloatRegister s, Argument& a ) {
+  if (a.is_float_register())
+// V9 ABI has F1, F3, F5 are used to pass instead of O0, O1, O2
+    fmov(FloatRegister::S, s, a.as_float_register() );
+  else {
+    // Floats are stored in the high half of the stack entry
+    // The low half is undefined per the ABI.
+    MemOperand a_address = a.as_address();
+    DCHECK(a_address.IsImmediateOffset());
+    MemOperand d(a_address.base(), a_address.offset() + sizeof(float));
+    stf(FloatRegister::S, s, d);      
+  }
+}
+
+inline void MacroAssembler::store_double_argument( FloatRegister s, Argument& a ) {
+  if (a.is_float_register())
+// V9 ABI has D0, D2, D4 are used to pass instead of O0, O1, O2
+    fmov(FloatRegister::D, s, a.as_double_register() );
+  else
+    stf(FloatRegister::D, s, a.as_address());
+}
+
+inline void MacroAssembler::store_long_argument( Register s, Argument& a ) {
+  if (a.is_register())
+    mov(s, a.as_register());
+  else
+    stx(s, a.as_address());
+}
+#endif
+
 inline void MacroAssembler::jmp( Register s1, Register s2 ) { jmpl( s1, s2, g0 ); }
 inline void MacroAssembler::jmp( Register s1, int simm13a ) { jmpl( s1, simm13a, g0); }
 
@@ -227,6 +384,11 @@ inline void MacroAssembler::std(Register d, const MemOperand& s) {
 inline void MacroAssembler::stx(Register d, const MemOperand& s) {
   if (s.IsRegisterOffset()) { stx(d, s.base(), s.regoffset()        ); }
   else               {                          stx(d, s.base(), s.offset()); }
+}
+
+inline void MacroAssembler::stf(FloatRegister::Width w, FloatRegister d, const MemOperand& s) {
+  if (s.IsRegisterOffset()) { stf(w, d, s.base(), s.regoffset()        ); }
+  else               {                          stf(w, d, s.base(), s.offset()); }
 }
 
 

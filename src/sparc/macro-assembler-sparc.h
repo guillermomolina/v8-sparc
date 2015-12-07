@@ -118,6 +118,85 @@ private:
   friend class Assembler;
 };
 
+
+
+// Argument is an abstraction used to represent an outgoing
+// actual argument or an incoming formal parameter, whether
+// it resides in memory or in a register, in a manner consistent
+// with the SPARC Application Binary Interface, or ABI.  This is
+// often referred to as the native or C calling convention.
+
+class Argument BASE_EMBEDDED {
+ private:
+  int _number;
+  bool _is_in;
+
+ public:
+#ifdef _LP64
+  enum {
+    n_register_parameters = 6,          // only 6 registers may contain integer parameters
+    n_float_register_parameters = 16    // Can have up to 16 floating registers
+  };
+#else
+  enum {
+    n_register_parameters = 6           // only 6 registers may contain integer parameters
+  };
+#endif
+
+  // creation
+  Argument(int number, bool is_in) : _number(number), _is_in(is_in) {}
+
+  int  number() const  { return _number;  }
+  bool is_in()  const  { return _is_in;   }
+  bool is_out() const  { return !is_in(); }
+
+  Argument successor() const  { return Argument(number() + 1, is_in()); }
+  Argument as_in()     const  { return Argument(number(), true ); }
+  Argument as_out()    const  { return Argument(number(), false); }
+
+  // locating register-based arguments:
+  bool is_register() const { return _number < n_register_parameters; }
+
+#ifdef _LP64
+  // locating Floating Point register-based arguments:
+  bool is_float_register() const { return _number < n_float_register_parameters; }
+
+  FloatRegister as_float_register() const {
+    DCHECK(is_float_register());//, "must be a register argument");
+    return as_FloatRegister(( number() *2 ) + 1);
+  }
+  FloatRegister as_double_register() const {
+    DCHECK(is_float_register());//, "must be a register argument");
+    return as_FloatRegister(( number() *2 ));
+  }
+#endif
+
+  Register as_register() const {
+    DCHECK(is_register());//, "must be a register argument");
+    return is_in() ? as_iRegister(number()) : as_oRegister(number());
+  }
+
+  // locating memory-based arguments
+  MemOperand as_address() const {
+    DCHECK(!is_register());//, "must be a memory argument");
+    return address_in_frame();
+  }
+
+  // When applied to a register-based argument, give the corresponding address
+  // into the 6-word area "into which callee may store register arguments"
+  // (This is a different place than the corresponding register-save area location.)
+  MemOperand address_in_frame() const;
+
+  // debugging
+  const char* name() const;
+
+  friend class Assembler;
+};
+
+inline MemOperand temp_address_in_frame(int index) {
+    return MemOperand(fp, kStackBias - (index+1) * kWordSize );
+}
+
 // MacroAssembler implements a collection of frequently used macros.
 class MacroAssembler : public Assembler {
 public:
@@ -341,6 +420,59 @@ public:
   inline void st(Register d, const MemOperand& s);
   inline void stdf(FloatRegister d, const MemOperand& s);
 
+  using Assembler::stf;
+  inline void stf(FloatRegister::Width w, FloatRegister d, const MemOperand& s);
+
+    // argument pseudos:
+
+  inline void load_argument( Argument& a, Register  d );
+  inline void store_argument( Register s, Argument& a );
+  inline void store_ptr_argument( Register s, Argument& a );
+  inline void store_float_argument( FloatRegister s, Argument& a );
+  inline void store_double_argument( FloatRegister s, Argument& a );
+  inline void store_long_argument( Register s, Argument& a );
+
+  // handy macros:
+
+  inline void round_to( Register r, int modulus ) {
+    assert_not_delayed();
+    inc( r, modulus - 1 );
+    and3( r, -modulus, r );
+  }
+
+  // --------------------------------------------------
+
+  // Functions for isolating 64 bit loads for LP64
+  // ld_ptr will perform ld for 32 bit VM's and ldx for 64 bit VM's
+  // st_ptr will perform st for 32 bit VM's and stx for 64 bit VM's
+  inline void ld_ptr(Register s1, Register s2, Register d);
+  inline void ld_ptr(Register s1, int simm13a, Register d);
+  inline void ld_ptr(const MemOperand& s, Register d);
+  inline void st_ptr(Register d, Register s1, Register s2);
+  inline void st_ptr(Register d, Register s1, int simm13a);
+  inline void st_ptr(Register d, const MemOperand& s);
+
+#ifdef ASSERT
+  // ByteSize is only a class when ASSERT is defined, otherwise it's an int.
+  inline void ld_ptr(Register s1, ByteSize simm13a, Register d);
+  inline void st_ptr(Register d, Register s1, ByteSize simm13a);
+#endif
+
+  // ld_long will perform ldd for 32 bit VM's and ldx for 64 bit VM's
+  // st_long will perform std for 32 bit VM's and stx for 64 bit VM's
+  inline void ld_long(Register s1, Register s2, Register d);
+  inline void ld_long(Register s1, int simm13a, Register d);
+  inline void ld_long(const MemOperand& s, Register d);
+  inline void st_long(Register d, Register s1, Register s2);
+  inline void st_long(Register d, Register s1, int simm13a);
+  inline void st_long(Register d, const MemOperand& s);
+
+  void InitializeRootRegister() {
+    ExternalReference roots_array_start =
+        ExternalReference::roots_array_start(isolate());
+    set(Operand(roots_array_start), kRootRegister);
+  }
+
   // Generates function and stub prologue code.
   void Prologue(bool code_pre_aging, int locals_count);
   
@@ -379,7 +511,7 @@ public:
   void Jump(Handle<Code> code, RelocInfo::Mode rmode, Condition cond = always) { UNIMPLEMENTED(); }
   void Jump(intptr_t target, RelocInfo::Mode rmode, Condition cond = always) { UNIMPLEMENTED(); }
 
-  void Call(Register target) { UNIMPLEMENTED(); }
+/*  void Call(Register target) { UNIMPLEMENTED(); }*/
   void Call(Label* target) { UNIMPLEMENTED(); }
   void Call(Address target, RelocInfo::Mode rmode);
   void Call(Handle<Code> code,
@@ -388,7 +520,7 @@ public:
 
   // For every Call variant, there is a matching CallSize function that returns
   // the size (in bytes) of the call sequence.
-  static int CallSize(Register target) { UNIMPLEMENTED(); }
+ /* static int CallSize(Register target) { UNIMPLEMENTED(); }*/
   static int CallSize(Label* target) { UNIMPLEMENTED(); }
   static int CallSize(Address target, RelocInfo::Mode rmode);
   static int CallSize(Handle<Code> code,
@@ -441,11 +573,10 @@ public:
   bool has_frame() { return has_frame_; }
   inline bool AllowThisStubCall(CodeStub* stub);
 
-  // Activation support.
-  void EnterFrame(StackFrame::Type type,
-                  bool load_constant_pool_pointer_reg = false);
-  // Returns the pc offset at which the frame ends.
-  int LeaveFrame(StackFrame::Type type, int stack_adjustment = 0);
+ // Activation support.
+ void EnterFrame(StackFrame::Type type);
+ void EnterFrame(StackFrame::Type type, bool load_constant_pool_pointer_reg);
+  void LeaveFrame(StackFrame::Type type, int stack_adjustment = 0);
 
    // Allocates a heap number or jumps to the gc_required label if the young
   // space is full and a scavenge is needed. All registers are clobbered also
@@ -565,9 +696,13 @@ private:
 // an assertion to fail.
 class CodePatcher {
  public:
-  enum FlushICache { FLUSH, DONT_FLUSH };
+  enum FlushICache {
+    FLUSH,
+    DONT_FLUSH
+  };
 
-  CodePatcher(byte* address, int instructions, FlushICache flush_cache = FLUSH);
+  CodePatcher(Isolate* isolate, byte* address, int instructions,
+              FlushICache flush_cache = FLUSH);
   ~CodePatcher();
 
   // Macro assembler to emit code.

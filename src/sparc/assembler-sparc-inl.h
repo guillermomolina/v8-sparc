@@ -72,11 +72,21 @@ Handle<Object> RelocInfo::target_object_handle(Assembler* origin) {
       reinterpret_cast<Object**>(Assembler::target_address_at(pc_, host_)));
 }
 
+
 void RelocInfo::set_target_object(Object* target,
                                   WriteBarrierMode write_barrier_mode,
                                   ICacheFlushMode icache_flush_mode) {
-    UNIMPLEMENTED();
+  DCHECK(IsCodeTarget(rmode_) || rmode_ == EMBEDDED_OBJECT);
+  Assembler::set_target_address_at(isolate_, pc_, host_,
+                                   reinterpret_cast<Address>(target),
+                                   icache_flush_mode);
+  if (write_barrier_mode == UPDATE_WRITE_BARRIER && host() != NULL &&
+      target->IsHeapObject()) {
+    host()->GetHeap()->incremental_marking()->RecordWrite(
+        host(), &Memory::Object_at(pc_), HeapObject::cast(target));
+  }
 }
+
 
 Handle<Cell> RelocInfo::target_cell_handle() {
     UNIMPLEMENTED();
@@ -107,9 +117,9 @@ void RelocInfo::set_code_age_stub(Code* stub,
     UNIMPLEMENTED();
 }
 
-
 Address RelocInfo::target_external_reference() {
-    UNIMPLEMENTED();
+  DCHECK(rmode_ == EXTERNAL_REFERENCE);
+  return Assembler::target_address_at(pc_, host_);
 }
 
 Address RelocInfo::target_internal_reference() {
@@ -140,11 +150,21 @@ Address RelocInfo::target_address() {
   return Assembler::target_address_at(pc_, host_);
 }
 
+
 void RelocInfo::set_target_address(Address target,
                                    WriteBarrierMode write_barrier_mode,
                                    ICacheFlushMode icache_flush_mode) {
-    UNIMPLEMENTED();
+  DCHECK(IsCodeTarget(rmode_) || IsRuntimeEntry(rmode_));
+  Assembler::set_target_address_at(isolate_, pc_, host_, target,
+                                   icache_flush_mode);
+  if (write_barrier_mode == UPDATE_WRITE_BARRIER && host() != NULL &&
+      IsCodeTarget(rmode_)) {
+    Object* target_code = Code::GetCodeFromTargetAddress(target);
+    host()->GetHeap()->incremental_marking()->RecordWriteIntoCode(
+        host(), this, HeapObject::cast(target_code));
+  }
 }
+
 
 int RelocInfo::target_address_size() {
     UNIMPLEMENTED();
@@ -156,6 +176,11 @@ Address RelocInfo::debug_call_address() {
 
 
 void RelocInfo::set_debug_call_address(Address target) {
+    UNIMPLEMENTED();
+}
+
+void Assembler::deserialization_set_target_internal_reference_at(
+    Isolate* isolate, Address pc, Address target, RelocInfo::Mode mode) {
     UNIMPLEMENTED();
 }
 
@@ -241,7 +266,6 @@ inline void Assembler::add(Register s1, Register s2, Register d ) {
 inline void Assembler::add(Register s1, int simm13a, Register d ) { 
     Emit( op(arith_op) | rd(d) | op3(add_op3) | rs1(s1) | immed(true) | simm(simm13a, 13) );
 }
-
 
 inline void Assembler::bpr( RCondition c, bool a, Predict p, Register s1, int disp16 ) {    
     v9_only(); 

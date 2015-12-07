@@ -10,8 +10,8 @@
 #include "src/debug/debug.h"
 #include "src/full-codegen/full-codegen.h"
 #include "src/ic/ic.h"
-#include "src/parser.h"
-#include "src/scopes.h"
+#include "src/parsing/parser.h"
+#include "src/ast/scopes.h"
 
 #include "src/sparc/code-stubs-sparc.h"
 #include "src/sparc/macro-assembler-sparc.h"
@@ -815,11 +815,6 @@ void FullCodeGenerator::EmitSuperConstructorCall(Call* expr) {
 
 
 void FullCodeGenerator::EmitIsSmi(CallRuntime* expr) {
-      WARNING("UNIMPLEMENTED");
-}
-
-
-void FullCodeGenerator::EmitIsSpecObject(CallRuntime* expr) {
       WARNING("UNIMPLEMENTED");
 }
 

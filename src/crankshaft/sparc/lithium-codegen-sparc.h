@@ -10,7 +10,7 @@
 #include "src/crankshaft/sparc/lithium-sparc.h"
 #include "src/deoptimizer.h"
 #include "src/safepoint-table.h"
-#include "src/scopes.h"
+#include "src/ast/scopes.h"
 #include "src/utils.h"
 
 namespace v8 {
