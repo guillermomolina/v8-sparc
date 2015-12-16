@@ -189,6 +189,7 @@ namespace internal {
   V(Object, noscript_shared_function_infos, NoScriptSharedFunctionInfos)       \
   V(FixedArray, interpreter_table, InterpreterTable)                           \
   V(Map, bytecode_array_map, BytecodeArrayMap)                                 \
+  V(WeakCell, empty_weak_cell, EmptyWeakCell)                                  \
   V(BytecodeArray, empty_bytecode_array, EmptyBytecodeArray)
 
 
@@ -281,6 +282,7 @@ namespace internal {
   V(nan_string, "NaN")                                           \
   V(next_string, "next")                                         \
   V(null_string, "null")                                         \
+  V(null_to_string, "[object Null]")                             \
   V(number_string, "number")                                     \
   V(Number_string, "Number")                                     \
   V(object_string, "object")                                     \
@@ -291,6 +293,7 @@ namespace internal {
   V(Promise_string, "Promise")                                   \
   V(proto_string, "__proto__")                                   \
   V(prototype_string, "prototype")                               \
+  V(Proxy_string, "Proxy")                                       \
   V(query_colon_string, "(?:)")                                  \
   V(RegExp_string, "RegExp")                                     \
   V(setPrototypeOf_string, "setPrototypeOf")                     \
@@ -317,6 +320,7 @@ namespace internal {
   V(uint8x16_string, "uint8x16")                                 \
   V(Uint8x16_string, "Uint8x16")                                 \
   V(undefined_string, "undefined")                               \
+  V(undefined_to_string, "[object Undefined]")                   \
   V(valueOf_string, "valueOf")                                   \
   V(value_string, "value")                                       \
   V(WeakMap_string, "WeakMap")                                   \
@@ -346,6 +350,7 @@ namespace internal {
   V(intl_impl_object_symbol)                \
   V(intl_initialized_marker_symbol)         \
   V(megamorphic_symbol)                     \
+  V(native_context_index_symbol)            \
   V(nonexistent_symbol)                     \
   V(nonextensible_symbol)                   \
   V(normal_ic_symbol)                       \
@@ -362,8 +367,10 @@ namespace internal {
   V(promise_value_symbol)                   \
   V(sealed_symbol)                          \
   V(stack_trace_symbol)                     \
+  V(strict_function_transition_symbol)      \
   V(string_iterator_iterated_string_symbol) \
   V(string_iterator_next_index_symbol)      \
+  V(strong_function_transition_symbol)      \
   V(uninitialized_symbol)
 
 #define PUBLIC_SYMBOL_LIST(V)                 \
@@ -447,6 +454,7 @@ namespace internal {
   V(JSMessageObjectMap)                 \
   V(ForeignMap)                         \
   V(NeanderMap)                         \
+  V(EmptyWeakCell)                      \
   V(empty_string)                       \
   PRIVATE_SYMBOL_LIST(V)
 
@@ -950,8 +958,6 @@ class Heap {
   void ClearNormalizedMapCaches();
 
   void IncrementDeferredCount(v8::Isolate::UseCounterFeature feature);
-
-  bool concurrent_sweeping_enabled() { return concurrent_sweeping_enabled_; }
 
   inline bool OldGenerationAllocationLimitReached();
 
@@ -1810,6 +1816,8 @@ class Heap {
   void AddToRingBuffer(const char* string);
   void GetFromRingBuffer(char* buffer);
 
+  void CompactRetainedMaps(ArrayList* retained_maps);
+
   // Attempt to over-approximate the weak closure by marking object groups and
   // implicit references from global handles, but don't atomically complete
   // marking. If we continue to mark incrementally, we might have marked
@@ -2352,8 +2360,6 @@ class Heap {
   int gc_callbacks_depth_;
 
   bool deserialization_complete_;
-
-  bool concurrent_sweeping_enabled_;
 
   StrongRootsList* strong_roots_list_;
 

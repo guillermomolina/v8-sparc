@@ -704,9 +704,7 @@ void MacroAssembler::InvokeBuiltin(int native_context_index, InvokeFlag flag,
   // You can't call a builtin without a valid frame.
   DCHECK(flag == JUMP_FUNCTION || has_frame());
 
-  // Rely on the assertion to check that the number of provided
-  // arguments match the expected number of arguments. Fake a
-  // parameter count to avoid emitting code to do the check.
+  // Fake a parameter count to avoid emitting code to do the check.
   ParameterCount expected(0);
   LoadNativeContextSlot(native_context_index, rdi);
   InvokeFunctionCode(rdi, no_reg, expected, expected, flag, call_wrapper);
@@ -1102,6 +1100,7 @@ void MacroAssembler::SafePush(Smi* src) {
 
 
 Register MacroAssembler::GetSmiConstant(Smi* source) {
+  STATIC_ASSERT(kSmiTag == 0);
   int value = source->value();
   if (value == 0) {
     xorl(kScratchRegister, kScratchRegister);
@@ -1113,9 +1112,13 @@ Register MacroAssembler::GetSmiConstant(Smi* source) {
 
 
 void MacroAssembler::LoadSmiConstant(Register dst, Smi* source) {
-  // Special-casing 0 here to use xorl seems to make things slower, so we don't
-  // do it.
-  Move(dst, source, Assembler::RelocInfoNone());
+  STATIC_ASSERT(kSmiTag == 0);
+  int value = source->value();
+  if (value == 0) {
+    xorl(dst, dst);
+  } else {
+    Move(dst, source, Assembler::RelocInfoNone());
+  }
 }
 
 
@@ -5066,18 +5069,18 @@ void MacroAssembler::LoadTransitionedArrayMapConditional(
     Register map_in_out,
     Register scratch,
     Label* no_map_match) {
-  // Check that the function's map is the same as the expected cached map.
-  LoadNativeContextSlot(Context::JS_ARRAY_MAPS_INDEX, scratch);
+  DCHECK(IsFastElementsKind(expected_kind));
+  DCHECK(IsFastElementsKind(transitioned_kind));
 
-  int offset = expected_kind * kPointerSize +
-      FixedArrayBase::kHeaderSize;
-  cmpp(map_in_out, FieldOperand(scratch, offset));
+  // Check that the function's map is the same as the expected cached map.
+  movp(scratch, NativeContextOperand());
+  cmpp(map_in_out,
+       ContextOperand(scratch, Context::ArrayMapIndex(expected_kind)));
   j(not_equal, no_map_match);
 
   // Use the transitioned cached map.
-  offset = transitioned_kind * kPointerSize +
-      FixedArrayBase::kHeaderSize;
-  movp(map_in_out, FieldOperand(scratch, offset));
+  movp(map_in_out,
+       ContextOperand(scratch, Context::ArrayMapIndex(transitioned_kind)));
 }
 
 

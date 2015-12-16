@@ -300,10 +300,9 @@ void BreakLocation::ClearDebugBreak() {
 
 
 bool BreakLocation::IsDebugBreak() const {
-  if (IsDebugBreakSlot()) {
-    return rinfo().IsPatchedDebugBreakSlotSequence();
-  }
-  return false;
+  if (IsDebuggerStatement()) return false;
+  DCHECK(IsDebugBreakSlot());
+  return rinfo().IsPatchedDebugBreakSlotSequence();
 }
 
 
@@ -493,7 +492,7 @@ void Debug::Break(Arguments args, JavaScriptFrame* frame) {
       // Clear queue
       thread_local_.queued_step_count_ = 0;
 
-      PrepareStep(StepNext, step_count, StackFrame::NO_ID);
+      PrepareStep(StepNext, step_count);
     } else {
       // Notify the debug event listeners.
       OnDebugBreak(break_points_hit, false);
@@ -531,7 +530,7 @@ void Debug::Break(Arguments args, JavaScriptFrame* frame) {
     ClearStepping();
 
     // Set up for the remaining steps.
-    PrepareStep(step_action, step_count, StackFrame::NO_ID);
+    PrepareStep(step_action, step_count);
   }
 }
 
@@ -767,22 +766,6 @@ void Debug::FloodWithOneShot(Handle<JSFunction> function,
 }
 
 
-void Debug::FloodHandlerWithOneShot() {
-  // Iterate through the JavaScript stack looking for handlers.
-  DCHECK_NE(StackFrame::NO_ID, break_frame_id());
-  for (JavaScriptFrameIterator it(isolate_, break_frame_id()); !it.done();
-       it.Advance()) {
-    JavaScriptFrame* frame = it.frame();
-    int stack_slots = 0;  // The computed stack slot count is not used.
-    if (frame->LookupExceptionHandlerInTable(&stack_slots, NULL) > 0) {
-      // Flood the function with the catch/finally block with break points.
-      FloodWithOneShot(Handle<JSFunction>(frame->function()));
-      return;
-    }
-  }
-}
-
-
 void Debug::ChangeBreakOnException(ExceptionBreakType type, bool enable) {
   if (type == BreakUncaughtException) {
     break_on_uncaught_exception_ = enable;
@@ -820,9 +803,36 @@ void Debug::PrepareStepIn(Handle<JSFunction> function) {
 }
 
 
-void Debug::PrepareStep(StepAction step_action,
-                        int step_count,
-                        StackFrame::Id frame_id) {
+void Debug::PrepareStepOnThrow() {
+  if (!is_active()) return;
+  if (!IsStepping()) return;
+  if (last_step_action() == StepNone) return;
+  if (in_debug_scope()) return;
+
+  ClearOneShot();
+
+  // Iterate through the JavaScript stack looking for handlers.
+  JavaScriptFrameIterator it(isolate_);
+  while (!it.done()) {
+    JavaScriptFrame* frame = it.frame();
+    int stack_slots = 0;  // The computed stack slot count is not used.
+    if (frame->LookupExceptionHandlerInTable(&stack_slots, NULL) > 0) break;
+    it.Advance();
+  }
+
+  // Find the closest Javascript frame we can flood with one-shots.
+  while (!it.done() &&
+         !it.frame()->function()->shared()->IsSubjectToDebugging()) {
+    it.Advance();
+  }
+
+  if (it.done()) return;  // No suitable Javascript catch handler.
+
+  FloodWithOneShot(Handle<JSFunction>(it.frame()->function()));
+}
+
+
+void Debug::PrepareStep(StepAction step_action, int step_count) {
   HandleScope scope(isolate_);
 
   DCHECK(in_debug_scope());
@@ -831,15 +841,11 @@ void Debug::PrepareStep(StepAction step_action,
   // any. The debug frame will only be present if execution was stopped due to
   // hitting a break point. In other situations (e.g. unhandled exception) the
   // debug frame is not present.
-  StackFrame::Id id = break_frame_id();
-  if (id == StackFrame::NO_ID) {
-    // If there is no JavaScript stack don't do anything.
-    return;
-  }
-  if (frame_id != StackFrame::NO_ID) {
-    id = frame_id;
-  }
-  JavaScriptFrameIterator frames_it(isolate_, id);
+  StackFrame::Id frame_id = break_frame_id();
+  // If there is no JavaScript stack don't do anything.
+  if (frame_id == StackFrame::NO_ID) return;
+
+  JavaScriptFrameIterator frames_it(isolate_, frame_id);
   JavaScriptFrame* frame = frames_it.frame();
 
   feature_tracker()->Track(DebugFeatureTracker::kStepping);
@@ -855,10 +861,6 @@ void Debug::PrepareStep(StepAction step_action,
   } else {
     thread_local_.step_count_ = step_count;
   }
-
-  // First of all ensure there is one-shot break points in the top handler
-  // if any.
-  FloodHandlerWithOneShot();
 
   // If the function on the top frame is unresolved perform step out. This will
   // be the case when calling unknown function and having the debugger stopped
@@ -981,14 +983,6 @@ bool Debug::StepNextContinue(BreakLocation* break_location,
 
   // No step next action - don't continue.
   return false;
-}
-
-
-// Check whether the code object at the specified address is a debug break code
-// object.
-bool Debug::IsDebugBreak(Address addr) {
-  Code* code = Code::GetCodeFromTargetAddress(addr);
-  return code->is_debug_stub();
 }
 
 
@@ -1659,6 +1653,7 @@ MaybeHandle<Object> Debug::MakeAsyncTaskEvent(Handle<JSObject> task_event) {
 
 void Debug::OnThrow(Handle<Object> exception) {
   if (in_debug_scope() || ignore_events()) return;
+  PrepareStepOnThrow();
   // Temporarily clear any scheduled_exception to allow evaluating
   // JavaScript from the debug event handler.
   HandleScope scope(isolate_);
@@ -1719,9 +1714,6 @@ void Debug::OnException(Handle<Object> exception, Handle<Object> promise) {
 
   DebugScope debug_scope(this);
   if (debug_scope.failed()) return;
-
-  // Clear all current stepping setup.
-  ClearStepping();
 
   // Create the event data object.
   Handle<Object> event_data;

@@ -842,10 +842,10 @@ RUNTIME_FUNCTION(Runtime_GetAllScopesDetails) {
   CONVERT_SMI_ARG_CHECKED(wrapped_id, 1);
   CONVERT_NUMBER_CHECKED(int, inlined_jsframe_index, Int32, args[2]);
 
-  bool ignore_nested_scopes = false;
+  ScopeIterator::Option option = ScopeIterator::DEFAULT;
   if (args.length() == 4) {
     CONVERT_BOOLEAN_ARG_CHECKED(flag, 3);
-    ignore_nested_scopes = flag;
+    if (flag) option = ScopeIterator::IGNORE_NESTED_SCOPES;
   }
 
   // Get the frame where the debugging is performed.
@@ -855,7 +855,7 @@ RUNTIME_FUNCTION(Runtime_GetAllScopesDetails) {
   FrameInspector frame_inspector(frame, inlined_jsframe_index, isolate);
 
   List<Handle<JSObject> > result(4);
-  ScopeIterator it(isolate, &frame_inspector, ignore_nested_scopes);
+  ScopeIterator it(isolate, &frame_inspector, option);
   for (; !it.Done(); it.Next()) {
     Handle<JSObject> details;
     ASSIGN_RETURN_FAILURE_ON_EXCEPTION(isolate, details,
@@ -1212,7 +1212,7 @@ RUNTIME_FUNCTION(Runtime_IsBreakOnException) {
 //          of frames to step down.
 RUNTIME_FUNCTION(Runtime_PrepareStep) {
   HandleScope scope(isolate);
-  DCHECK(args.length() == 4);
+  DCHECK(args.length() == 3);
   CONVERT_NUMBER_CHECKED(int, break_id, Int32, args[0]);
   RUNTIME_ASSERT(isolate->debug()->CheckExecutionState(break_id));
 
@@ -1220,25 +1220,11 @@ RUNTIME_FUNCTION(Runtime_PrepareStep) {
     return isolate->Throw(isolate->heap()->illegal_argument_string());
   }
 
-  CONVERT_NUMBER_CHECKED(int, wrapped_frame_id, Int32, args[3]);
-
-  StackFrame::Id frame_id;
-  if (wrapped_frame_id == 0) {
-    frame_id = StackFrame::NO_ID;
-  } else {
-    frame_id = DebugFrameHelper::UnwrapFrameId(wrapped_frame_id);
-  }
-
   // Get the step action and check validity.
   StepAction step_action = static_cast<StepAction>(NumberToInt32(args[1]));
   if (step_action != StepIn && step_action != StepNext &&
       step_action != StepOut && step_action != StepFrame) {
     return isolate->Throw(isolate->heap()->illegal_argument_string());
-  }
-
-  if (frame_id != StackFrame::NO_ID && step_action != StepNext &&
-      step_action != StepOut) {
-    return isolate->ThrowIllegalOperation();
   }
 
   // Get the number of steps.
@@ -1252,7 +1238,7 @@ RUNTIME_FUNCTION(Runtime_PrepareStep) {
 
   // Prepare step.
   isolate->debug()->PrepareStep(static_cast<StepAction>(step_action),
-                                step_count, frame_id);
+                                step_count);
   return isolate->heap()->undefined_value();
 }
 

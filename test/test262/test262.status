@@ -103,9 +103,6 @@
   'built-ins/Symbol/species/builtin-getter-name': [FAIL],
   'built-ins/Symbol/species/subclassing': [FAIL],
 
-  # https://code.google.com/p/v8/issues/detail?id=4002
-  'built-ins/Error/prototype/S15.11.4_A2': [FAIL],
-
   # https://code.google.com/p/v8/issues/detail?id=4163
   'built-ins/GeneratorPrototype/next/context-constructor-invocation': [FAIL],
 
@@ -145,9 +142,6 @@
   'language/computed-property-names/class/static/method-number': [FAIL, FAIL_SLOPPY],
   'language/computed-property-names/class/static/method-symbol': [FAIL, FAIL_SLOPPY],
   'language/computed-property-names/class/static/method-string': [FAIL, FAIL_SLOPPY],
-
-  # https://code.google.com/p/v8/issues/detail?id=3673
-  'language/statements/class/definition/basics': [FAIL],
 
   # https://code.google.com/p/v8/issues/detail?id=3566
   'language/statements/for-of/body-dstr-assign-error': [FAIL],
@@ -254,6 +248,7 @@
   'language/expressions/object/method-definition/fn-name-cover': [FAIL],
   'language/expressions/object/method-definition/fn-name-fn': [FAIL],
   'language/expressions/object/method-definition/fn-name-gen': [FAIL],
+  'language/statements/class/definition/basics': [FAIL],
   'language/statements/class/definition/fn-name-accessor-get': [FAIL],
   'language/statements/class/definition/fn-name-accessor-set': [FAIL],
   'language/statements/class/definition/fn-name-gen-method': [FAIL],
@@ -304,13 +299,12 @@
   'language/literals/regexp/u-surrogate-pairs': [FAIL],
   'language/literals/regexp/u-case-mapping': [FAIL],
   'language/literals/regexp/u-astral': [FAIL],
+  'built-ins/RegExp/valid-flags-y': [FAIL],
 
-  # https://code.google.com/p/v8/issues/detail?id=4342
+   # https://code.google.com/p/v8/issues/detail?id=4602
   'built-ins/RegExp/prototype/exec/get-sticky-coerce': [FAIL],
   'built-ins/RegExp/prototype/exec/get-sticky-err': [FAIL],
-  'built-ins/RegExp/prototype/test/get-sticky-coerce': [FAIL],
   'built-ins/RegExp/prototype/test/get-sticky-err': [FAIL],
-  'built-ins/RegExp/valid-flags-y': [FAIL],
 
   # https://code.google.com/p/v8/issues/detail?id=4504
   'built-ins/RegExp/prototype/exec/y-fail-lastindex-no-write': [PASS, FAIL],
@@ -404,10 +398,8 @@
   'intl402/DateTimeFormat/12.1.2': [PASS, FAIL],
   'intl402/DateTimeFormat/12.1.2.1_4': [FAIL],
   'intl402/DateTimeFormat/12.2.3_b': [FAIL],
-  'intl402/DateTimeFormat/prototype/12.3.2_FDT_7_a_iv': [FAIL],
   'intl402/DateTimeFormat/prototype/12.3.3': [FAIL],
   'intl402/DateTimeFormat/prototype/12.3_a': [FAIL],
-  'intl402/DateTimeFormat/prototype/format/12.3.2_FDT_7_a_iv': [FAIL],
   'intl402/Number/prototype/toLocaleString/13.2.1_5': [PASS, FAIL],
   'intl402/NumberFormat/11.1.1_20_c': [FAIL],
   'intl402/NumberFormat/11.1.1_a': [FAIL],
@@ -539,6 +531,7 @@
   'built-ins/Array/prototype/reduce/*': [SKIP],
   'built-ins/Array/prototype/reduceRight/*': [SKIP],
   'built-ins/decodeURI*': [SKIP],
+  'built-ins/GeneratorFunction/*': [SKIP],
   'built-ins/GeneratorPrototype/*': [SKIP],
   'built-ins/Map/*': [SKIP],
   'built-ins/MapIteratorPrototype/*': [SKIP],
@@ -574,6 +567,7 @@
   'built-ins/Array/prototype/toString/S15.4.4.2_A1_T4': [SKIP],
   'built-ins/Date/15.9.1.15-1': [SKIP],
   'built-ins/Date/prototype/toISOString/15.9.5.43-0-13': [SKIP],
+  'built-ins/JSON/stringify/*': [SKIP],
   'built-ins/Object/defineProperty/15.2.3.6-4-625gs': [SKIP],
   'built-ins/Object/prototype/hasOwnProperty/S15.2.4.5_A12': [SKIP],
   'built-ins/Object/prototype/isPrototypeOf/S15.2.4.6_A12': [SKIP],
@@ -634,6 +628,13 @@
   'language/statements/function/S13.2.2_A19_T7': [SKIP],
   'language/statements/function/S13.2.2_A19_T8': [SKIP],
   'language/statements/while/S12.6.2_A4_T5': [SKIP],
+  'language/block-scope/leave/nested-block-let-declaration-only-shadows-outer-parameter-value-1': [SKIP],
+  'language/block-scope/leave/nested-block-let-declaration-only-shadows-outer-parameter-value-2': [SKIP],
+  'language/block-scope/leave/verify-context-in-labelled-block': [SKIP],
+  'language/expressions/object/method-definition/name-prop-name-yield-expr': [SKIP],
+  'language/statements/function/S13.2.2_A18_T1': [SKIP],
+  'language/statements/function/S13.2.2_A17_T2': [SKIP],
+  'language/statements/function/S13.2.2_A17_T3': [SKIP],
 }],  # ignition == True
 
 ['ignition == True and (arch == arm or arch == arm64)', {

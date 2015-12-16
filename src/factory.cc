@@ -726,8 +726,9 @@ Handle<Context> Factory::NewNativeContext() {
   array->set_map_no_write_barrier(*native_context_map());
   Handle<Context> context = Handle<Context>::cast(array);
   context->set_native_context(*context);
-  context->set_js_array_maps(*undefined_value());
   context->set_errors_thrown(Smi::FromInt(0));
+  Handle<WeakCell> weak_cell = NewWeakCell(context);
+  context->set_self_weak_cell(*weak_cell);
   DCHECK(context->IsNativeContext());
   return context;
 }
@@ -1206,13 +1207,14 @@ Handle<JSFunction> Factory::NewFunction(Handle<Map> map,
   Handle<Context> context(isolate()->native_context());
   Handle<SharedFunctionInfo> info =
       NewSharedFunctionInfo(name, code, map->is_constructor());
-  DCHECK(is_sloppy(info->language_mode()) &&
-         (map.is_identical_to(isolate()->sloppy_function_map()) ||
-          map.is_identical_to(
-              isolate()->sloppy_function_without_prototype_map()) ||
-          map.is_identical_to(
-              isolate()->sloppy_function_with_readonly_prototype_map()) ||
-          map.is_identical_to(isolate()->strict_function_map())));
+  DCHECK(is_sloppy(info->language_mode()));
+  DCHECK(
+      map.is_identical_to(isolate()->sloppy_function_map()) ||
+      map.is_identical_to(isolate()->sloppy_function_without_prototype_map()) ||
+      map.is_identical_to(
+          isolate()->sloppy_function_with_readonly_prototype_map()) ||
+      map.is_identical_to(isolate()->strict_function_map()) ||
+      map.is_identical_to(isolate()->proxy_function_map()));
   return NewFunction(map, info, context);
 }
 
@@ -1365,8 +1367,8 @@ Handle<JSFunction> Factory::NewFunctionFromSharedFunctionInfo(
 
     // Cache context-specific literals.
     Handle<Context> native_context(context->native_context());
-    SharedFunctionInfo::AddToOptimizedCodeMap(
-        info, native_context, undefined_value(), literals, BailoutId::None());
+    SharedFunctionInfo::AddLiteralsToOptimizedCodeMap(info, native_context,
+                                                      literals);
   }
 
   return result;
@@ -1941,7 +1943,16 @@ Handle<JSDataView> Factory::NewJSDataView(Handle<JSArrayBuffer> buffer,
 Handle<JSProxy> Factory::NewJSProxy(Handle<JSReceiver> target,
                                     Handle<JSReceiver> handler) {
   // Allocate the proxy object.
-  Handle<Map> map(isolate()->proxy_function()->initial_map());
+  Handle<Map> map;
+  if (target->IsCallable()) {
+    if (target->IsConstructor()) {
+      map = Handle<Map>(isolate()->proxy_constructor_map());
+    } else {
+      map = Handle<Map>(isolate()->proxy_callable_map());
+    }
+  } else {
+    map = Handle<Map>(isolate()->proxy_map());
+  }
   DCHECK(map->prototype()->IsNull());
   Handle<JSProxy> result = New<JSProxy>(map, NEW_SPACE);
   result->set_target(*target);

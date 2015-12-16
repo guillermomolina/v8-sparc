@@ -23,7 +23,16 @@ assertSame(target, g_target);
 assertEquals("foo", g_name);
 assertEquals(desc, g_desc);
 
-// Check specific steps in the spec:
+// Check specific steps in the spec
+
+// Step 4: revoked handler
+var pair = Proxy.revocable(target, handler);
+Object.defineProperty(proxy, "foo2", desc);
+assertSame(target, g_target);
+assertEquals("foo2", g_name);
+assertEquals(desc, g_desc);
+pair.revoke();
+assertThrows('Object.defineProperty(pair.proxy, "bar", desc);', TypeError);
 
 // Step 6: Trap isn't callable.
 handler.defineProperty = 1;
@@ -50,7 +59,7 @@ assertThrows("Object.defineProperty(proxy, 'foo', desc)", TypeError);
 
 // Step 15a: Trap returns true for adding a property to a non-extensible target.
 handler.defineProperty = function(t, n, d) { return true; }
-Object.freeze(target);
+Object.preventExtensions(target);
 assertThrows("Object.defineProperty(proxy, 'foo', desc)", TypeError);
 
 // Step 15b: Trap returns true for adding a non-configurable property.

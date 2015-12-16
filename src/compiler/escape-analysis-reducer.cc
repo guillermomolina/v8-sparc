@@ -23,15 +23,19 @@ EscapeAnalysisReducer::EscapeAnalysisReducer(Editor* editor, JSGraph* jsgraph,
 Reduction EscapeAnalysisReducer::Reduce(Node* node) {
   switch (node->opcode()) {
     case IrOpcode::kLoadField:
-      return ReduceLoadField(node);
+    case IrOpcode::kLoadElement:
+      return ReduceLoad(node);
     case IrOpcode::kStoreField:
-      return ReduceStoreField(node);
+    case IrOpcode::kStoreElement:
+      return ReduceStore(node);
     case IrOpcode::kAllocate:
       return ReduceAllocate(node);
     case IrOpcode::kFinishRegion:
       return ReduceFinishRegion(node);
     case IrOpcode::kReferenceEqual:
       return ReduceReferenceEqual(node);
+    case IrOpcode::kObjectIsSmi:
+      return ReduceObjectIsSmi(node);
     case IrOpcode::kStateValues:
     case IrOpcode::kFrameState:
       return ReplaceWithDeoptDummy(node);
@@ -42,11 +46,13 @@ Reduction EscapeAnalysisReducer::Reduce(Node* node) {
 }
 
 
-Reduction EscapeAnalysisReducer::ReduceLoadField(Node* node) {
-  DCHECK_EQ(node->opcode(), IrOpcode::kLoadField);
-  if (Node* rep = escape_analysis()->GetReplacement(node, node->id())) {
+Reduction EscapeAnalysisReducer::ReduceLoad(Node* node) {
+  DCHECK(node->opcode() == IrOpcode::kLoadField ||
+         node->opcode() == IrOpcode::kLoadElement);
+  if (Node* rep = escape_analysis()->GetReplacement(node)) {
     if (FLAG_trace_turbo_escape) {
-      PrintF("Replaced #%d with #%d\n", node->id(), rep->id());
+      PrintF("Replaced #%d (%s) with #%d (%s)\n", node->id(),
+             node->op()->mnemonic(), rep->id(), rep->op()->mnemonic());
     }
     ReplaceWithValue(node, rep);
     return Changed(rep);
@@ -55,11 +61,13 @@ Reduction EscapeAnalysisReducer::ReduceLoadField(Node* node) {
 }
 
 
-Reduction EscapeAnalysisReducer::ReduceStoreField(Node* node) {
-  DCHECK_EQ(node->opcode(), IrOpcode::kStoreField);
+Reduction EscapeAnalysisReducer::ReduceStore(Node* node) {
+  DCHECK(node->opcode() == IrOpcode::kStoreField ||
+         node->opcode() == IrOpcode::kStoreElement);
   if (escape_analysis()->IsVirtual(NodeProperties::GetValueInput(node, 0))) {
     if (FLAG_trace_turbo_escape) {
-      PrintF("Removed store field #%d from effect chain\n", node->id());
+      PrintF("Removed #%d (%s) from effect chain\n", node->id(),
+             node->op()->mnemonic());
     }
     RelaxEffectsAndControls(node);
     return Changed(node);
@@ -90,7 +98,7 @@ Reduction EscapeAnalysisReducer::ReduceFinishRegion(Node* node) {
     if (FLAG_trace_turbo_escape) {
       PrintF("Removed region #%d / #%d from effect chain,", effect->id(),
              node->id());
-      PrintF("%d user(s) of #%d remain(s):", node->UseCount(), node->id());
+      PrintF(" %d user(s) of #%d remain(s):", node->UseCount(), node->id());
       for (Edge edge : node->use_edges()) {
         PrintF(" #%d", edge.from()->id());
       }
@@ -108,10 +116,10 @@ Reduction EscapeAnalysisReducer::ReduceReferenceEqual(Node* node) {
   Node* right = NodeProperties::GetValueInput(node, 1);
   if (escape_analysis()->IsVirtual(left)) {
     if (escape_analysis()->IsVirtual(right)) {
-      if (Node* rep = escape_analysis()->GetReplacement(node, left->id())) {
+      if (Node* rep = escape_analysis()->GetReplacement(left)) {
         left = rep;
       }
-      if (Node* rep = escape_analysis()->GetReplacement(node, right->id())) {
+      if (Node* rep = escape_analysis()->GetReplacement(right)) {
         right = rep;
       }
       // TODO(sigurds): What to do if either is a PHI?
@@ -135,6 +143,20 @@ Reduction EscapeAnalysisReducer::ReduceReferenceEqual(Node* node) {
     if (FLAG_trace_turbo_escape) {
       PrintF("Replaced ref eq #%d with false\n", node->id());
     }
+  }
+  return NoChange();
+}
+
+
+Reduction EscapeAnalysisReducer::ReduceObjectIsSmi(Node* node) {
+  DCHECK_EQ(node->opcode(), IrOpcode::kObjectIsSmi);
+  Node* input = NodeProperties::GetValueInput(node, 0);
+  if (escape_analysis()->IsVirtual(input)) {
+    ReplaceWithValue(node, jsgraph()->FalseConstant());
+    if (FLAG_trace_turbo_escape) {
+      PrintF("Replaced ObjectIsSmi #%d with false\n", node->id());
+    }
+    return Replace(node);
   }
   return NoChange();
 }

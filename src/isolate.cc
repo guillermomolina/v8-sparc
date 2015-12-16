@@ -1348,29 +1348,11 @@ bool Isolate::ComputeLocationFromStackTrace(MessageLocation* target,
 }
 
 
-// Traverse prototype chain to find out whether the object is derived from
-// the Error object.
-bool Isolate::IsErrorObject(Handle<Object> obj) {
-  if (!obj->IsJSObject()) return false;
-  Handle<Object> error_constructor = error_function();
-  DisallowHeapAllocation no_gc;
-  for (PrototypeIterator iter(this, *obj, PrototypeIterator::START_AT_RECEIVER);
-       !iter.IsAtEnd(); iter.Advance()) {
-    if (iter.GetCurrent()->IsJSProxy()) return false;
-    if (iter.GetCurrent<JSObject>()->map()->GetConstructor() ==
-        *error_constructor) {
-      return true;
-    }
-  }
-  return false;
-}
-
-
 Handle<JSMessageObject> Isolate::CreateMessage(Handle<Object> exception,
                                                MessageLocation* location) {
   Handle<JSArray> stack_trace_object;
   if (capture_stack_trace_for_uncaught_exceptions_) {
-    if (IsErrorObject(exception)) {
+    if (Object::IsErrorObject(this, exception)) {
       // We fetch the stack trace that corresponds to this error object.
       // If the lookup fails, the exception is probably not a valid Error
       // object. In that case, we fall through and capture the stack trace
@@ -2403,18 +2385,15 @@ CodeTracer* Isolate::GetCodeTracer() {
 
 
 Map* Isolate::get_initial_js_array_map(ElementsKind kind, Strength strength) {
-  Context* native_context = context()->native_context();
-  Object* maybe_map_array = is_strong(strength)
-                                ? native_context->js_array_strong_maps()
-                                : native_context->js_array_maps();
-  if (!maybe_map_array->IsUndefined()) {
-    Object* maybe_transitioned_map =
-        FixedArray::cast(maybe_map_array)->get(kind);
-    if (!maybe_transitioned_map->IsUndefined()) {
-      return Map::cast(maybe_transitioned_map);
+  if (IsFastElementsKind(kind)) {
+    DisallowHeapAllocation no_gc;
+    Object* const initial_js_array_map = context()->native_context()->get(
+        Context::ArrayMapIndex(kind, strength));
+    if (!initial_js_array_map->IsUndefined()) {
+      return Map::cast(initial_js_array_map);
     }
   }
-  return NULL;
+  return nullptr;
 }
 
 

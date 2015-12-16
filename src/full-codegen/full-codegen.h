@@ -83,8 +83,7 @@ class FullCodeGenerator: public AstVisitor {
 #elif V8_TARGET_ARCH_ARM
   static const int kCodeSizeMultiplier = 149;
 #elif V8_TARGET_ARCH_ARM64
-// TODO(all): Copied ARM value. Check this is sensible for ARM64.
-  static const int kCodeSizeMultiplier = 149;
+  static const int kCodeSizeMultiplier = 220;
 #elif V8_TARGET_ARCH_PPC64
   static const int kCodeSizeMultiplier = 200;
 #elif V8_TARGET_ARCH_PPC
@@ -480,7 +479,6 @@ class FullCodeGenerator: public AstVisitor {
   F(IsRegExp)                           \
   F(IsJSProxy)                          \
   F(Call)                               \
-  F(DefaultConstructorCallSuper)        \
   F(ArgumentsLength)                    \
   F(Arguments)                          \
   F(ValueOf)                            \
@@ -499,6 +497,7 @@ class FullCodeGenerator: public AstVisitor {
   F(IsMinusZero)                        \
   F(HasCachedArrayIndex)                \
   F(GetCachedArrayIndex)                \
+  F(GetSuperConstructor)                \
   F(FastOneByteArrayJoin)               \
   F(GeneratorNext)                      \
   F(GeneratorThrow)                     \

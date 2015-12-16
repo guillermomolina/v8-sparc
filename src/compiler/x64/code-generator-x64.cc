@@ -692,12 +692,15 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       AssembleArchTableSwitch(instr);
       break;
     case kArchNop:
+    case kArchThrowTerminator:
       // don't emit code for nops.
       break;
     case kArchDeoptimize: {
       int deopt_state_id =
           BuildTranslation(instr, -1, 0, OutputFrameStateCombine::Ignore());
-      AssembleDeoptimizerCall(deopt_state_id, Deoptimizer::EAGER);
+      Deoptimizer::BailoutType bailout_type =
+          Deoptimizer::BailoutType(MiscField::decode(instr->opcode()));
+      AssembleDeoptimizerCall(deopt_state_id, bailout_type);
       break;
     }
     case kArchRet:
@@ -1049,15 +1052,36 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       } else {
         __ Cvttss2siq(i.OutputRegister(), i.InputOperand(0));
       }
+      if (instr->OutputCount() > 1) {
+        __ Set(i.OutputRegister(1), 0x8000000000000000);
+        __ subq(i.OutputRegister(1), i.OutputRegister(0));
+      }
       break;
     case kSSEFloat64ToInt64:
       if (instr->InputAt(0)->IsDoubleRegister()) {
-        __ Cvttsd2siq(i.OutputRegister(), i.InputDoubleRegister(0));
+        __ Cvttsd2siq(i.OutputRegister(0), i.InputDoubleRegister(0));
       } else {
-        __ Cvttsd2siq(i.OutputRegister(), i.InputOperand(0));
+        __ Cvttsd2siq(i.OutputRegister(0), i.InputOperand(0));
+      }
+      if (instr->OutputCount() > 1) {
+        __ Set(i.OutputRegister(1), 0x8000000000000000);
+        __ subq(i.OutputRegister(1), i.OutputRegister(0));
       }
       break;
     case kSSEFloat32ToUint64: {
+      Label done;
+      Label success;
+      if (instr->OutputCount() > 1) {
+        __ Set(i.OutputRegister(1), 0);
+        __ xorps(kScratchDoubleReg, kScratchDoubleReg);
+
+        if (instr->InputAt(0)->IsDoubleRegister()) {
+          __ Ucomiss(kScratchDoubleReg, i.InputDoubleRegister(0));
+        } else {
+          __ Ucomiss(kScratchDoubleReg, i.InputOperand(0));
+        }
+        __ j(above, &done);
+      }
       // There does not exist a Float32ToUint64 instruction, so we have to use
       // the Float32ToInt64 instruction.
       if (instr->InputAt(0)->IsDoubleRegister()) {
@@ -1068,8 +1092,7 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       // Check if the result of the Float32ToInt64 conversion is positive, we
       // are already done.
       __ testq(i.OutputRegister(), i.OutputRegister());
-      Label done;
-      __ j(positive, &done);
+      __ j(positive, &success);
       // The result of the first conversion was negative, which means that the
       // input value was not within the positive int64 range. We subtract 2^64
       // and convert it again to see if it is within the uint64 range.
@@ -1087,13 +1110,29 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       // The input value is within uint64 range and the second conversion worked
       // successfully, but we still have to undo the subtraction we did
       // earlier.
-      __ movq(kScratchRegister, Immediate(1));
-      __ shlq(kScratchRegister, Immediate(63));
+      __ Set(kScratchRegister, 0x8000000000000000);
       __ orq(i.OutputRegister(), kScratchRegister);
+      __ bind(&success);
+      if (instr->OutputCount() > 1) {
+        __ Set(i.OutputRegister(1), 1);
+      }
       __ bind(&done);
       break;
     }
     case kSSEFloat64ToUint64: {
+      Label done;
+      Label success;
+      if (instr->OutputCount() > 1) {
+        __ Set(i.OutputRegister(1), 0);
+        __ xorps(kScratchDoubleReg, kScratchDoubleReg);
+
+        if (instr->InputAt(0)->IsDoubleRegister()) {
+          __ Ucomisd(kScratchDoubleReg, i.InputDoubleRegister(0));
+        } else {
+          __ Ucomisd(kScratchDoubleReg, i.InputOperand(0));
+        }
+        __ j(above, &done);
+      }
       // There does not exist a Float64ToUint64 instruction, so we have to use
       // the Float64ToInt64 instruction.
       if (instr->InputAt(0)->IsDoubleRegister()) {
@@ -1104,8 +1143,7 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       // Check if the result of the Float64ToInt64 conversion is positive, we
       // are already done.
       __ testq(i.OutputRegister(), i.OutputRegister());
-      Label done;
-      __ j(positive, &done);
+      __ j(positive, &success);
       // The result of the first conversion was negative, which means that the
       // input value was not within the positive int64 range. We subtract 2^64
       // and convert it again to see if it is within the uint64 range.
@@ -1123,9 +1161,12 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       // The input value is within uint64 range and the second conversion worked
       // successfully, but we still have to undo the subtraction we did
       // earlier.
-      __ movq(kScratchRegister, Immediate(1));
-      __ shlq(kScratchRegister, Immediate(63));
+      __ Set(kScratchRegister, 0x8000000000000000);
       __ orq(i.OutputRegister(), kScratchRegister);
+      __ bind(&success);
+      if (instr->OutputCount() > 1) {
+        __ Set(i.OutputRegister(1), 1);
+      }
       __ bind(&done);
       break;
     }

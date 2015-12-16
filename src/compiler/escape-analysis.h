@@ -16,6 +16,7 @@ namespace compiler {
 class CommonOperatorBuilder;
 class EscapeAnalysis;
 class VirtualState;
+class VirtualObject;
 
 
 // EscapeStatusAnalysis determines for each allocation whether it escapes.
@@ -34,6 +35,7 @@ class EscapeStatusAnalysis {
 
   bool IsVirtual(Node* node);
   bool IsEscaped(Node* node);
+  bool IsAllocation(Node* node);
 
   void DebugPrint();
 
@@ -46,8 +48,11 @@ class EscapeStatusAnalysis {
   void ProcessAllocate(Node* node);
   void ProcessFinishRegion(Node* node);
   void ProcessStoreField(Node* node);
-  bool CheckUsesForEscape(Node* node) { return CheckUsesForEscape(node, node); }
-  bool CheckUsesForEscape(Node* node, Node* rep);
+  void ProcessStoreElement(Node* node);
+  bool CheckUsesForEscape(Node* node, bool phi_escaping = false) {
+    return CheckUsesForEscape(node, node, phi_escaping);
+  }
+  bool CheckUsesForEscape(Node* node, Node* rep, bool phi_escaping = false);
   void RevisitUses(Node* node);
   void RevisitInputs(Node* node);
   bool SetEscaped(Node* node);
@@ -69,6 +74,30 @@ class EscapeStatusAnalysis {
 DEFINE_OPERATORS_FOR_FLAGS(EscapeStatusAnalysis::EscapeStatusFlags)
 
 
+class MergeCache {
+ public:
+  explicit MergeCache(Zone* zone)
+      : states_(zone), objects_(zone), fields_(zone) {
+    states_.reserve(4);
+    objects_.reserve(4);
+    fields_.reserve(4);
+  }
+  ZoneVector<VirtualState*>& states() { return states_; }
+  ZoneVector<VirtualObject*>& objects() { return objects_; }
+  ZoneVector<Node*>& fields() { return fields_; }
+  void Clear() {
+    states_.clear();
+    objects_.clear();
+    fields_.clear();
+  }
+
+ private:
+  ZoneVector<VirtualState*> states_;
+  ZoneVector<VirtualObject*> objects_;
+  ZoneVector<Node*> fields_;
+};
+
+
 // EscapeObjectAnalysis simulates stores to determine values of loads if
 // an object is virtual and eliminated.
 class EscapeAnalysis {
@@ -78,7 +107,7 @@ class EscapeAnalysis {
 
   void Run();
 
-  Node* GetReplacement(Node* at, NodeId id);
+  Node* GetReplacement(Node* node);
   bool IsVirtual(Node* node);
   bool IsEscaped(Node* node);
 
@@ -87,17 +116,38 @@ class EscapeAnalysis {
   bool Process(Node* node);
   void ProcessLoadField(Node* node);
   void ProcessStoreField(Node* node);
+  void ProcessLoadElement(Node* node);
+  void ProcessStoreElement(Node* node);
+  void ProcessAllocationUsers(Node* node);
   void ProcessAllocation(Node* node);
   void ProcessFinishRegion(Node* node);
   void ProcessCall(Node* node);
   void ProcessStart(Node* node);
   bool ProcessEffectPhi(Node* node);
+  void ProcessLoadFromPhi(int offset, Node* from, Node* node,
+                          VirtualState* states);
+
   void ForwardVirtualState(Node* node);
+
   bool IsEffectBranchPoint(Node* node);
   bool IsDanglingEffectNode(Node* node);
   int OffsetFromAccess(Node* node);
 
+  VirtualObject* GetVirtualObject(Node* at, NodeId id);
+  VirtualObject* ResolveVirtualObject(VirtualState* state, Node* node);
+  Node* GetReplacementIfSame(ZoneVector<VirtualObject*>& objs);
+
+  bool SetEscaped(Node* node);
+  Node* replacement(NodeId id);
+  Node* replacement(Node* node);
+  Node* ResolveReplacement(Node* node);
+  Node* GetReplacement(NodeId id);
+  bool SetReplacement(Node* node, Node* rep);
+  bool UpdateReplacement(VirtualState* state, Node* node, Node* rep);
+
   void DebugPrint();
+  void DebugPrintState(VirtualState* state);
+  void DebugPrintObject(VirtualObject* state, NodeId id);
 
   Graph* graph() const { return graph_; }
   CommonOperatorBuilder* common() const { return common_; }
@@ -107,7 +157,9 @@ class EscapeAnalysis {
   CommonOperatorBuilder* const common_;
   Zone* const zone_;
   ZoneVector<VirtualState*> virtual_states_;
+  ZoneVector<Node*> replacements_;
   EscapeStatusAnalysis escape_status_;
+  MergeCache cache_;
 
   DISALLOW_COPY_AND_ASSIGN(EscapeAnalysis);
 };

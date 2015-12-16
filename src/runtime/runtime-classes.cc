@@ -234,11 +234,12 @@ RUNTIME_FUNCTION(Runtime_FinalizeClassDefinition) {
 
   if (constructor->map()->is_strong()) {
     DCHECK(prototype->map()->is_strong());
-    RETURN_FAILURE_ON_EXCEPTION(isolate, JSObject::Freeze(prototype));
-    Handle<Object> result;
-    ASSIGN_RETURN_FAILURE_ON_EXCEPTION(isolate, result,
-                                       JSObject::Freeze(constructor));
-    return *result;
+    MAYBE_RETURN(JSReceiver::SetIntegrityLevel(prototype, FROZEN,
+                                               Object::THROW_ON_ERROR),
+                 isolate->heap()->exception());
+    MAYBE_RETURN(JSReceiver::SetIntegrityLevel(constructor, FROZEN,
+                                               Object::THROW_ON_ERROR),
+                 isolate->heap()->exception());
   }
   return *constructor;
 }
@@ -488,24 +489,11 @@ RUNTIME_FUNCTION(Runtime_StoreKeyedToSuper_Sloppy) {
 }
 
 
-RUNTIME_FUNCTION(Runtime_DefaultConstructorCallSuper) {
-  HandleScope scope(isolate);
-  DCHECK(args.length() == 2);
-  CONVERT_ARG_HANDLE_CHECKED(JSFunction, new_target, 0);
-  CONVERT_ARG_HANDLE_CHECKED(JSFunction, super_constructor, 1);
-  JavaScriptFrameIterator it(isolate);
-
-  // Determine the actual arguments passed to the function.
-  int argument_count = 0;
-  base::SmartArrayPointer<Handle<Object>> arguments =
-      Runtime::GetCallerArguments(isolate, 0, &argument_count);
-
-  Handle<Object> result;
-  ASSIGN_RETURN_FAILURE_ON_EXCEPTION(
-      isolate, result, Execution::New(isolate, super_constructor, new_target,
-                                      argument_count, arguments.get()));
-
-  return *result;
+RUNTIME_FUNCTION(Runtime_GetSuperConstructor) {
+  SealHandleScope shs(isolate);
+  DCHECK_EQ(1, args.length());
+  CONVERT_ARG_CHECKED(JSFunction, active_function, 0);
+  return active_function->map()->prototype();
 }
 
 }  // namespace internal

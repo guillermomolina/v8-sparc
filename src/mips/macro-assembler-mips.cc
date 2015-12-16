@@ -1425,13 +1425,13 @@ void MacroAssembler::BranchFCommon(SecondaryField sizeField, Label* target,
       if (!IsMipsArchVariant(kMips32r6)) {
         if (long_branch) {
           Label skip;
-          c(UN, D, cmp1, cmp2);
+          c(UN, sizeField, cmp1, cmp2);
           bc1f(&skip);
           nop();
           BranchLong(nan, bd);
           bind(&skip);
         } else {
-          c(UN, D, cmp1, cmp2);
+          c(UN, sizeField, cmp1, cmp2);
           bc1t(nan);
           if (bd == PROTECT) {
             nop();
@@ -1443,13 +1443,13 @@ void MacroAssembler::BranchFCommon(SecondaryField sizeField, Label* target,
         DCHECK(!cmp1.is(kDoubleCompareReg) && !cmp2.is(kDoubleCompareReg));
         if (long_branch) {
           Label skip;
-          cmp(UN, L, kDoubleCompareReg, cmp1, cmp2);
+          cmp(UN, sizeField, kDoubleCompareReg, cmp1, cmp2);
           bc1eqz(&skip, kDoubleCompareReg);
           nop();
           BranchLong(nan, bd);
           bind(&skip);
         } else {
-          cmp(UN, L, kDoubleCompareReg, cmp1, cmp2);
+          cmp(UN, sizeField, kDoubleCompareReg, cmp1, cmp2);
           bc1nez(nan, kDoubleCompareReg);
           if (bd == PROTECT) {
             nop();
@@ -4557,19 +4557,10 @@ void MacroAssembler::InvokeBuiltin(int native_context_index, InvokeFlag flag,
   // You can't call a builtin without a valid frame.
   DCHECK(flag == JUMP_FUNCTION || has_frame());
 
-  // Always initialize new target.
-  LoadRoot(a3, Heap::kUndefinedValueRootIndex);
-
+  // Fake a parameter count to avoid emitting code to do the check.
+  ParameterCount expected(0);
   LoadNativeContextSlot(native_context_index, a1);
-  lw(t9, FieldMemOperand(a1, JSFunction::kCodeEntryOffset));
-  if (flag == CALL_FUNCTION) {
-    call_wrapper.BeforeCall(CallSize(t9));
-    Call(t9);
-    call_wrapper.AfterCall();
-  } else {
-    DCHECK(flag == JUMP_FUNCTION);
-    Jump(t9);
-  }
+  InvokeFunctionCode(a1, no_reg, expected, expected, flag, call_wrapper);
 }
 
 
@@ -4712,17 +4703,17 @@ void MacroAssembler::LoadTransitionedArrayMapConditional(
     Register map_in_out,
     Register scratch,
     Label* no_map_match) {
+  DCHECK(IsFastElementsKind(expected_kind));
+  DCHECK(IsFastElementsKind(transitioned_kind));
+
   // Check that the function's map is the same as the expected cached map.
-  LoadNativeContextSlot(Context::JS_ARRAY_MAPS_INDEX, scratch);
-  size_t offset = expected_kind * kPointerSize +
-      FixedArrayBase::kHeaderSize;
-  lw(at, FieldMemOperand(scratch, offset));
+  lw(scratch, NativeContextMemOperand());
+  lw(at, ContextMemOperand(scratch, Context::ArrayMapIndex(expected_kind)));
   Branch(no_map_match, ne, map_in_out, Operand(at));
 
   // Use the transitioned cached map.
-  offset = transitioned_kind * kPointerSize +
-      FixedArrayBase::kHeaderSize;
-  lw(map_in_out, FieldMemOperand(scratch, offset));
+  lw(map_in_out,
+     ContextMemOperand(scratch, Context::ArrayMapIndex(transitioned_kind)));
 }
 
 

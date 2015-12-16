@@ -266,10 +266,10 @@
   V(ChangeFloat32ToFloat64)     \
   V(ChangeFloat64ToInt32)       \
   V(ChangeFloat64ToUint32)      \
-  V(TruncateFloat32ToInt64)     \
-  V(TruncateFloat64ToInt64)     \
-  V(TruncateFloat32ToUint64)    \
-  V(TruncateFloat64ToUint64)    \
+  V(TryTruncateFloat32ToInt64)  \
+  V(TryTruncateFloat64ToInt64)  \
+  V(TryTruncateFloat32ToUint64) \
+  V(TryTruncateFloat64ToUint64) \
   V(ChangeInt32ToFloat64)       \
   V(ChangeInt32ToInt64)         \
   V(ChangeUint32ToFloat64)      \

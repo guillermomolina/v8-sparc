@@ -55,6 +55,12 @@ class AccessBuilder final : public AllStatic {
   // Provides access to JSDate fields.
   static FieldAccess ForJSDateField(JSDate::FieldIndex index);
 
+  // Provides access to JSRegExp::flags() field.
+  static FieldAccess ForJSRegExpFlags();
+
+  // Provides access to JSRegExp::source() field.
+  static FieldAccess ForJSRegExpSource();
+
   // Provides access to FixedArray::length() field.
   static FieldAccess ForFixedArrayLength();
 
@@ -120,15 +126,6 @@ class AccessBuilder final : public AllStatic {
 
   // Provides access to the backing store of a StatsCounter.
   static FieldAccess ForStatsCounter();
-
-  // ===========================================================================
-  // Access to activation records on the stack (based on frame pointer).
-
-  // Provides access to the next frame pointer in a stack frame.
-  static FieldAccess ForFrameCallerFramePtr();
-
-  // Provides access to the marker in a stack frame.
-  static FieldAccess ForFrameMarker();
 
  private:
   DISALLOW_IMPLICIT_CONSTRUCTORS(AccessBuilder);

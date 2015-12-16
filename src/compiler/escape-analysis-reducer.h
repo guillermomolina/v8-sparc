@@ -24,11 +24,12 @@ class EscapeAnalysisReducer final : public AdvancedReducer {
   Reduction Reduce(Node* node) final;
 
  private:
-  Reduction ReduceLoadField(Node* node);
-  Reduction ReduceStoreField(Node* node);
+  Reduction ReduceLoad(Node* node);
+  Reduction ReduceStore(Node* node);
   Reduction ReduceAllocate(Node* node);
   Reduction ReduceFinishRegion(Node* node);
   Reduction ReduceReferenceEqual(Node* node);
+  Reduction ReduceObjectIsSmi(Node* node);
 
   Reduction ReplaceWithDeoptDummy(Node* node);
 

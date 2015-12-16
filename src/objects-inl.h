@@ -292,9 +292,9 @@ bool Object::FilterKey(PropertyFilter filter) {
   if (IsSymbol()) {
     if (filter & SKIP_SYMBOLS) return true;
     if (Symbol::cast(this)->is_private()) return true;
+  } else {
+    if (filter & SKIP_STRINGS) return true;
   }
-  if ((filter & SKIP_STRINGS) && !IsSymbol()) return true;
-
   return false;
 }
 
@@ -2029,7 +2029,10 @@ Object* WeakCell::value() const { return READ_FIELD(this, kValueOffset); }
 
 
 void WeakCell::clear() {
-  DCHECK(GetHeap()->gc_state() == Heap::MARK_COMPACT);
+  // Either the garbage collector is clearing the cell or we are simply
+  // initializing the root empty weak cell.
+  DCHECK(GetHeap()->gc_state() == Heap::MARK_COMPACT ||
+         this == GetHeap()->empty_weak_cell());
   WRITE_FIELD(this, kValueOffset, Smi::FromInt(0));
 }
 
@@ -2060,8 +2063,9 @@ void WeakCell::set_next(Object* val, WriteBarrierMode mode) {
 }
 
 
-void WeakCell::clear_next(Heap* heap) {
-  set_next(heap->the_hole_value(), SKIP_WRITE_BARRIER);
+void WeakCell::clear_next(Object* the_hole_value) {
+  DCHECK_EQ(GetHeap()->the_hole_value(), the_hole_value);
+  set_next(the_hole_value, SKIP_WRITE_BARRIER);
 }
 
 
@@ -4425,11 +4429,10 @@ int Map::GetInObjectPropertyOffset(int index) {
 }
 
 
-Handle<Map> Map::CopyInstallDescriptorsForTesting(
-    Handle<Map> map, int new_descriptor, Handle<DescriptorArray> descriptors,
-    Handle<LayoutDescriptor> layout_descriptor) {
-  return CopyInstallDescriptors(map, new_descriptor, descriptors,
-                                layout_descriptor);
+Handle<Map> Map::AddMissingTransitionsForTesting(
+    Handle<Map> split_map, Handle<DescriptorArray> descriptors,
+    Handle<LayoutDescriptor> full_layout_descriptor) {
+  return AddMissingTransitions(split_map, descriptors, full_layout_descriptor);
 }
 
 
@@ -4754,12 +4757,14 @@ void Map::set_new_target_is_base(bool value) {
 bool Map::new_target_is_base() { return NewTargetIsBase::decode(bit_field3()); }
 
 
-void Map::set_counter(int value) {
-  set_bit_field3(Counter::update(bit_field3(), value));
+void Map::set_construction_counter(int value) {
+  set_bit_field3(ConstructionCounter::update(bit_field3(), value));
 }
 
 
-int Map::counter() { return Counter::decode(bit_field3()); }
+int Map::construction_counter() {
+  return ConstructionCounter::decode(bit_field3());
+}
 
 
 void Map::mark_unstable() {
@@ -5489,8 +5494,7 @@ void Map::set_prototype_info(Object* value, WriteBarrierMode mode) {
 
 void Map::SetBackPointer(Object* value, WriteBarrierMode mode) {
   DCHECK(instance_type() >= FIRST_JS_RECEIVER_TYPE);
-  DCHECK((value->IsUndefined() && GetBackPointer()->IsMap()) ||
-         (value->IsMap() && GetBackPointer()->IsUndefined()));
+  DCHECK((value->IsMap() && GetBackPointer()->IsUndefined()));
   DCHECK(!value->IsMap() ||
          Map::cast(value)->GetConstructor() == constructor_or_backpointer());
   set_constructor_or_backpointer(value, mode);
@@ -6131,6 +6135,26 @@ bool SharedFunctionInfo::OptimizedCodeMapIsCleared() const {
 }
 
 
+// static
+void SharedFunctionInfo::AddToOptimizedCodeMap(
+    Handle<SharedFunctionInfo> shared, Handle<Context> native_context,
+    Handle<Code> code, Handle<LiteralsArray> literals, BailoutId osr_ast_id) {
+  AddToOptimizedCodeMapInternal(shared, native_context, code, literals,
+                                osr_ast_id);
+}
+
+
+// static
+void SharedFunctionInfo::AddLiteralsToOptimizedCodeMap(
+    Handle<SharedFunctionInfo> shared, Handle<Context> native_context,
+    Handle<LiteralsArray> literals) {
+  Isolate* isolate = shared->GetIsolate();
+  Handle<Oddball> undefined = isolate->factory()->undefined_value();
+  AddToOptimizedCodeMapInternal(shared, native_context, undefined, literals,
+                                BailoutId::None());
+}
+
+
 bool JSFunction::IsOptimized() {
   return code()->kind() == Code::OPTIMIZED_FUNCTION;
 }
@@ -6162,14 +6186,14 @@ void JSFunction::CompleteInobjectSlackTrackingIfActive() {
 
 
 bool Map::IsInobjectSlackTrackingInProgress() {
-  return counter() >= Map::kSlackTrackingCounterEnd;
+  return construction_counter() != Map::kNoSlackTracking;
 }
 
 
 void Map::InobjectSlackTrackingStep() {
   if (!IsInobjectSlackTrackingInProgress()) return;
-  int counter = this->counter();
-  set_counter(counter - 1);
+  int counter = construction_counter();
+  set_construction_counter(counter - 1);
   if (counter == kSlackTrackingCounterEnd) {
     CompleteInobjectSlackTracking();
   }

@@ -1563,8 +1563,10 @@ Type* Typer::Visitor::TypeJSCallRuntime(Node* node) {
       return Type::Number();
     case Runtime::kInlineMathClz32:
       return Type::Range(0, 32, zone());
-    case Runtime::kInlineStringGetLength:
-      return Type::Range(0, String::kMaxLength, zone());
+    case Runtime::kInlineRegExpConstructResult:
+      return Type::OtherObject();
+    case Runtime::kInlineSubString:
+      return Type::String();
     case Runtime::kInlineToInteger:
       return TypeUnaryOp(node, ToInteger);
     case Runtime::kInlineToLength:
@@ -1581,6 +1583,8 @@ Type* Typer::Visitor::TypeJSCallRuntime(Node* node) {
       return TypeUnaryOp(node, ToPrimitive);
     case Runtime::kInlineToString:
       return TypeUnaryOp(node, ToString);
+    case Runtime::kHasInPrototypeChain:
+      return Type::Boolean();
     default:
       break;
   }
@@ -2121,22 +2125,22 @@ Type* Typer::Visitor::TypeChangeFloat64ToUint32(Node* node) {
 }
 
 
-Type* Typer::Visitor::TypeTruncateFloat32ToInt64(Node* node) {
+Type* Typer::Visitor::TypeTryTruncateFloat32ToInt64(Node* node) {
   return Type::Internal();
 }
 
 
-Type* Typer::Visitor::TypeTruncateFloat64ToInt64(Node* node) {
+Type* Typer::Visitor::TypeTryTruncateFloat64ToInt64(Node* node) {
   return Type::Internal();
 }
 
 
-Type* Typer::Visitor::TypeTruncateFloat32ToUint64(Node* node) {
+Type* Typer::Visitor::TypeTryTruncateFloat32ToUint64(Node* node) {
   return Type::Internal();
 }
 
 
-Type* Typer::Visitor::TypeTruncateFloat64ToUint64(Node* node) {
+Type* Typer::Visitor::TypeTryTruncateFloat64ToUint64(Node* node) {
   return Type::Internal();
 }
 

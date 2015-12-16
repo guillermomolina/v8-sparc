@@ -9,9 +9,13 @@
 #include <sanitizer/asan_interface.h>
 #endif  // V8_USE_ADDRESS_SANITIZER
 #include <cmath>  // For isnan.
+#include <limits>
+#include <vector>
 #include "include/v8-debug.h"
+#include "include/v8-experimental.h"
 #include "include/v8-profiler.h"
 #include "include/v8-testing.h"
+#include "src/api-experimental.h"
 #include "src/api-natives.h"
 #include "src/assert-scope.h"
 #include "src/background-parsing-task.h"
@@ -882,8 +886,8 @@ int NeanderArray::length() {
 
 
 i::Object* NeanderArray::get(int offset) {
-  DCHECK(0 <= offset);
-  DCHECK(offset < length());
+  DCHECK_LE(0, offset);
+  DCHECK_LT(offset, length());
   return obj_.get(offset + 1);
 }
 
@@ -997,7 +1001,7 @@ void FunctionTemplate::Inherit(v8::Local<FunctionTemplate> value) {
 
 static Local<FunctionTemplate> FunctionTemplateNew(
     i::Isolate* isolate, FunctionCallback callback,
-    v8::Local<Value> fast_handler, v8::Local<Value> data,
+    experimental::FastAccessorBuilder* fast_handler, v8::Local<Value> data,
     v8::Local<Signature> signature, int length, bool do_not_cache) {
   i::Handle<i::Struct> struct_obj =
       isolate->factory()->NewStruct(i::FUNCTION_TEMPLATE_INFO_TYPE);
@@ -1038,14 +1042,15 @@ Local<FunctionTemplate> FunctionTemplate::New(Isolate* isolate,
   DCHECK(!i_isolate->serializer_enabled());
   LOG_API(i_isolate, "FunctionTemplate::New");
   ENTER_V8(i_isolate);
-  return FunctionTemplateNew(i_isolate, callback, v8::Local<Value>(), data,
-                             signature, length, false);
+  return FunctionTemplateNew(i_isolate, callback, nullptr, data, signature,
+                             length, false);
 }
 
 
 Local<FunctionTemplate> FunctionTemplate::NewWithFastHandler(
-    Isolate* isolate, FunctionCallback callback, v8::Local<Value> fast_handler,
-    v8::Local<Value> data, v8::Local<Signature> signature, int length) {
+    Isolate* isolate, FunctionCallback callback,
+    experimental::FastAccessorBuilder* fast_handler, v8::Local<Value> data,
+    v8::Local<Signature> signature, int length) {
   // TODO(vogelheim): 'fast_handler' should have a more specific type than
   // Local<Value>.
   i::Isolate* i_isolate = reinterpret_cast<i::Isolate*>(isolate);
@@ -1075,9 +1080,9 @@ Local<AccessorSignature> AccessorSignature::New(
   } while (false)
 
 
-void FunctionTemplate::SetCallHandler(FunctionCallback callback,
-                                      v8::Local<Value> data,
-                                      v8::Local<Value> fast_handler) {
+void FunctionTemplate::SetCallHandler(
+    FunctionCallback callback, v8::Local<Value> data,
+    experimental::FastAccessorBuilder* fast_handler) {
   auto info = Utils::OpenHandle(this);
   EnsureNotInstantiated(info, "v8::FunctionTemplate::SetCallHandler");
   i::Isolate* isolate = info->GetIsolate();
@@ -1088,10 +1093,10 @@ void FunctionTemplate::SetCallHandler(FunctionCallback callback,
   i::Handle<i::CallHandlerInfo> obj =
       i::Handle<i::CallHandlerInfo>::cast(struct_obj);
   SET_FIELD_WRAPPED(obj, set_callback, callback);
-  if (!fast_handler.IsEmpty()) {
-    i::Handle<i::Object> code = Utils::OpenHandle(*fast_handler);
-    CHECK(code->IsCode());
-    obj->set_fast_handler(*code);
+  i::MaybeHandle<i::Code> code =
+      i::experimental::BuildCodeFromFastAccessorBuilder(fast_handler);
+  if (!code.is_null()) {
+    obj->set_fast_handler(*code.ToHandleChecked());
   }
   if (data.IsEmpty()) {
     data = v8::Undefined(reinterpret_cast<v8::Isolate*>(isolate));
@@ -2896,12 +2901,16 @@ Local<String> Value::ToString(Isolate* isolate) const {
 
 
 MaybeLocal<String> Value::ToDetailString(Local<Context> context) const {
-  auto obj = Utils::OpenHandle(this);
+  i::Handle<i::Object> obj = Utils::OpenHandle(this);
   if (obj->IsString()) return ToApiHandle<String>(obj);
   PREPARE_FOR_EXECUTION(context, "ToDetailString", String);
   Local<String> result;
-  has_pending_exception =
-      !ToLocal<String>(i::Execution::ToDetailString(isolate, obj), &result);
+  i::Handle<i::Object> args[] = {obj};
+  has_pending_exception = !ToLocal<String>(
+      i::Execution::TryCall(isolate, isolate->no_side_effects_to_string_fun(),
+                            isolate->factory()->undefined_value(),
+                            arraysize(args), args),
+      &result);
   RETURN_ON_FAILED_EXECUTION(String);
   RETURN_ESCAPED(result);
 }
@@ -3520,11 +3529,11 @@ Maybe<bool> v8::Object::DefineOwnProperty(v8::Local<v8::Context> context,
   desc.set_enumerable(!(attributes & v8::DontEnum));
   desc.set_configurable(!(attributes & v8::DontDelete));
   desc.set_value(value_obj);
-  bool success = i::JSReceiver::DefineOwnProperty(isolate, self, key_obj, &desc,
-                                                  i::Object::DONT_THROW);
+  Maybe<bool> success = i::JSReceiver::DefineOwnProperty(
+      isolate, self, key_obj, &desc, i::Object::DONT_THROW);
   // Even though we said DONT_THROW, there might be accessors that do throw.
   RETURN_ON_FAILED_EXECUTION_PRIMITIVE(bool);
-  return Just(success);
+  return success;
 }
 
 
@@ -3659,17 +3668,18 @@ MaybeLocal<Value> v8::Object::GetOwnPropertyDescriptor(Local<Context> context,
                                                        Local<String> key) {
   PREPARE_FOR_EXECUTION(context, "v8::Object::GetOwnPropertyDescriptor()",
                         Value);
-  auto obj = Utils::OpenHandle(this);
-  auto key_name = Utils::OpenHandle(*key);
-  i::Handle<i::Object> args[] = { obj, key_name };
-  i::Handle<i::JSFunction> fun = isolate->object_get_own_property_descriptor();
-  i::Handle<i::Object> undefined = isolate->factory()->undefined_value();
-  i::Handle<i::Object> result;
-  has_pending_exception =
-      !i::Execution::Call(isolate, fun, undefined, arraysize(args), args)
-           .ToHandle(&result);
+  i::Handle<i::JSReceiver> obj = Utils::OpenHandle(this);
+  i::Handle<i::String> key_name = Utils::OpenHandle(*key);
+
+  i::PropertyDescriptor desc;
+  Maybe<bool> found =
+      i::JSReceiver::GetOwnPropertyDescriptor(isolate, obj, key_name, &desc);
+  has_pending_exception = found.IsNothing();
   RETURN_ON_FAILED_EXECUTION(Value);
-  RETURN_ESCAPED(Utils::ToLocal(result));
+  if (!found.FromJust()) {
+    return v8::Undefined(reinterpret_cast<v8::Isolate*>(isolate));
+  }
+  RETURN_ESCAPED(Utils::ToLocal(desc.ToObject(isolate)));
 }
 
 
@@ -3774,63 +3784,13 @@ Local<Array> v8::Object::GetOwnPropertyNames() {
 
 
 MaybeLocal<String> v8::Object::ObjectProtoToString(Local<Context> context) {
-  auto self = Utils::OpenHandle(this);
-  auto isolate = self->GetIsolate();
-  auto v8_isolate = reinterpret_cast<v8::Isolate*>(isolate);
-  i::Handle<i::Object> name(self->class_name(), isolate);
-  i::Handle<i::Object> tag;
-
-  // Native implementation of Object.prototype.toString (v8natives.js):
-  //   var c = %_ClassOf(this);
-  //   if (c === 'Arguments') c  = 'Object';
-  //   return "[object " + c + "]";
-
-  if (!name->IsString()) {
-    return v8::String::NewFromUtf8(v8_isolate, "[object ]",
-                                   NewStringType::kNormal);
-  }
-  auto class_name = i::Handle<i::String>::cast(name);
-  if (i::String::Equals(class_name, isolate->factory()->Arguments_string())) {
-    return v8::String::NewFromUtf8(v8_isolate, "[object Object]",
-                                   NewStringType::kNormal);
-  }
-  if (internal::FLAG_harmony_tostring) {
-    PREPARE_FOR_EXECUTION(context, "v8::Object::ObjectProtoToString()", String);
-    auto toStringTag = isolate->factory()->to_string_tag_symbol();
-    has_pending_exception = !i::Runtime::GetObjectProperty(
-                                 isolate, self, toStringTag).ToHandle(&tag);
-    RETURN_ON_FAILED_EXECUTION(String);
-    if (tag->IsString()) {
-      class_name = Utils::OpenHandle(*handle_scope.Escape(
-          Utils::ToLocal(i::Handle<i::String>::cast(tag))));
-    }
-  }
-  const char* prefix = "[object ";
-  Local<String> str = Utils::ToLocal(class_name);
-  const char* postfix = "]";
-
-  int prefix_len = i::StrLength(prefix);
-  int str_len = str->Utf8Length();
-  int postfix_len = i::StrLength(postfix);
-
-  int buf_len = prefix_len + str_len + postfix_len;
-  i::ScopedVector<char> buf(buf_len);
-
-  // Write prefix.
-  char* ptr = buf.start();
-  i::MemCopy(ptr, prefix, prefix_len * v8::internal::kCharSize);
-  ptr += prefix_len;
-
-  // Write real content.
-  str->WriteUtf8(ptr, str_len);
-  ptr += str_len;
-
-  // Write postfix.
-  i::MemCopy(ptr, postfix, postfix_len * v8::internal::kCharSize);
-
-  // Copy the buffer into a heap-allocated string and return it.
-  return v8::String::NewFromUtf8(v8_isolate, buf.start(),
-                                 NewStringType::kNormal, buf_len);
+  PREPARE_FOR_EXECUTION(context, "v8::Object::ObjectProtoToString", String);
+  auto obj = Utils::OpenHandle(this);
+  Local<String> result;
+  has_pending_exception =
+      !ToLocal<String>(i::JSObject::ObjectProtoToString(isolate, obj), &result);
+  RETURN_ON_FAILED_EXECUTION(String);
+  RETURN_ESCAPED(result);
 }
 
 
@@ -4361,7 +4321,7 @@ MaybeLocal<Function> Function::New(Local<Context> context,
   i::Isolate* isolate = Utils::OpenHandle(*context)->GetIsolate();
   LOG_API(isolate, "Function::New");
   ENTER_V8(isolate);
-  return FunctionTemplateNew(isolate, callback, Local<Value>(), data,
+  return FunctionTemplateNew(isolate, callback, nullptr, data,
                              Local<Signature>(), length, true)
       ->GetFunction(context);
 }
@@ -4833,7 +4793,7 @@ class Utf8LengthHelper : public i::AllStatic {
   }
 
   static int Calculate(i::ConsString* current, uint8_t* state_out) {
-    using namespace internal;
+    using internal::ConsString;
     int total_length = 0;
     uint8_t state = kInitialState;
     while (true) {
@@ -4933,26 +4893,22 @@ class Utf8WriterVisitor {
                                int remaining,
                                char* const buffer,
                                bool replace_invalid_utf8) {
-    using namespace unibrow;
-    DCHECK(remaining > 0);
+    DCHECK_GT(remaining, 0);
     // We can't use a local buffer here because Encode needs to modify
     // previous characters in the stream.  We know, however, that
     // exactly one character will be advanced.
-    if (Utf16::IsSurrogatePair(last_character, character)) {
-      int written = Utf8::Encode(buffer,
-                                 character,
-                                 last_character,
-                                 replace_invalid_utf8);
-      DCHECK(written == 1);
+    if (unibrow::Utf16::IsSurrogatePair(last_character, character)) {
+      int written = unibrow::Utf8::Encode(buffer, character, last_character,
+                                          replace_invalid_utf8);
+      DCHECK_EQ(written, 1);
       return written;
     }
     // Use a scratch buffer to check the required characters.
-    char temp_buffer[Utf8::kMaxEncodedSize];
+    char temp_buffer[unibrow::Utf8::kMaxEncodedSize];
     // Can't encode using last_character as gcc has array bounds issues.
-    int written = Utf8::Encode(temp_buffer,
-                               character,
-                               Utf16::kNoPreviousCharacter,
-                               replace_invalid_utf8);
+    int written = unibrow::Utf8::Encode(temp_buffer, character,
+                                        unibrow::Utf16::kNoPreviousCharacter,
+                                        replace_invalid_utf8);
     // Won't fit.
     if (written > remaining) return 0;
     // Copy over the character from temp_buffer.
@@ -4974,13 +4930,13 @@ class Utf8WriterVisitor {
   // unit, or all units have been written out.
   template<typename Char>
   void Visit(const Char* chars, const int length) {
-    using namespace unibrow;
     DCHECK(!early_termination_);
     if (length == 0) return;
     // Copy state to stack.
     char* buffer = buffer_;
-    int last_character =
-        sizeof(Char) == 1 ? Utf16::kNoPreviousCharacter : last_character_;
+    int last_character = sizeof(Char) == 1
+                             ? unibrow::Utf16::kNoPreviousCharacter
+                             : last_character_;
     int i = 0;
     // Do a fast loop where there is no exit capacity check.
     while (true) {
@@ -4990,7 +4946,8 @@ class Utf8WriterVisitor {
       } else {
         int remaining_capacity = capacity_ - static_cast<int>(buffer - start_);
         // Need enough space to write everything but one character.
-        STATIC_ASSERT(Utf16::kMaxExtraUtf8BytesForOneUtf16CodeUnit == 3);
+        STATIC_ASSERT(unibrow::Utf16::kMaxExtraUtf8BytesForOneUtf16CodeUnit ==
+                      3);
         int max_size_per_char =  sizeof(Char) == 1 ? 2 : 3;
         int writable_length =
             (remaining_capacity - max_size_per_char)/max_size_per_char;
@@ -5002,17 +4959,15 @@ class Utf8WriterVisitor {
       // Write the characters to the stream.
       if (sizeof(Char) == 1) {
         for (; i < fast_length; i++) {
-          buffer +=
-              Utf8::EncodeOneByte(buffer, static_cast<uint8_t>(*chars++));
+          buffer += unibrow::Utf8::EncodeOneByte(
+              buffer, static_cast<uint8_t>(*chars++));
           DCHECK(capacity_ == -1 || (buffer - start_) <= capacity_);
         }
       } else {
         for (; i < fast_length; i++) {
           uint16_t character = *chars++;
-          buffer += Utf8::Encode(buffer,
-                                 character,
-                                 last_character,
-                                 replace_invalid_utf8_);
+          buffer += unibrow::Utf8::Encode(buffer, character, last_character,
+                                          replace_invalid_utf8_);
           last_character = character;
           DCHECK(capacity_ == -1 || (buffer - start_) <= capacity_);
         }
@@ -5029,12 +4984,12 @@ class Utf8WriterVisitor {
     DCHECK(!skip_capacity_check_);
     // Slow loop. Must check capacity on each iteration.
     int remaining_capacity = capacity_ - static_cast<int>(buffer - start_);
-    DCHECK(remaining_capacity >= 0);
+    DCHECK_GE(remaining_capacity, 0);
     for (; i < length && remaining_capacity > 0; i++) {
       uint16_t character = *chars++;
       // remaining_capacity is <= 3 bytes at this point, so we do not write out
       // an umatched lead surrogate.
-      if (replace_invalid_utf8_ && Utf16::IsLeadSurrogate(character)) {
+      if (replace_invalid_utf8_ && unibrow::Utf16::IsLeadSurrogate(character)) {
         early_termination_ = true;
         break;
       }
@@ -6463,10 +6418,12 @@ void Promise::Resolver::Reject(Local<Value> value) {
 }
 
 
-MaybeLocal<Promise> Promise::Chain(Local<Context> context,
-                                   Local<Function> handler) {
+namespace {
+
+MaybeLocal<Promise> DoChain(Value* value, Local<Context> context,
+                            Local<Function> handler) {
   PREPARE_FOR_EXECUTION(context, "Promise::Chain", Promise);
-  auto self = Utils::OpenHandle(this);
+  auto self = Utils::OpenHandle(value);
   i::Handle<i::Object> argv[] = {Utils::OpenHandle(*handler)};
   i::Handle<i::Object> result;
   has_pending_exception = !i::Execution::Call(isolate, isolate->promise_chain(),
@@ -6476,10 +6433,18 @@ MaybeLocal<Promise> Promise::Chain(Local<Context> context,
   RETURN_ESCAPED(Local<Promise>::Cast(Utils::ToLocal(result)));
 }
 
+}  // namespace
+
+
+MaybeLocal<Promise> Promise::Chain(Local<Context> context,
+                                   Local<Function> handler) {
+  return DoChain(this, context, handler);
+}
+
 
 Local<Promise> Promise::Chain(Local<Function> handler) {
   auto context = ContextFromHeapObject(Utils::OpenHandle(this));
-  RETURN_TO_LOCAL_UNCHECKED(Chain(context, handler), Promise);
+  RETURN_TO_LOCAL_UNCHECKED(DoChain(this, context, handler), Promise);
 }
 
 
@@ -8032,7 +7997,7 @@ int CpuProfile::GetSamplesCount() const {
 
 
 void CpuProfiler::SetSamplingInterval(int us) {
-  DCHECK(us >= 0);
+  DCHECK_GE(us, 0);
   return reinterpret_cast<i::CpuProfiler*>(this)->set_sampling_interval(
       base::TimeDelta::FromMicroseconds(us));
 }

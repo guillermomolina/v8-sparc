@@ -105,7 +105,7 @@ class PipelineData {
     source_positions_.Reset(new SourcePositionTable(graph_));
     simplified_ = new (graph_zone_) SimplifiedOperatorBuilder(graph_zone_);
     machine_ = new (graph_zone_) MachineOperatorBuilder(
-        graph_zone_, kMachPtr,
+        graph_zone_, MachineType::PointerRepresentation(),
         InstructionSelector::SupportedMachineOperatorFlags());
     common_ = new (graph_zone_) CommonOperatorBuilder(graph_zone_);
     javascript_ = new (graph_zone_) JSOperatorBuilder(graph_zone_);
@@ -1000,14 +1000,6 @@ struct PrintGraphPhase {
     CompilationInfo* info = data->info();
     Graph* graph = data->graph();
 
-    {  // Print dot.
-      FILE* dot_file = OpenVisualizerLogFile(info, phase, "dot", "w+");
-      if (dot_file == nullptr) return;
-      OFStream dot_of(dot_file);
-      dot_of << AsDOT(*graph);
-      fclose(dot_file);
-    }
-
     {  // Print JSON.
       FILE* json_file = OpenVisualizerLogFile(info, NULL, "json", "a+");
       if (json_file == nullptr) return;
@@ -1149,7 +1141,7 @@ Handle<Code> Pipeline::GenerateCode() {
                           info()->is_deoptimization_enabled()
                               ? Typer::kDeoptimizationEnabled
                               : Typer::kNoFlags,
-                          info()->dependencies(), info()->function_type()));
+                          info()->dependencies()));
     Run<TyperPhase>(typer.get());
     RunPrintAndVerify("Typed");
   }
@@ -1167,6 +1159,9 @@ Handle<Code> Pipeline::GenerateCode() {
     }
 
     if (FLAG_turbo_escape) {
+      // TODO(sigurds): EscapeAnalysis needs a trimmed graph at the moment,
+      // because it does a forwards traversal of the effect edges.
+      Run<EarlyGraphTrimmingPhase>();
       Run<EscapeAnalysisPhase>();
       RunPrintAndVerify("Escape Analysed");
     }
@@ -1215,8 +1210,8 @@ Handle<Code> Pipeline::GenerateCodeForCodeStub(Isolate* isolate,
                                                CallDescriptor* call_descriptor,
                                                Graph* graph, Schedule* schedule,
                                                Code::Kind kind,
-                                               const char* code_stub_name) {
-  CompilationInfo info(code_stub_name, isolate, graph->zone());
+                                               const char* debug_name) {
+  CompilationInfo info(debug_name, isolate, graph->zone());
   info.set_output_code_kind(kind);
 
   // Construct a pipeline for scheduling and code generation.
@@ -1225,8 +1220,13 @@ Handle<Code> Pipeline::GenerateCodeForCodeStub(Isolate* isolate,
   base::SmartPointer<PipelineStatistics> pipeline_statistics;
   if (FLAG_turbo_stats) {
     pipeline_statistics.Reset(new PipelineStatistics(&info, &zone_pool));
-    pipeline_statistics->BeginPhaseKind("interpreter handler codegen");
+    pipeline_statistics->BeginPhaseKind("stub codegen");
   }
+
+  Pipeline pipeline(&info);
+  pipeline.data_ = &data;
+  DCHECK_NOT_NULL(data.schedule());
+
   if (FLAG_trace_turbo) {
     FILE* json_file = OpenVisualizerLogFile(&info, NULL, "json", "w+");
     if (json_file != nullptr) {
@@ -1235,11 +1235,9 @@ Handle<Code> Pipeline::GenerateCodeForCodeStub(Isolate* isolate,
               << "\", \"source\":\"\",\n\"phases\":[";
       fclose(json_file);
     }
+    pipeline.Run<PrintGraphPhase>("Machine");
   }
 
-  Pipeline pipeline(&info);
-  pipeline.data_ = &data;
-  pipeline.RunPrintAndVerify("Machine", true);
   return pipeline.ScheduleAndGenerateCode(call_descriptor);
 }
 

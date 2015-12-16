@@ -2,9 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// TODO(jochen): Remove this after the setting is turned on globally.
-#define V8_IMMINENT_DEPRECATION_WARNINGS
-
 #include "src/basic-block-profiler.h"
 #include "test/cctest/cctest.h"
 #include "test/cctest/compiler/codegen-tester.h"
@@ -15,7 +12,8 @@ namespace compiler {
 
 class BasicBlockProfilerTest : public RawMachineAssemblerTester<int32_t> {
  public:
-  BasicBlockProfilerTest() : RawMachineAssemblerTester<int32_t>(kMachInt32) {
+  BasicBlockProfilerTest()
+      : RawMachineAssemblerTester<int32_t>(MachineType::Int32()) {
     FLAG_turbo_profiling = true;
   }
 
@@ -84,7 +82,7 @@ TEST(ProfileLoop) {
   m.Goto(&header);
 
   m.Bind(&header);
-  Node* count = m.Phi(kMachInt32, m.Parameter(0), one);
+  Node* count = m.Phi(MachineRepresentation::kWord32, m.Parameter(0), one);
   m.Branch(count, &body, &end);
 
   m.Bind(&body);

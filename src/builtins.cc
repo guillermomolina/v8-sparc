@@ -1434,6 +1434,64 @@ BUILTIN(ArrayIsArray) {
 }
 
 
+// ES6 19.1.2.1 Object.assign
+BUILTIN(ObjectAssign) {
+  HandleScope scope(isolate);
+  Handle<Object> target =
+      args.length() > 1
+          ? args.at<Object>(1)
+          : Handle<Object>::cast(isolate->factory()->undefined_value());
+
+  // 1. Let to be ? ToObject(target).
+  ASSIGN_RETURN_FAILURE_ON_EXCEPTION(isolate, target,
+                                     Execution::ToObject(isolate, target));
+  Handle<JSReceiver> to = Handle<JSReceiver>::cast(target);
+  // 2. If only one argument was passed, return to.
+  if (args.length() == 2) return *to;
+  // 3. Let sources be the List of argument values starting with the
+  //    second argument.
+  // 4. For each element nextSource of sources, in ascending index order,
+  for (int i = 2; i < args.length(); ++i) {
+    Handle<Object> next_source = args.at<Object>(i);
+    // 4a. If nextSource is undefined or null, let keys be an empty List.
+    if (next_source->IsUndefined() || next_source->IsNull()) continue;
+    // 4b. Else,
+    // 4b i. Let from be ToObject(nextSource).
+    Handle<JSReceiver> from =
+        Object::ToObject(isolate, next_source).ToHandleChecked();
+    // 4b ii. Let keys be ? from.[[OwnPropertyKeys]]().
+    Handle<FixedArray> keys;
+    ASSIGN_RETURN_FAILURE_ON_EXCEPTION(
+        isolate, keys, JSReceiver::GetKeys(from, JSReceiver::OWN_ONLY,
+                                           ALL_PROPERTIES, KEEP_NUMBERS));
+    // 4c. Repeat for each element nextKey of keys in List order,
+    for (int j = 0; j < keys->length(); ++j) {
+      Handle<Object> next_key(keys->get(j), isolate);
+      // 4c i. Let desc be ? from.[[GetOwnProperty]](nextKey).
+      PropertyDescriptor desc;
+      Maybe<bool> found =
+          JSReceiver::GetOwnPropertyDescriptor(isolate, from, next_key, &desc);
+      if (found.IsNothing()) return isolate->heap()->exception();
+      // 4c ii. If desc is not undefined and desc.[[Enumerable]] is true, then
+      if (found.FromJust() && desc.enumerable()) {
+        // 4c ii 1. Let propValue be ? Get(from, nextKey).
+        Handle<Object> prop_value;
+        ASSIGN_RETURN_FAILURE_ON_EXCEPTION(
+            isolate, prop_value,
+            Runtime::GetObjectProperty(isolate, from, next_key, STRICT));
+        // 4c ii 2. Let status be ? Set(to, nextKey, propValue, true).
+        Handle<Object> status;
+        ASSIGN_RETURN_FAILURE_ON_EXCEPTION(
+            isolate, status, Runtime::SetObjectProperty(isolate, to, next_key,
+                                                        prop_value, STRICT));
+      }
+    }
+  }
+  // 5. Return to.
+  return *to;
+}
+
+
 // ES6 section 26.1.3 Reflect.defineProperty
 BUILTIN(ReflectDefineProperty) {
   HandleScope scope(isolate);
@@ -1458,12 +1516,11 @@ BUILTIN(ReflectDefineProperty) {
     return isolate->heap()->exception();
   }
 
-  bool result =
+  Maybe<bool> result =
       JSReceiver::DefineOwnProperty(isolate, Handle<JSReceiver>::cast(target),
                                     name, &desc, Object::DONT_THROW);
-  if (isolate->has_pending_exception()) return isolate->heap()->exception();
-  // TODO(neis): Make DefineOwnProperty return Maybe<bool>.
-  return *isolate->factory()->ToBoolean(result);
+  MAYBE_RETURN(result, isolate->heap()->exception());
+  return *isolate->factory()->ToBoolean(result.FromJust());
 }
 
 
@@ -1539,10 +1596,10 @@ BUILTIN(ReflectGetOwnPropertyDescriptor) {
                                      Object::ToName(isolate, key));
 
   PropertyDescriptor desc;
-  bool found = JSReceiver::GetOwnPropertyDescriptor(
+  Maybe<bool> found = JSReceiver::GetOwnPropertyDescriptor(
       isolate, Handle<JSReceiver>::cast(target), name, &desc);
-  if (isolate->has_pending_exception()) return isolate->heap()->exception();
-  if (!found) return isolate->heap()->undefined_value();
+  MAYBE_RETURN(found, isolate->heap()->exception());
+  if (!found.FromJust()) return isolate->heap()->undefined_value();
   return *desc.ToObject(isolate);
 }
 
@@ -1755,14 +1812,25 @@ BUILTIN(SymbolConstructor_ConstructStub) {
 }
 
 
+// ES6 19.1.3.6 Object.prototype.toString
+BUILTIN(ObjectProtoToString) {
+  HandleScope scope(isolate);
+  Handle<Object> object = args.at<Object>(0);
+  Handle<String> result;
+  ASSIGN_RETURN_FAILURE_ON_EXCEPTION(
+      isolate, result, JSObject::ObjectProtoToString(isolate, object));
+  return *result;
+}
+
+
 namespace {
 
 // ES6 section 9.5.15 ProxyCreate (target, handler)
 MaybeHandle<JSProxy> ProxyCreate(Isolate* isolate, Handle<Object> target,
                                  Handle<Object> handler) {
   if (!target->IsJSReceiver()) {
-    THROW_NEW_ERROR(
-        isolate, NewTypeError(MessageTemplate::kProxyTargetNonObject), JSProxy);
+    THROW_NEW_ERROR(isolate, NewTypeError(MessageTemplate::kProxyNonObject),
+                    JSProxy);
   }
   if (target->IsJSProxy() && JSProxy::cast(*target)->IsRevoked()) {
     THROW_NEW_ERROR(isolate,
@@ -1770,8 +1838,7 @@ MaybeHandle<JSProxy> ProxyCreate(Isolate* isolate, Handle<Object> target,
                     JSProxy);
   }
   if (!handler->IsJSReceiver()) {
-    THROW_NEW_ERROR(isolate,
-                    NewTypeError(MessageTemplate::kProxyHandlerNonObject),
+    THROW_NEW_ERROR(isolate, NewTypeError(MessageTemplate::kProxyNonObject),
                     JSProxy);
   }
   if (handler->IsJSProxy() && JSProxy::cast(*handler)->IsRevoked()) {
@@ -1799,9 +1866,19 @@ BUILTIN(ProxyConstructor) {
 // ES6 section 26.2.1.1 Proxy ( target, handler ) for the [[Construct]] case.
 BUILTIN(ProxyConstructor_ConstructStub) {
   HandleScope scope(isolate);
-  DCHECK_EQ(3, args.length());
-  Handle<Object> target = args.at<Object>(1);
-  Handle<Object> handler = args.at<Object>(2);
+  DCHECK(isolate->proxy_function()->IsConstructor());
+  Handle<Object> target;
+  if (args.length() < 2) {
+    target = isolate->factory()->undefined_value();
+  } else {
+    target = args.at<Object>(1);
+  }
+  Handle<Object> handler;
+  if (args.length() < 3) {
+    handler = isolate->factory()->undefined_value();
+  } else {
+    handler = args.at<Object>(2);
+  }
   // The ConstructStub is executed in the context of the caller, so we need
   // to enter the callee context first before raising an exception.
   isolate->set_context(args.target()->context());

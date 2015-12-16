@@ -2517,19 +2517,10 @@ void MacroAssembler::InvokeBuiltin(int native_context_index, InvokeFlag flag,
   // You can't call a builtin without a valid frame.
   DCHECK(flag == JUMP_FUNCTION || has_frame());
 
-  // Always initialize new target.
-  LoadRoot(r3, Heap::kUndefinedValueRootIndex);
-
+  // Fake a parameter count to avoid emitting code to do the check.
+  ParameterCount expected(0);
   LoadNativeContextSlot(native_context_index, r1);
-  ldr(r2, FieldMemOperand(r1, JSFunction::kCodeEntryOffset));
-  if (flag == CALL_FUNCTION) {
-    call_wrapper.BeforeCall(CallSize(r2));
-    Call(r2);
-    call_wrapper.AfterCall();
-  } else {
-    DCHECK(flag == JUMP_FUNCTION);
-    Jump(r2);
-  }
+  InvokeFunctionCode(r1, no_reg, expected, expected, flag, call_wrapper);
 }
 
 
@@ -2669,17 +2660,18 @@ void MacroAssembler::LoadTransitionedArrayMapConditional(
     Register map_in_out,
     Register scratch,
     Label* no_map_match) {
+  DCHECK(IsFastElementsKind(expected_kind));
+  DCHECK(IsFastElementsKind(transitioned_kind));
+
   // Check that the function's map is the same as the expected cached map.
-  LoadNativeContextSlot(Context::JS_ARRAY_MAPS_INDEX, scratch);
-  size_t offset = expected_kind * kPointerSize + FixedArrayBase::kHeaderSize;
-  ldr(ip, FieldMemOperand(scratch, offset));
+  ldr(scratch, NativeContextMemOperand());
+  ldr(ip, ContextMemOperand(scratch, Context::ArrayMapIndex(expected_kind)));
   cmp(map_in_out, ip);
   b(ne, no_map_match);
 
   // Use the transitioned cached map.
-  offset = transitioned_kind * kPointerSize +
-      FixedArrayBase::kHeaderSize;
-  ldr(map_in_out, FieldMemOperand(scratch, offset));
+  ldr(map_in_out,
+      ContextMemOperand(scratch, Context::ArrayMapIndex(transitioned_kind)));
 }
 
 

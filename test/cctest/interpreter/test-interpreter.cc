@@ -2,9 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// TODO(rmcilroy): Remove this define after this flag is turned on globally
-#define V8_IMMINENT_DEPRECATION_WARNINGS
-
 #include "src/v8.h"
 
 #include "src/execution.h"
@@ -1565,43 +1562,6 @@ static void LoadAny(BytecodeArrayBuilder* builder,
 }
 
 
-TEST(InterpreterToBoolean) {
-  HandleAndZoneScope handles;
-  i::Factory* factory = handles.main_isolate()->factory();
-
-  std::pair<Handle<Object>, bool> object_type_tuples[] = {
-      std::make_pair(factory->undefined_value(), false),
-      std::make_pair(factory->null_value(), false),
-      std::make_pair(factory->false_value(), false),
-      std::make_pair(factory->true_value(), true),
-      std::make_pair(factory->NewNumber(9.1), true),
-      std::make_pair(factory->NewNumberFromInt(0), false),
-      std::make_pair(
-          Handle<Object>::cast(factory->NewStringFromStaticChars("hello")),
-          true),
-      std::make_pair(
-          Handle<Object>::cast(factory->NewStringFromStaticChars("")), false),
-  };
-
-  for (size_t i = 0; i < arraysize(object_type_tuples); i++) {
-    BytecodeArrayBuilder builder(handles.main_isolate(), handles.main_zone());
-    Register r0(0);
-    builder.set_locals_count(0);
-    builder.set_context_count(0);
-    builder.set_parameter_count(0);
-    LoadAny(&builder, factory, object_type_tuples[i].first);
-    builder.CastAccumulatorToBoolean();
-    builder.Return();
-    Handle<BytecodeArray> bytecode_array = builder.ToBytecodeArray();
-    InterpreterTester tester(handles.main_isolate(), bytecode_array);
-    auto callable = tester.GetCallable<>();
-    Handle<Object> return_value = callable().ToHandleChecked();
-    CHECK(return_value->IsBoolean());
-    CHECK_EQ(return_value->BooleanValue(), object_type_tuples[i].second);
-  }
-}
-
-
 TEST(InterpreterUnaryNotNonBoolean) {
   HandleAndZoneScope handles;
   i::Factory* factory = handles.main_isolate()->factory();
@@ -3090,6 +3050,48 @@ TEST(InterpreterAssignmentInExpressions) {
   }
 }
 
+
+TEST(InterpreterToName) {
+  HandleAndZoneScope handles;
+  i::Isolate* isolate = handles.main_isolate();
+  i::Factory* factory = isolate->factory();
+
+  std::pair<const char*, Handle<Object>> to_name_tests[] = {
+      {"var a = 'val'; var obj = {[a] : 10}; return obj.val;",
+       factory->NewNumberFromInt(10)},
+      {"var a = 20; var obj = {[a] : 10}; return obj['20'];",
+       factory->NewNumberFromInt(10)},
+      {"var a = 20; var obj = {[a] : 10}; return obj[20];",
+       factory->NewNumberFromInt(10)},
+      {"var a = {val:23}; var obj = {[a] : 10}; return obj[a];",
+       factory->NewNumberFromInt(10)},
+      {"var a = {val:23}; var obj = {[a] : 10};\n"
+       "return obj['[object Object]'];",
+       factory->NewNumberFromInt(10)},
+      {"var a = {toString : function() { return 'x'}};\n"
+       "var obj = {[a] : 10};\n"
+       "return obj.x;",
+       factory->NewNumberFromInt(10)},
+      {"var a = {valueOf : function() { return 'x'}};\n"
+       "var obj = {[a] : 10};\n"
+       "return obj.x;",
+       factory->undefined_value()},
+      {"var a = {[Symbol.toPrimitive] : function() { return 'x'}};\n"
+       "var obj = {[a] : 10};\n"
+       "return obj.x;",
+       factory->NewNumberFromInt(10)},
+  };
+
+  for (size_t i = 0; i < arraysize(to_name_tests); i++) {
+    std::string source(
+        InterpreterTester::SourceForBody(to_name_tests[i].first));
+    InterpreterTester tester(handles.main_isolate(), source.c_str());
+    auto callable = tester.GetCallable<>();
+
+    Handle<i::Object> return_value = callable().ToHandleChecked();
+    CHECK(return_value->SameValue(*to_name_tests[i].second));
+  }
+}
 
 }  // namespace interpreter
 }  // namespace internal

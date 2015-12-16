@@ -159,7 +159,7 @@ class IncrementalMarking {
   // No slots in white objects should be recorded, as some slots are typed and
   // cannot be interpreted correctly if the underlying object does not survive
   // the incremental cycle (stays white).
-  INLINE(bool BaseRecordWrite(HeapObject* obj, Object** slot, Object* value));
+  INLINE(bool BaseRecordWrite(HeapObject* obj, Object* value));
   INLINE(void RecordWrite(HeapObject* obj, Object** slot, Object* value));
   INLINE(void RecordWriteIntoCode(HeapObject* obj, RelocInfo* rinfo,
                                   Object* value));
@@ -241,6 +241,9 @@ class IncrementalMarking {
   void MarkRoots();
   void MarkObjectGroups();
   void ProcessWeakCells();
+  // Retain dying maps for <FLAG_retain_maps_for_n_gc> garbage collections to
+  // increase chances of reusing of map transition tree in future.
+  void RetainMaps();
 
   void ActivateIncrementalWriteBarrier(PagedSpace* space);
   static void ActivateIncrementalWriteBarrier(NewSpace* space);

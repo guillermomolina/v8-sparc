@@ -22,10 +22,6 @@
       'include_dirs': [
         '../..',
       ],
-      'defines': [
-        # TODO(jochen): Remove again after this is globally turned on.
-        'V8_IMMINENT_DEPRECATION_WARNINGS',
-      ],
       'sources': [  ### gcmole(all) ###
         'atomic-utils-unittest.cc',
         'base/bits-unittest.cc',
@@ -174,8 +170,11 @@
           },
         }],
         ['v8_wasm!=0', {
-          'dependencies': [
-            '../../third_party/wasm/test/unittests/wasm/wasm.gyp:wasm_unittests',
+          'sources': [
+            'wasm/ast-decoder-unittest.cc',
+            'wasm/encoder-unittest.cc',
+            'wasm/module-decoder-unittest.cc',
+            'wasm/wasm-macro-gen-unittest.cc',
           ],
         }],
       ],

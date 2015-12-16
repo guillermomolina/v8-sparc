@@ -25,9 +25,6 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// TODO(jochen): Remove this after the setting is turned on globally.
-#define V8_IMMINENT_DEPRECATION_WARNINGS
-
 #include "src/v8.h"
 
 #include "test/cctest/cctest.h"
@@ -58,6 +55,7 @@ class HarmonyIsolate {
 
 
 TEST(MicrotaskDeliverySimple) {
+  i::FLAG_harmony_object_observe = true;
   HarmonyIsolate isolate;
   v8::HandleScope scope(isolate.GetIsolate());
   LocalContext context(isolate.GetIsolate());
@@ -103,6 +101,7 @@ TEST(MicrotaskDeliverySimple) {
 
 
 TEST(MicrotaskPerIsolateState) {
+  i::FLAG_harmony_object_observe = true;
   HarmonyIsolate isolate;
   v8::HandleScope scope(isolate.GetIsolate());
   LocalContext context1(isolate.GetIsolate());

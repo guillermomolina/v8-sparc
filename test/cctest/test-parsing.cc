@@ -25,9 +25,6 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// TODO(mythria): Remove this define after this flag is turned on globally
-#define V8_IMMINENT_DEPRECATION_WARNINGS
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1507,7 +1504,6 @@ enum ParserFlag {
   kAllowLazy,
   kAllowNatives,
   kAllowHarmonyDefaultParameters,
-  kAllowHarmonyRestParameters,
   kAllowHarmonySloppy,
   kAllowHarmonySloppyLet,
   kAllowHarmonyDestructuring,
@@ -1531,8 +1527,6 @@ void SetParserFlags(i::ParserBase<Traits>* parser,
   parser->set_allow_natives(flags.Contains(kAllowNatives));
   parser->set_allow_harmony_default_parameters(
       flags.Contains(kAllowHarmonyDefaultParameters));
-  parser->set_allow_harmony_rest_parameters(
-      flags.Contains(kAllowHarmonyRestParameters));
   parser->set_allow_harmony_sloppy(flags.Contains(kAllowHarmonySloppy));
   parser->set_allow_harmony_sloppy_let(flags.Contains(kAllowHarmonySloppyLet));
   parser->set_allow_harmony_destructuring_bind(
@@ -3690,9 +3684,7 @@ TEST(ErrorsArrowFormalParameters) {
     nullptr
   };
 
-  static const ParserFlag always_flags[] = {kAllowHarmonyRestParameters};
-  RunParserSyncTest(context_data, assignment_expression_suffix_data, kError,
-                    NULL, 0, always_flags, arraysize(always_flags));
+  RunParserSyncTest(context_data, assignment_expression_suffix_data, kError);
 }
 
 
@@ -3884,7 +3876,6 @@ TEST(NoErrorsArrowFunctions) {
   };
 
   static const ParserFlag always_flags[] = {kAllowHarmonyDefaultParameters,
-                                            kAllowHarmonyRestParameters,
                                             kAllowHarmonyDestructuring};
   RunParserSyncTest(context_data, statement_data, kSuccess, NULL, 0,
                     always_flags, arraysize(always_flags));
@@ -3991,7 +3982,6 @@ TEST(ArrowFunctionsYieldParameterNameInGenerator) {
   };
 
   static const ParserFlag always_flags[] = { kAllowHarmonyDestructuring,
-                                             kAllowHarmonyRestParameters,
                                              kAllowStrongMode};
   RunParserSyncTest(sloppy_function_context_data, arrow_data, kSuccess, NULL, 0,
                     always_flags, arraysize(always_flags));
@@ -5318,9 +5308,7 @@ TEST(ParseRestParameters) {
     "...\t\n\t\t\n  args",
     "a, ...  \n  \n  args",
     NULL};
-  static const ParserFlag always_flags[] = {kAllowHarmonyRestParameters};
-  RunParserSyncTest(context_data, data, kSuccess, NULL, 0, always_flags,
-                    arraysize(always_flags));
+  RunParserSyncTest(context_data, data, kSuccess);
 }
 
 
@@ -5350,9 +5338,7 @@ TEST(ParseRestParametersErrors) {
       "a,\ra, ...args",
       "a,\na, ...args",
       NULL};
-  static const ParserFlag always_flags[] = {kAllowHarmonyRestParameters};
-  RunParserSyncTest(context_data, data, kError, NULL, 0, always_flags,
-                    arraysize(always_flags));
+  RunParserSyncTest(context_data, data, kError);
 }
 
 
@@ -5367,8 +5353,7 @@ TEST(RestParameterInSetterMethodError) {
       {nullptr, nullptr}};
   const char* data[] = {"...a", "...arguments", "...eval", nullptr};
 
-  static const ParserFlag always_flags[] = {kAllowHarmonyRestParameters,
-                                            kAllowHarmonySloppy};
+  static const ParserFlag always_flags[] = {kAllowHarmonySloppy};
   RunParserSyncTest(context_data, data, kError, nullptr, 0, always_flags,
                     arraysize(always_flags));
 }
@@ -5391,15 +5376,11 @@ TEST(RestParametersEvalArguments) {
       "arguments, ...args",
       NULL};
 
-  static const ParserFlag always_flags[] = {kAllowHarmonyRestParameters};
-
   // Fail in strict mode
-  RunParserSyncTest(strict_context_data, data, kError, NULL, 0, always_flags,
-                    arraysize(always_flags));
+  RunParserSyncTest(strict_context_data, data, kError);
 
   // OK in sloppy mode
-  RunParserSyncTest(sloppy_context_data, data, kSuccess, NULL, 0, always_flags,
-                    arraysize(always_flags));
+  RunParserSyncTest(sloppy_context_data, data, kSuccess);
 }
 
 
@@ -5418,12 +5399,9 @@ TEST(RestParametersDuplicateEvalArguments) {
       "arguments, arguments, ...args",
       NULL};
 
-  static const ParserFlag always_flags[] = {kAllowHarmonyRestParameters};
-
   // In strict mode, the error is using "eval" or "arguments" as parameter names
   // In sloppy mode, the error is that eval / arguments are duplicated
-  RunParserSyncTest(context_data, data, kError, NULL, 0, always_flags,
-                    arraysize(always_flags));
+  RunParserSyncTest(context_data, data, kError);
 }
 
 
@@ -6257,8 +6235,7 @@ TEST(StrongConstructorDirective) {
       "foo() { \"use strong\" } constructor() {}", NULL};
 
   static const ParserFlag always_flags[] = {
-      kAllowHarmonyRestParameters, kAllowHarmonySloppy, kAllowHarmonySloppyLet,
-      kAllowStrongMode};
+      kAllowHarmonySloppy, kAllowHarmonySloppyLet, kAllowStrongMode};
 
   RunParserSyncTest(context_data, error_data, kError, NULL, 0, always_flags,
                     arraysize(always_flags));
@@ -6831,6 +6808,25 @@ TEST(DestructuringAssignmentPositiveTests) {
       {"'use strict'; let x, y, z; for (x of ", " = {});"},
       {"var x, y, z; for (x in ", " = {});"},
       {"var x, y, z; for (x of ", " = {});"},
+      {"var x, y, z; for (", " in {});"},
+      {"var x, y, z; for (", " of {});"},
+      {"'use strict'; var x, y, z; for (", " in {});"},
+      {"'use strict'; var x, y, z; for (", " of {});"},
+      {NULL, NULL}};
+
+  const char* mixed_assignments_context_data[][2] = {
+      {"'use strict'; let x, y, z; (", " = z = {});"},
+      {"var x, y, z; (", " = z = {});"},
+      {"'use strict'; let x, y, z; (x = ", " = z = {});"},
+      {"var x, y, z; (x = ", " = z = {});"},
+      {"'use strict'; let x, y, z; for (x in ", " = z = {});"},
+      {"'use strict'; let x, y, z; for (x in x = ", " = z = {});"},
+      {"'use strict'; let x, y, z; for (x of ", " = z = {});"},
+      {"'use strict'; let x, y, z; for (x of x = ", " = z = {});"},
+      {"var x, y, z; for (x in ", " = z = {});"},
+      {"var x, y, z; for (x in x = ", " = z = {});"},
+      {"var x, y, z; for (x of ", " = z = {});"},
+      {"var x, y, z; for (x of x = ", " = z = {});"},
       {NULL, NULL}};
 
   // clang-format off
@@ -6904,8 +6900,6 @@ TEST(DestructuringAssignmentPositiveTests) {
     "[ [ foo()[x] = 10 ] = {} ]",
     "[ [ x.y = 10 ] = {} ]",
     "[ [ x[y] = 10 ] = {} ]",
-
-    "{ x : y }",
     "{ x : y = 1 }",
     "{ x }",
     "{ x, y, z }",
@@ -6948,12 +6942,8 @@ TEST(DestructuringAssignmentPositiveTests) {
     "[...x]",
     "[x,y,...z]",
     "[x,,...z]",
-    "{ x: y } = z",
-    "[x, y] = z",
-    "{ x: y } = { z }",
-    "[x, y] = { z }",
-    "{ x: y } = [ z ]",
-    "[x, y] = [ z ]",
+    "{ x: y }",
+    "[x, y]",
     "[((x, y) => z).x]",
     "{x: ((y, z) => z).x}",
     "[((x, y) => z)['x']]",
@@ -6968,6 +6958,9 @@ TEST(DestructuringAssignmentPositiveTests) {
       kAllowHarmonyDefaultParameters};
   RunParserSyncTest(context_data, data, kSuccess, NULL, 0, always_flags,
                     arraysize(always_flags));
+
+  RunParserSyncTest(mixed_assignments_context_data, data, kSuccess, NULL, 0,
+                    always_flags, arraysize(always_flags));
 
   const char* empty_context_data[][2] = {
       {"'use strict';", ""}, {"", ""}, {NULL, NULL}};
@@ -7174,9 +7167,7 @@ TEST(DestructuringDisallowPatternsInSingleParamArrows) {
 
 TEST(DestructuringDisallowPatternsInRestParams) {
   i::FLAG_harmony_destructuring_bind = true;
-  i::FLAG_harmony_rest_parameters = true;
-  static const ParserFlag always_flags[] = {kAllowHarmonyRestParameters,
-                                            kAllowHarmonyDestructuring};
+  static const ParserFlag always_flags[] = {kAllowHarmonyDestructuring};
   const char* context_data[][2] = {{"'use strict';", ""},
                                    {"function outer() { 'use strict';", "}"},
                                    {"", ""},
@@ -7538,7 +7529,7 @@ TEST(LanguageModeDirectivesNonSimpleParameterListErrors) {
 
   static const ParserFlag always_flags[] = {
       kAllowHarmonyDefaultParameters, kAllowHarmonyDestructuring,
-      kAllowHarmonyRestParameters, kAllowHarmonySloppy, kAllowStrongMode};
+      kAllowHarmonySloppy, kAllowStrongMode};
   RunParserSyncTest(context_data, data, kError, NULL, 0, always_flags,
                     arraysize(always_flags));
 }
@@ -7757,4 +7748,13 @@ TEST(EscapedKeywords) {
                     always_flags, arraysize(always_flags));
   RunModuleParserSyncTest(strict_context_data, valid_data, kError, NULL, 0,
                           always_flags, arraysize(always_flags));
+}
+
+
+TEST(MiscSyntaxErrors) {
+  const char* context_data[][2] = {
+      {"'use strict'", ""}, {"", ""}, {NULL, NULL}};
+  const char* error_data[] = {"for (();;) {}", NULL};
+
+  RunParserSyncTest(context_data, error_data, kError, NULL, 0, NULL, 0);
 }
