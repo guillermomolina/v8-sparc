@@ -310,18 +310,6 @@ void ApiAccessorDescriptor::InitializePlatformSpecific(
 }
 
 
-void MathRoundVariantCallFromUnoptimizedCodeDescriptor::
-    InitializePlatformSpecific(CallInterfaceDescriptorData* data) {
- UNIMPLEMENTED();
-}
-
-
-void MathRoundVariantCallFromOptimizedCodeDescriptor::
-    InitializePlatformSpecific(CallInterfaceDescriptorData* data) {
- UNIMPLEMENTED();
-}
-
-
 void InterpreterPushArgsAndCallDescriptor::InitializePlatformSpecific(
     CallInterfaceDescriptorData* data) {
  UNIMPLEMENTED();

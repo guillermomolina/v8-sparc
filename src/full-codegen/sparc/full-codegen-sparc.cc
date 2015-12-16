@@ -854,11 +854,6 @@ void FullCodeGenerator::EmitIsJSProxy(CallRuntime* expr) {
 }
 
 
-void FullCodeGenerator::EmitIsConstructCall(CallRuntime* expr) {
-      WARNING("UNIMPLEMENTED");
-}
-
-
 void FullCodeGenerator::EmitObjectEquals(CallRuntime* expr) {
       WARNING("UNIMPLEMENTED");
 }

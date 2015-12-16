@@ -261,12 +261,12 @@ void MacroAssembler::set64(int64_t value, Register d, Register tmp) {
 
 // Conditional breakpoint (for assertion checks in assembly code)
 void MacroAssembler::breakpoint_trap(Condition c, CC cc) {
-  trap(c, cc, g0, ST_RESERVED_FOR_USER_0);
+  trap(c, cc, g0, ST_BREAKPOINT);
 }
 
 // We want to use ST_BREAKPOINT here, but the debugger is confused by it.
 void MacroAssembler::breakpoint_trap() {
-  trap(ST_RESERVED_FOR_USER_0);
+  trap(ST_BREAKPOINT);
 }
 
 // compares (32 bit) register with zero and branches.  NOT FOR USE WITH 64-bit POINTERS
@@ -384,7 +384,7 @@ void MacroAssembler::ba_short(Label* L) {
 }
 
 int MacroAssembler::CallSize(Address target, RelocInfo::Mode rmode) { 
-    return (kInstructionsPerPachableSet + 3) * kInstructionSize;
+    return (kInstructionsPerPachableSet + 2) * kInstructionSize;
  }
 
 // MacroAssembler::CallSize is sensitive to changes in this function, as it
@@ -398,7 +398,6 @@ void MacroAssembler::Call(Address target, RelocInfo::Mode rmode) {
   // address is loaded.
   positions_recorder()->WriteRecordedPositions();
   set(Operand(reinterpret_cast<intptr_t>(target), rmode), kScratchRegister);
-  ld_ptr(MemOperand(kScratchRegister), kScratchRegister);  // Deref address.
   callr(kScratchRegister, g0);
   delayed()->nop();
   
@@ -415,6 +414,7 @@ void MacroAssembler::Call(Handle<Code> code,
   bind(&start_call);
 #endif
 */
+  DCHECK(RelocInfo::IsCodeTarget(rmode));
   if ((rmode == RelocInfo::CODE_TARGET) && (!ast_id.IsNone())) {
     SetRecordedAstId(ast_id);
     rmode = RelocInfo::CODE_TARGET_WITH_ID;
@@ -445,7 +445,7 @@ void MacroAssembler::EnterFrame(StackFrame::Type type) {
   st_ptr(g1, temp_address_in_frame(0));
   set(Operand(Smi::FromInt(type)), g1);
   st_ptr(g1, temp_address_in_frame(1));
-}
+} 
 
 void MacroAssembler::LeaveFrame(StackFrame::Type type, int stack_adjustment) {
   restore();

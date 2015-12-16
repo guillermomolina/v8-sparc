@@ -142,6 +142,11 @@ static void Generate_JSEntryTrampolineHelper(MacroAssembler* masm,
     // Enter an internal frame.
   {
     FrameScope scope(masm, StackFrame::INTERNAL);
+    // The stack is now
+    // jssp[2] : cp
+    // jssp[1] : type
+    // jssp[0] : code object
+
     
     // Setup the context (we need to use the caller context from the isolate).
     ExternalReference context_address(Isolate::kContextAddress,
@@ -150,12 +155,20 @@ static void Generate_JSEntryTrampolineHelper(MacroAssembler* masm,
     __ ld_ptr(MemOperand(cp), cp);
 
     __ InitializeRootRegister();
+    
+    // Push the function and the receiver onto the stack.
+    __ Push(i1); // Push function
+    __ Push(i2); // Push receiver
 
-    __ breakpoint_trap();
+    // Check if we have enough stack space to push all arguments.
+    // In sparc do we check here or in SparcFrameScope() ?
+     WARNING("Generate_JSEntryTrampolineHelper - CheckStackOverflow");
 
     Handle<Code> builtin = is_construct
                                ? masm->isolate()->builtins()->Construct()
                                : masm->isolate()->builtins()->Call();
+
+ 
     __ Call(builtin, RelocInfo::CODE_TARGET);
   }
   __ ret();
@@ -390,7 +403,7 @@ void Builtins::Generate_ReflectConstruct(MacroAssembler* masm) {
 void Builtins::Generate_CallFunction(MacroAssembler* masm,
                                      ConvertReceiverMode mode) {
     WARNING("Builtins::Generate_CallFunction");
-    __ breakpoint_trap();
+    __ nop();
 }
 
 

@@ -18,9 +18,10 @@ void EmitDebugBreakSlot(MacroAssembler* masm) {
 }
 
 
-void DebugCodegen::GenerateSlot(MacroAssembler* masm, RelocInfo::Mode mode,
-                                int call_argc) {
-    UNIMPLEMENTED();
+void DebugCodegen::GenerateSlot(MacroAssembler* masm, RelocInfo::Mode mode) {
+  // Generate enough nop's to make space for a call instruction.
+  masm->RecordDebugBreakSlot(mode);
+  EmitDebugBreakSlot(masm);
 }
 
 
@@ -37,11 +38,6 @@ void DebugCodegen::PatchDebugBreakSlot(Isolate* isolate, Address pc,
 void DebugCodegen::GenerateDebugBreakStub(MacroAssembler* masm,
                                           DebugBreakCallHelperMode mode) {
     WARNING("DebugCodegen::GenerateDebugBreakStub");
-}
-
-
-void DebugCodegen::GeneratePlainReturnLiveEdit(MacroAssembler* masm) {
-   WARNING("DebugCodegen::GeneratePlainReturnLiveEdit");
 }
 
 

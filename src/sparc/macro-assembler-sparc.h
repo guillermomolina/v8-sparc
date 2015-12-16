@@ -14,7 +14,7 @@ namespace v8 {
 namespace internal {
 
 // <sys/trap.h> promises that the system will not use traps 16-31
-#define ST_RESERVED_FOR_USER_0 0x10
+#define ST_BREAKPOINT 0x1
 
 // Give alias names to registers for calling conventions.
 const Register kReturnRegister0 = {Register::kCode_i0};

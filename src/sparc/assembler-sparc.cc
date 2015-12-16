@@ -181,49 +181,53 @@ Address Assembler::target_address_at(Address pc) {
 //
 void Assembler::set_target_address_at(Isolate* isolate, Address pc,
                                       Address target,
-                                      ICacheFlushMode icache_flush_mode)  {
+                                      ICacheFlushMode icache_flush_mode)  {  
   int i = kInstructionsPerPachableSet - 1;  
   uint64_t addr = reinterpret_cast<uint64_t>(target);    
   
   Instr instr = instr_at(pc + i * kInstructionSize); // last instruction, 32bits i=1, 64bits i=7 => add(d, low10(value), d)
-  i--;
   CHECK(inv_op(instr) == arith_op && inv_op3(instr) == add_op3); 
   instr &= ~((1 << 10) - 1);
   instr |= low10(addr);
+  instr_at_put(pc + i * kInstructionSize, instr);
+  i--;
   
 #ifdef _LP64
   instr = instr_at(pc + i * kInstructionSize); // pc + 6 => sllx(d, 10, d)
-   i--; // i = 5
   CHECK(inv_op(instr) == arith_op && inv_op3(instr) == sllx_op3 && inv_u_field(instr, 5, 0) == 10); 
   addr >>= 10;
+   i--; // i = 5
   
   instr = instr_at(pc + i * kInstructionSize); // pc + 5 =>  or3(d, (lsb32 >> 10) & 0x3ff, d)
-   i--; // i = 4
   CHECK(inv_op(instr) == arith_op && inv_op3(instr) == or_op3); 
   instr &= ~((1 << 10) - 1);
   instr |= low10(addr);
+  instr_at_put(pc + i * kInstructionSize, instr);
+   i--; // i = 4
   
   instr = instr_at(pc + i * kInstructionSize); // pc + 4 => sllx(d, 10, d)
-  i--; // i = 3
   CHECK(inv_op(instr) == arith_op && inv_op3(instr) == sllx_op3 && inv_u_field(instr, 5, 0) == 10);
   addr >>= 10;
+  i--; // i = 3
  
   instr = instr_at(pc + i * kInstructionSize); // pc + 3 => or3(d, (lsb32 >> 20) & 0xfff, d)
-   i--; // i = 2
   CHECK(inv_op(instr) == arith_op && inv_op3(instr) == or_op3); 
   instr &= ~((1 << 12) - 1);
   instr |= low12(addr);
+  instr_at_put(pc + i * kInstructionSize, instr);
+   i--; // i = 2
   
   instr = instr_at(pc + i * kInstructionSize); // pc + 2 => sllx(d, 12, d)
-  i--; // i = 1
   CHECK(inv_op(instr) == arith_op && inv_op3(instr) == sllx_op3 && inv_u_field(instr, 5, 0) == 12);
   addr >>= 12; 
+  i--; // i = 1
 
   instr = instr_at(pc + i * kInstructionSize); // pc + 1 => or3(d, msb32 & 0x3ff, d)
-  i--; // i = 0
   CHECK(inv_op(instr) == arith_op && inv_op3(instr) == or_op3); 
   instr &= ~((1 << 10) - 1);
   instr |= low10(addr);
+  instr_at_put(pc + i * kInstructionSize, instr);
+  i--; // i = 0
 #endif
           
   addr >>= 10;  
@@ -232,7 +236,9 @@ void Assembler::set_target_address_at(Isolate* isolate, Address pc,
   CHECK(inv_op(instr) == branch_op && inv_op2(instr) == sethi_op2); 
   instr &= ~((1 << 22) - 1);
   instr |= addr;
+  instr_at_put(pc + i * kInstructionSize, instr);
  
+  DCHECK(target_address_at(pc) == target); //Just checking
   if (icache_flush_mode != SKIP_ICACHE_FLUSH) {
     FlushICache(isolate, pc, kInstructionsPerPachableSet * kInstructionSize);
   }
@@ -457,7 +463,7 @@ void Assembler::RecordRelocInfo(RelocInfo::Mode rmode, intptr_t data) {
   // We do not try to reuse pool constants.
   RelocInfo rinfo(isolate(), pc_, rmode, data, NULL);
   if (rmode >= RelocInfo::COMMENT &&
-      rmode <= RelocInfo::DEBUG_BREAK_SLOT_AT_CONSTRUCT_CALL) {
+      rmode <= RelocInfo::DEBUG_BREAK_SLOT_AT_CALL) {
     // Adjust code for new modes.
     DCHECK(RelocInfo::IsDebugBreakSlot(rmode)
            || RelocInfo::IsComment(rmode)

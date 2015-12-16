@@ -1051,12 +1051,6 @@ LInstruction* LChunkBuilder::DoTypeofIsAndBranch(HTypeofIsAndBranch* instr) {
 }
 
 
-LInstruction* LChunkBuilder::DoIsConstructCallAndBranch(
-    HIsConstructCallAndBranch* instr) {
-    UNIMPLEMENTED();
-}
-
-
 LInstruction* LChunkBuilder::DoSimulate(HSimulate* instr) {
     UNIMPLEMENTED();
 }
