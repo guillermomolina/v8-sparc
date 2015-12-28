@@ -75,22 +75,20 @@ MacroAssembler::MacroAssembler(Isolate* arg_isolate, byte* buffer,
 }
 
 
-void MacroAssembler::sethi(const Operand& src, Register d) {
-//  Instruction* save_pc;
+void MacroAssembler::internal_sethi(const Operand& src, Register d, bool ForceRelocatable) {
+  byte* save_pc;
   int shiftcnt;
-  bool relocatable = src.must_output_reloc_info(this);
-
-  DCHECK(!relocatable);
- /* if (relocatable) {
-    RecordRelocInfo(src.rmode_, src.immediate());
-  }*/
 
 #ifdef _LP64
 # ifdef CHECK_DELAY
-  assert_not_delayed();//(char*) "cannot put two instructions in delay slot");
+  assert_not_delayed(); // cannot put two instructions in delay slot
 # endif
 //  v9_dep();
-//  save_pc = pc();
+  bool relocatable = ForceRelocatable || src.must_output_reloc_info(this);
+  if (relocatable)
+    RecordRelocInfo(src.rmode_, src.immediate());
+  
+  save_pc = pc_;
 
   int msb32 = (int) (src.immediate() >> 32);
   int lsb32 = (int) (src.immediate());
@@ -126,17 +124,28 @@ void MacroAssembler::sethi(const Operand& src, Register d) {
     else
       sllx(d, 32, d);
   }
-/*  // Pad out the instruction sequence so it can be patched later.
+  // Pad out the instruction sequence so it can be patched later.
   if (relocatable) {
-    while (pc() < (save_pc + (7 * kInstructionSize)))
+    while (pc_< (save_pc + (7 * kInstructionSize)))
       nop();
-  }*/
+  }
 #else
   Assembler::sethi(src.immediate(), d);
 #endif
 }
-/*
-int MacroAssembler::insts_for_sethi(int64_t a, bool worst_case) {
+
+
+void MacroAssembler::sethi(const Operand& src, Register d) {
+  internal_sethi(src, d, false);
+}
+
+
+void MacroAssembler::patchable_sethi(const Operand& src, Register d) {
+  internal_sethi(src, d, true);
+}
+
+
+int MacroAssembler::insts_for_sethi(intptr_t a, bool worst_case) {
 #ifdef _LP64
   if (worst_case)  return 7;
   intptr_t iaddr = (intptr_t) a;
@@ -165,50 +174,55 @@ int MacroAssembler::insts_for_sethi(int64_t a, bool worst_case) {
 int MacroAssembler::worst_case_insts_for_set() {
   return insts_for_sethi(0, true) + 1;
 }
-*/
-void MacroAssembler::set(const Operand& src, Register d) {
+
+
+// Keep in sync with MacroAssembler::insts_for_internal_set
+void MacroAssembler::internal_set(const Operand& src, Register d, bool ForceRelocatable) {
   intptr_t value = src.immediate();
-  bool relocatable = src.must_output_reloc_info(this);
 
-  if (relocatable) {
-    RecordRelocInfo(src.rmode_);
-# ifdef CHECK_DELAY
-    assert_not_delayed();//(char*) "cannot put two instructions in delay slot");
-# endif
- #ifdef _LP64
-    int msb32 = static_cast<int>(value >> 32);
-    int lsb32 = static_cast<int>(value);
-    Assembler::sethi(msb32, d);  // msb 22-bits
-    or3(d, msb32 & 0x3ff, d);                   // msb 32-bits are now in lsb 32
-    sllx(d, 12, d);                           // Make room for next 12 bits
-    or3(d, (lsb32 >> 20) & 0xfff, d);         // Or in next 12
-    sllx(d, 10, d);                // Make room for last 10 bits
-    or3(d, (lsb32 >> 10) & 0x3ff, d);         // Or in next 10
-    sllx(d, 10, d);                  // Shift leaving disp field 0'd
- #else
-    Assembler::sethi(value, d);
-#endif
+  bool relocatable = ForceRelocatable || src.must_output_reloc_info(this);
+
+  if (!relocatable) {
+    // can optimize
+    if (-4096 <= value && value <= 4095) {
+      or3(g0, value, d); // setsw (this leaves upper 32 bits sign-extended)
+      return;
+    }
+    if (inv_hi22(hi22(value)) == value) {
+      sethi(src, d);
+      return;
+    }
+  }
+  assert_not_delayed(); // cannot put two instructions in delay slot
+  internal_sethi(src, d, ForceRelocatable);
+  if (relocatable || low10(value) != 0) {
     add(d, low10(value), d);
-    return;
-  }
-
-   // can optimize
-  if (-4096 <= value && value <= 4095) {
-    or3(g0, value, d); // setsw (this leaves upper 32 bits sign-extended)
-    return;
-  }
-  if (inv_hi22(hi22(value)) == value) {
-    sethi(src, d);
-    return;
-  }
-  assert_not_delayed();//(char*) "cannot put two instructions in delay slot");
-  sethi(src, d);
-  int src_low10 = low10(src.immediate());
-  if (src_low10 != 0) {
-    add(d, src_low10, d);
   }
 }
 
+// Keep in sync with MacroAssembler::internal_set
+int MacroAssembler::insts_for_internal_set(intptr_t value) {
+  // can optimize
+  if (-4096 <= value && value <= 4095) {
+    return 1;
+  }
+  if (inv_hi22(hi22(value)) == value) {
+    return insts_for_sethi(value);
+  }
+  int count = insts_for_sethi(value);
+  if (low10(value) != 0) {
+    count++;
+  }
+  return count;
+}
+
+void MacroAssembler::set(const Operand& src, Register d) {
+  internal_set(src, d, false);
+}
+
+void MacroAssembler::patchable_set(const Operand& src, Register d) {
+  internal_set(src, d, true);
+}
 
 void MacroAssembler::set64(int64_t value, Register d, Register tmp) {
   assert_not_delayed();
@@ -256,8 +270,59 @@ void MacroAssembler::set64(int64_t value, Register d, Register tmp) {
     or3 (d, tmp, d);
   }
 }
-    
 
+int MacroAssembler::insts_for_set64(int64_t value) {
+  v9_dep();
+
+  int hi = (int) (value >> 32);
+  int lo = (int) (value & ~0);
+  int count = 0;
+
+  // (Matcher::isSimpleConstant64 knows about the following optimizations.)
+  if (Assembler::is_simm13(lo) && value == lo) {
+    count++;
+  } else if (hi == 0) {
+    count++;
+    if (low10(lo) != 0)
+      count++;
+  }
+  else if (hi == -1) {
+    count += 2;
+  }
+  else if (lo == 0) {
+    if (Assembler::is_simm13(hi)) {
+      count++;
+    } else {
+      count++;
+      if (low10(hi) != 0)
+        count++;
+    }
+    count++;
+  }
+  else {
+    count += 2;
+    if (low10(hi) != 0)
+      count++;
+    if (low10(lo) != 0)
+      count++;
+    count += 2;
+  }
+  return count;
+}
+/*
+// compute size in bytes of sparc frame, given
+// number of extraWords
+int MacroAssembler::total_frame_size_in_bytes(int extraWords) {
+
+  int nWords = frame::memory_parameter_word_sp_offset;
+
+  nWords += extraWords;
+
+  if (nWords & 1) ++nWords; // round up to double-word
+
+  return nWords * BytesPerWord;
+}
+*/
 
 // Conditional breakpoint (for assertion checks in assembly code)
 void MacroAssembler::breakpoint_trap(Condition c, CC cc) {
@@ -383,6 +448,43 @@ void MacroAssembler::ba_short(Label* L) {
   delayed()->nop();
 }
 
+void MacroAssembler::CmpObjectType(Register heap_object,
+                                   InstanceType type,
+                                   Register map) {
+  ld_ptr(FieldMemOperand(heap_object, HeapObject::kMapOffset), map);
+  CmpInstanceType(map, type);
+}
+
+
+void MacroAssembler::CmpInstanceType(Register map, InstanceType type) {
+  ldub(FieldMemOperand(map, Map::kInstanceTypeOffset), kScratchRegister);
+  cmp(kScratchRegister, static_cast<int8_t>(type));
+}
+
+
+void MacroAssembler::Check(Condition cc, BailoutReason reason) {
+  Label L;
+  brx( cc, true, Predict::pt, &L );
+  delayed()->nop();
+  Abort(reason);
+  // Control will not return here.
+  bind(&L);
+}
+
+
+void MacroAssembler::Abort(BailoutReason reason) {
+  UNIMPLEMENTED();
+}
+
+void MacroAssembler::AssertFunction(Register object) {
+  if (emit_debug_code()) {
+    btst(kSmiTagMask, object);
+    Check(notEqual, kOperandIsASmiAndNotAFunction);
+    CmpObjectType(object, JS_FUNCTION_TYPE, object);
+    Check(equal, kOperandIsNotAFunction);
+  }
+}
+
 int MacroAssembler::CallSize(Address target, RelocInfo::Mode rmode) { 
     return (kInstructionsPerPachableSet + 2) * kInstructionSize;
  }
@@ -440,14 +542,41 @@ void MacroAssembler::EnterFrame(StackFrame::Type type, bool load_constant_pool_p
 }
 
 void MacroAssembler::EnterFrame(StackFrame::Type type) {
-  Save(2);
-  set(Operand(Operand(CodeObject())), g1);
-  st_ptr(g1, temp_address_in_frame(0));
-  set(Operand(Smi::FromInt(type)), g1);
-  st_ptr(g1, temp_address_in_frame(1));
-} 
+   // Use SparcFrameScope Instead of FrameScope
+  UNREACHABLE();
+}
 
-void MacroAssembler::LeaveFrame(StackFrame::Type type, int stack_adjustment) {
+void MacroAssembler::EnterFrame(StackFrame::Type type, Register additional_words) {
+  if(type != StackFrame::INTERNAL)
+    UNREACHABLE();
+  
+  // CodeSlot + CallerSPSlot = 2 
+  const int InternalFrameConstants_kFixedSlotCount = StandardFrameConstants::kFixedSlotCount + 2;
+  
+  const Register t = kScratchRegister;
+  if(additional_words.is(g0)) {
+    Save(InternalFrameConstants_kFixedSlotCount);
+  } else {
+    mov(additional_words, t);                // get parameter size (in words)
+    add(t, InternalFrameConstants_kFixedSlotCount, t);     // add space for fixed frame 
+    sll(t, kInstructionSizeLog2, t);           // compute number of bytes
+    add(t, kMinimumFrameSize, t);     // add space for save area (in words)
+    round_to(t, 2);                             // make sure it is multiple of 2 (in words)
+    neg(t);                                                // negate so it can be used with save
+    save(sp, t, sp);                                       // setup new frame
+  }
+
+  store_frame_offset(kZeroRegister, StandardFrameConstants::kCallerSPOffset); 
+  store_frame_offset(kZeroRegister, StandardFrameConstants::kCallerPCOffset); 
+  store_frame_offset(kZeroRegister, StandardFrameConstants::kCallerFPOffset); 
+  store_frame_offset(kZeroRegister, StandardFrameConstants::kContextOffset); 
+  set(Operand(Smi::FromInt(type)), t);
+  store_frame_offset(t, StandardFrameConstants::kMarkerOffset); 
+  set(Operand(Operand(CodeObject())), t);
+  store_frame_offset(t, InternalFrameConstants::kCodeOffset); 
+ } 
+
+void MacroAssembler::LeaveFrame(StackFrame::Type type) {
   restore();
 }
 
@@ -507,6 +636,7 @@ void MacroAssembler::StoreRoot(Register source, Heap::RootListIndex index) {
   stx(source, MemOperand(kRootRegister, index << kPointerSizeLog2));
 }
 
+
 void MacroAssembler::Prologue(bool code_pre_aging, int locals_count) {
   PredictableCodeSizeScope predictible_code_size_scope(this, kNoCodeAgeSequenceLength);
   if (code_pre_aging) {
@@ -516,6 +646,29 @@ void MacroAssembler::Prologue(bool code_pre_aging, int locals_count) {
   }
 }
 
+
+void MacroAssembler::LinkStackHandler(Temporary& link_frame_slot) {
+  // Adjust this code if not the case.
+  STATIC_ASSERT(StackHandlerConstants::kSize == 1 * kPointerSize);
+  STATIC_ASSERT(StackHandlerConstants::kNextOffset == 0 * kPointerSize);
+
+  // Link the current handler as the next handler.
+  set(Operand(ExternalReference(Isolate::kHandlerAddress, isolate())), kScratchRegister);
+  ld_ptr(MemOperand(kScratchRegister), g2);
+  store_ptr_temporary(g2, link_frame_slot); 
+
+  // Set this new handler as the current one.
+  st_ptr(sp, MemOperand(kScratchRegister)); 
+ }
+
+
+void MacroAssembler::UnlinkStackHandler(Temporary& link_frame_slot) {
+  STATIC_ASSERT(StackHandlerConstants::kNextOffset == 0);
+
+  load_ptr_temporary( link_frame_slot, g2); 
+  set(Operand(ExternalReference(Isolate::kHandlerAddress, isolate())), kScratchRegister);
+  st_ptr(g2, MemOperand(kScratchRegister)); 
+ }
 
 // Clobbers object, address, value, and ra, if (ra_status == kRAHasBeenSaved)
 // The register 'object' contains a heap object pointer.  The heap object

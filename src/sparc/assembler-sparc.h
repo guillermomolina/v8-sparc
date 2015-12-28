@@ -396,6 +396,7 @@ public:
     return link(L) - pc_offset();
   }
 
+public:
   // Puts a labels target address at the given position.
   // The high 8 bits are set to zero.
   void label_at_put(Label* L, int at_offset);
@@ -620,7 +621,7 @@ private:
  
    // Code emission
   inline void CheckBuffer();
-  void GrowBuffer(int needed = 0);
+  void GrowBuffer();
    
  protected:
   // helpers
@@ -885,6 +886,44 @@ private:
   static int low12( int x ) {
     return x & ((1 << 12) - 1);
   }
+  
+// Test if the instruction can be the last instruction of a patchable set
+    static bool is_part_of_patchable_set(int x) {
+      switch (inv_op(x)) {
+      case ldst_op:
+        switch (inv_op3(x)) {
+        case lduw_op3:
+        case ldub_op3:
+        case lduh_op3:
+        case ldd_op3:
+        case ldsw_op3:
+        case ldsb_op3:
+        case ldsh_op3:
+        case ldx_op3:
+        case ldf_op3:
+        case lddf_op3:
+        case stw_op3:
+        case stb_op3:
+        case sth_op3:
+        case std_op3:
+        case stx_op3:
+        case stf_op3:
+        case stdf_op3:
+        case casa_op3:
+        case casxa_op3:
+          return true;
+      }
+      case arith_op:
+        switch (inv_op3(x)) {
+        case or_op3:
+        case add_op3:
+        case jmpl_op3:
+          return true;
+        }
+      }
+      return false;
+    }
+
 
   // AES crypto instructions supported only on certain processors
   static void aes_only() { DCHECK(CpuFeatures::IsSupported(AES)); }

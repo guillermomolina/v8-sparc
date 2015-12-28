@@ -117,6 +117,36 @@ void Builtins::Generate_JSConstructStubApi(MacroAssembler* masm) {
 enum IsTagged { kArgcIsSmiTagged, kArgcIsUntaggedInt };
 
 
+// Clobbers r5; preserves all other registers.
+static void Generate_CheckStackOverflow(MacroAssembler* masm, Register argc,
+                                        IsTagged argc_is_tagged) {
+/*  // Check the stack for overflow. We are not trying to catch
+  // interruptions (e.g. debug break and preemption) here, so the "real stack
+  // limit" is checked.
+  Label okay;
+  __ LoadRoot(r5, Heap::kRealStackLimitRootIndex);
+  // Make r5 the space we have left. The stack might already be overflowed
+  // here which will cause r5 to become negative.
+  __ sub(r5, sp, r5);
+  // Check if the arguments will overflow the stack.
+  if (argc_is_tagged == kArgcIsSmiTagged) {
+    __ SmiToPtrArrayOffset(r0, argc);
+  } else {
+    DCHECK(argc_is_tagged == kArgcIsUntaggedInt);
+    __ ShiftLeftImm(r0, argc, Operand(kPointerSizeLog2));
+  }
+  __ cmp(r5, r0);
+  __ bgt(&okay);  // Signed comparison.
+
+  // Out of stack space.
+  __ CallRuntime(Runtime::kThrowStackOverflow, 0);
+
+  __ bind(&okay);*/
+    WARNING("Generate_CheckStackOverflow");
+  
+}
+
+
 // Clobbers a2; preserves all other registers.
 /*static void Generate_CheckStackOverflow(MacroAssembler* masm, Register argc,
                                         IsTagged argc_is_tagged) {
@@ -134,6 +164,12 @@ enum IsTagged { kArgcIsSmiTagged, kArgcIsUntaggedInt };
 //   o0: result.
 static void Generate_JSEntryTrampolineHelper(MacroAssembler* masm,
                                              bool is_construct) {
+  Argument new_target(0, false);
+  Argument function(1, false);
+  Argument receiver(2, false);
+  Argument argc(3, false);
+  Argument argv(4, false);
+  
   ProfileEntryHookStub::MaybeCallEntryHook(masm);
 
   // Clear the context before we push it when entering the internal frame.
@@ -141,35 +177,71 @@ static void Generate_JSEntryTrampolineHelper(MacroAssembler* masm,
   
     // Enter an internal frame.
   {
-    FrameScope scope(masm, StackFrame::INTERNAL);
-    // The stack is now
-    // jssp[2] : cp
-    // jssp[1] : type
-    // jssp[0] : code object
-
+    __ RecordComment("Enter an internal frame");
+    SparcFrameScope scope(masm, StackFrame::INTERNAL, argc.as_register());
     
     // Setup the context (we need to use the caller context from the isolate).
     ExternalReference context_address(Isolate::kContextAddress,
                                       masm->isolate());
-    __ set( Operand(context_address), cp);
-    __ ld_ptr(MemOperand(cp), cp);
+     __ load_ptr_contents(Operand(context_address), cp);
 
     __ InitializeRootRegister();
-    
-    // Push the function and the receiver onto the stack.
-    __ Push(i1); // Push function
-    __ Push(i2); // Push receiver
 
     // Check if we have enough stack space to push all arguments.
-    // In sparc do we check here or in SparcFrameScope() ?
-     WARNING("Generate_JSEntryTrampolineHelper - CheckStackOverflow");
+    // Clobbers a2.
+    Generate_CheckStackOverflow(masm, argc.as_in().as_register(), kArgcIsUntaggedInt);
 
+    // Copy arguments to the stack in a loop.
+  {
+    __ RecordComment("Copy arguments to the stack in a loop");
+    const Register dst = g3;
+    const Register tmp = kScratchRegister;
+    const Register offset = g2;
+    int first_argument_offset = FrameConstants::memory_parameter_word_sp_offset * kWordSize + kStackBias;
+    Label loop, exit;
+    __ sll(argc.as_in().as_register(), kPointerSizeLog2, offset);
+    __ cmp(offset, 0);
+    __ br(Condition::lessEqual, false, Predict::pn, &exit);
+    __ delayed()->add(sp, first_argument_offset, dst);
+    __ ld_ptr(MemOperand(argv.as_in().as_register(), offset), tmp);
+    __ bind(&loop);
+    __ ld_ptr(MemOperand(tmp), tmp); // derreference parameter
+    __ st_ptr(tmp, MemOperand(dst, offset));
+    __ sub(offset, kPointerSize, offset);
+    __ cmp(offset, 0);
+    __ br(Condition::greater, true, Predict::pt, &loop);
+    __ delayed()->ld_ptr(MemOperand(argv.as_in().as_register(), offset), tmp);
+    __ bind(&exit);
+  }
+
+   
+    // Push the function and the receiver onto the stack.
+    __ mov(i1, o1); // copy function
+    __ mov(i2, o2); // copy receiver.
+
+    
+    __ RecordComment("Initialize all JavaScript callee-saved registers");
+    // Initialize all JavaScript callee-saved registers, since they will be seen
+    // by the garbage collector as part of handlers.
+    __ LoadRoot(Heap::kUndefinedValueRootIndex, kScratchRegister);
+    __ mov(kScratchRegister, l0);
+    __ mov(kScratchRegister, l1);
+    __ mov(kScratchRegister, l2);
+    __ mov(kScratchRegister, l3);
+    __ mov(kScratchRegister, l4);
+    __ mov(kScratchRegister, l5);
+    __ mov(kScratchRegister, l6);
+    __ mov(kScratchRegister, l7);
+    
+     // Invoke the code.
+   __ RecordComment(" Invoke the code");
     Handle<Code> builtin = is_construct
                                ? masm->isolate()->builtins()->Construct()
                                : masm->isolate()->builtins()->Call();
 
  
     __ Call(builtin, RelocInfo::CODE_TARGET);
+    // Leave internal frame.
   }
   __ ret();
   __ delayed()->nop();
@@ -410,7 +482,11 @@ void Builtins::Generate_CallFunction(MacroAssembler* masm,
 // static
 void Builtins::Generate_Call(MacroAssembler* masm, ConvertReceiverMode mode) {
     WARNING("Builtins::Generate_Call");
-    __ breakpoint_trap();
+  // ----------- S t a t e -------------
+  //  -- o0 : the number of arguments (not including the receiver)
+  //  -- o1 : the function to call (checked to be a JSFunction)
+  // -----------------------------------
+  __ AssertFunction(o1);
 }
 
 

@@ -126,7 +126,33 @@ const int kSafepointRegisterStackIndexMap[kNumRegs] = {
 };
 
 
+class FrameConstants : public AllStatic {
+public:
+    // normal return address is 2 words past PC
+    static const int pc_return_offset                             = 2 * kPointerSize;
+
+    // size of each block; in order of increasing address:
+    static const int register_save_words                          = 16;
+#ifdef _LP64
+    static const int callee_aggregate_return_pointer_words        =  0;
+#else
+    static const int callee_aggregate_return_pointer_words        =  1;
+#endif
+    static const int callee_register_argument_save_area_words     =  6;
+    // memory_parameter_words                    = <arbitrary>;
+
+    // offset of each block, in order of increasing address:
+    // (note: callee_register_argument_save_area_words == Assembler::n_register_parameters)
+    static const int register_save_words_sp_offset                = 0;
+    static const int callee_aggregate_return_pointer_sp_offset    = register_save_words_sp_offset + register_save_words;
+    static const int callee_register_argument_save_area_sp_offset = callee_aggregate_return_pointer_sp_offset + callee_aggregate_return_pointer_words;
+    static const int memory_parameter_word_sp_offset              = callee_register_argument_save_area_sp_offset + callee_register_argument_save_area_words;
+    static const int varargs_offset                               = memory_parameter_word_sp_offset;
+   
+};
+
     // ----------------------------------------------------
+  
 
 // CHECK_NEXT
 class EntryFrameConstants : public AllStatic {
@@ -155,31 +181,6 @@ class ExitFrameConstants : public AllStatic {
   static const int kCallerSPDisplacement = +2 * kPointerSize;
 
   static const int kConstantPoolOffset = 0;  // Not used.
-};
-
-class FrameConstants : public AllStatic {
-public:
-    // normal return address is 2 words past PC
-    static const int pc_return_offset                             = 2 * kPointerSize;
-
-    // size of each block; in order of increasing address:
-    static const int register_save_words                          = 16;
-#ifdef _LP64
-    static const int callee_aggregate_return_pointer_words        =  0;
-#else
-    static const int callee_aggregate_return_pointer_words        =  1;
-#endif
-    static const int callee_register_argument_save_area_words     =  6;
-    // memory_parameter_words                    = <arbitrary>;
-
-    // offset of each block, in order of increasing address:
-    // (note: callee_register_argument_save_area_words == Assembler::n_register_parameters)
-    static const int register_save_words_sp_offset                = 0;
-    static const int callee_aggregate_return_pointer_sp_offset    = register_save_words_sp_offset + register_save_words;
-    static const int callee_register_argument_save_area_sp_offset = callee_aggregate_return_pointer_sp_offset + callee_aggregate_return_pointer_words;
-    static const int memory_parameter_word_sp_offset              = callee_register_argument_save_area_sp_offset + callee_register_argument_save_area_words;
-    static const int varargs_offset                               = memory_parameter_word_sp_offset;
-   
 };
 
 

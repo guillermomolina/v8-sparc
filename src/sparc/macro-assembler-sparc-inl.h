@@ -77,7 +77,7 @@ bool Operand::is_reg() const {
       
 // Use the right branch for the platform
 inline void MacroAssembler::Save(int locals_count) {
-    Assembler::save(sp, - (kFixedFrameSize + locals_count * kPointerSize), sp);
+    Assembler::save(sp, - (kMinimumFrameSize + locals_count * kPointerSize), sp);
 }
 
 inline void MacroAssembler::br( Condition c, bool a, Predict p, int d ) {
@@ -239,6 +239,55 @@ inline void MacroAssembler::st_long( Register d, const MemOperand& s) {
 }
 
 
+
+inline void MacroAssembler::load_contents(const Operand& src, Register d) {
+  assert_not_delayed();
+  sethi(src, d);
+  intptr_t value = src.immediate();
+  ld(d, low10(value), d);
+}
+
+
+inline void MacroAssembler::load_ptr_contents(const Operand& src, Register d) {
+  assert_not_delayed();
+  sethi(src, d);
+  intptr_t value = src.immediate();
+  ld_ptr(d, low10(value), d);
+}
+
+
+inline void MacroAssembler::store_contents(Register s, const Operand& dst, Register temp) {
+  assert_not_delayed();
+  sethi(dst, temp);
+  intptr_t value = dst.immediate();
+  st(s, temp, low10(value));
+}
+
+
+inline void MacroAssembler::store_ptr_contents(Register s, const Operand& dst, Register temp) {
+  assert_not_delayed();
+  sethi(dst, temp);
+  intptr_t value = dst.immediate();
+  st_ptr(s, temp, low10(value));
+}
+
+
+// This code sequence is relocatable to any address, even on LP64.
+inline void MacroAssembler::jumpl_to(const Operand& src, Register temp, Register d) {
+  assert_not_delayed();
+  // Force fixed length sethi because NativeJump and NativeFarCall don't handle
+  // variable length instruction streams.
+  sethi(src, temp);
+  intptr_t value = src.immediate();
+  jmpl(temp, low10(value), d);
+}
+
+
+inline void MacroAssembler::jump_to(const Operand& src, Register temp) {
+  jumpl_to(src, temp, g0);
+}
+
+
 inline void MacroAssembler::load_argument( Argument& a, Register  d ) {
   if (a.is_register())
     mov(a.as_register(), d);
@@ -291,6 +340,60 @@ inline void MacroAssembler::store_long_argument( Register s, Argument& a ) {
     stx(s, a.as_address());
 }
 #endif
+
+
+inline void MacroAssembler::load_temporary( Temporary& t, Register  d ) {
+  if (t.is_register())
+    mov(t.as_register(), d);
+  else
+    ld (t.as_address(),  d);
+}
+
+inline void MacroAssembler::load_ptr_temporary( Temporary& t, Register  d ) {
+  if (t.is_register())
+    mov(t.as_register(), d);
+  else
+    ld_ptr (t.as_address(),  d);
+}
+
+inline void MacroAssembler::store_temporary( Register s, Temporary& t ) {
+  if (t.is_register())
+    mov(s, t.as_register());
+  else
+    st_ptr (s, t.as_address());         // ABI says everything is right justified.
+}
+
+inline void MacroAssembler::store_ptr_temporary( Register s, Temporary& t ) {
+  if (t.is_register())
+    mov(s, t.as_register());
+  else
+    st_ptr (s, t.as_address());
+}
+
+#ifdef _LP64
+inline void MacroAssembler::store_long_temporary( Register s, Temporary& t ) {
+  if (t.is_register())
+    mov(s, t.as_register());
+  else
+    stx(s, t.as_address());
+}
+#endif
+
+
+
+// offset is one of *FrameConstants::*Offset
+inline void MacroAssembler::load_frame_offset( int s_offset, Register  d ) {
+  DCHECK(s_offset <= StandardFrameConstants::kCallerSPOffset);
+  MemOperand offset(fp, kSparcFrameBias + s_offset);
+  ld_ptr (offset,  d);
+}
+
+// offset is one of *FrameConstants::*Offset
+inline void MacroAssembler::store_frame_offset( Register s, int d_offset ) {
+  DCHECK(d_offset <= StandardFrameConstants::kCallerSPOffset);
+  MemOperand offset(fp, kSparcFrameBias + d_offset);
+  st_ptr (s, offset);  
+}
 
 inline void MacroAssembler::jmp( Register s1, Register s2 ) { jmpl( s1, s2, g0 ); }
 inline void MacroAssembler::jmp( Register s1, int simm13a ) { jmpl( s1, simm13a, g0); }

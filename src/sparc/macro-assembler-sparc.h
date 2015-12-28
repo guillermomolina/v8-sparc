@@ -31,7 +31,6 @@ const Register kJavaScriptCallNewTargetRegister = {Register::kCode_i2};
 const Register kRuntimeCallFunctionRegister = {Register::kCode_i1};
 const Register kRuntimeCallArgCountRegister = {Register::kCode_i0};
 
-
 const Register kScratchRegister = { Register::kCode_g1 };
 
 // Flags used for AllocateHeapNumber
@@ -197,6 +196,64 @@ inline MemOperand temp_address_in_frame(int index) {
     return MemOperand(fp, kStackBias - (index+1) * kWordSize );
 }
 
+
+// Generate a MemOperand for loading a field from an object.
+inline MemOperand FieldMemOperand(Register object, int offset) {
+  return MemOperand(object, offset - kHeapObjectTag);
+}
+
+// Temporal is an abstraction used to represent a temp var,
+// whether it resides in memory or in a register.
+
+class Temporary BASE_EMBEDDED {
+ private:
+  int _number;
+
+  public:
+  enum {
+    n_register_locals = 8,         // l0-l7
+  };
+
+  // creation
+  Temporary(int number, bool force_stack = false) : _number(number) {
+      if(force_stack)
+          _number += n_register_locals;
+  }
+
+  int  number() const  { return _number;  }
+
+  Temporary successor() const  { return Temporary(number() + 1); }
+
+  // locating register-based arguments:
+  bool is_register() const { return _number < n_register_locals; }
+
+  Register as_register() const {
+    DCHECK(is_register());//, "must be a register argument");
+    return as_lRegister(number());
+  }
+
+  // locating memory-based arguments
+  MemOperand as_address() const {
+    DCHECK(!is_register());//, "must be a memory argument");
+    return address_in_frame();
+  }
+
+  // When applied to a register-based argument, give the corresponding address
+  // into the 6-word area "into which callee may store register arguments"
+  // (This is a different place than the corresponding register-save area location.)
+  MemOperand address_in_frame() const {
+      return MemOperand(fp, kStackBias - (_number - n_register_locals +1) * kWordSize );
+  }
+
+  // debugging
+  const char* name() const;
+
+  friend class Assembler;
+};
+
+
+
+
 // MacroAssembler implements a collection of frequently used macros.
 class MacroAssembler : public Assembler {
 public:
@@ -212,15 +269,39 @@ public:
  
   inline void Save(int locals_count = 0);
  
+  // Required platform-specific helpers for Label::patch_instructions.
+  // They _shadow_ the declarations in AbstractAssembler, which are undefined.
+  //void pd_patch_instruction(address branch, address target);
+
+  // sethi Macro handles optimizations and relocations
+private:
+  void internal_sethi(const Operand& src, Register d, bool ForceRelocatable);
+public:
+  void sethi(const Operand& src, Register d);
+  void patchable_sethi(const Operand& src, Register d);
+
+  // compute the number of instructions for a sethi/set
+  static int  insts_for_sethi( intptr_t a, bool worst_case = false );
+  static int  worst_case_insts_for_set();
+
+  // set may be either setsw or setuw (high 32 bits may be zero or sign)
+private:
+  void internal_set(const Operand& src, Register d, bool ForceRelocatable);
+  static int insts_for_internal_set(intptr_t value);
+public:
+  void set(const Operand& src, Register d);
+  static int insts_for_set(intptr_t value) { return insts_for_internal_set(value); }
+
+  void patchable_set(const Operand& src, Register d);
+  void patchable_set(intptr_t value, Register d);
+  void set64(int64_t value, Register d, Register tmp);
+  static int insts_for_set64(int64_t value);
+
+  /* 
   void sethi(const Operand& src, Register d);  
   void set(const Operand& src, Register d);
   void set64(int64_t value, Register d, Register tmp);
- /*
-  // compute the number of instructions for a sethi/set
-  static int  insts_for_sethi( int64_t a, bool worst_case = false );
-  static int  worst_case_insts_for_set();
 */
-
   // traps as per trap.h (SPARC ABI?)
 
   void breakpoint_trap();
@@ -432,6 +513,17 @@ public:
   inline void store_double_argument( FloatRegister s, Argument& a );
   inline void store_long_argument( Register s, Argument& a );
 
+     // local temporary pseudos:
+
+  inline void load_temporary( Temporary& t, Register  d );
+  inline void load_ptr_temporary( Temporary& t, Register  d );
+  inline void store_temporary( Register s, Temporary& t );
+  inline void store_ptr_temporary( Register s, Temporary& t );
+  inline void store_long_temporary( Register s, Temporary& t );
+
+  inline void load_frame_offset( int s, Register  d );
+  inline void store_frame_offset( Register s, int d );
+
   // handy macros:
 
   inline void round_to( Register r, int modulus ) {
@@ -451,6 +543,13 @@ public:
   inline void st_ptr(Register d, Register s1, Register s2);
   inline void st_ptr(Register d, Register s1, int simm13a);
   inline void st_ptr(Register d, const MemOperand& s);
+
+  inline void load_contents(const Operand& src, Register d);
+  inline void load_ptr_contents(const Operand& src, Register d);
+  inline void store_contents(Register s, const Operand& dst, Register temp);
+  inline void store_ptr_contents(Register s, const Operand& dst, Register temp);
+  inline void jumpl_to(const Operand& src, Register temp, Register d);
+  inline void jump_to(const Operand& src, Register temp);
 
 #ifdef ASSERT
   // ByteSize is only a class when ASSERT is defined, otherwise it's an int.
@@ -574,9 +673,10 @@ public:
   inline bool AllowThisStubCall(CodeStub* stub);
 
  // Activation support.
- void EnterFrame(StackFrame::Type type);
+ void EnterFrame(StackFrame::Type type, Register additional_words);
  void EnterFrame(StackFrame::Type type, bool load_constant_pool_pointer_reg);
-  void LeaveFrame(StackFrame::Type type, int stack_adjustment = 0);
+ void EnterFrame(StackFrame::Type type);
+ void LeaveFrame(StackFrame::Type type);
 
    // Allocates a heap number or jumps to the gc_required label if the young
   // space is full and a scavenge is needed. All registers are clobbered also
@@ -606,11 +706,48 @@ public:
 
   // This is required for compatibility in architecture indepenedant code.
   inline void jmp(Label* L) { UNIMPLEMENTED(); }
+  
+  // Compare object type for heap object.
+  // Always use unsigned comparisons: above and below, not less and greater.
+  // Incoming register is heap_object and outgoing register is map.
+  // They may be the same register, and may be kScratchRegister.
+  void CmpObjectType(Register heap_object, InstanceType type, Register map);
+
+  // Compare instance type for map.
+  // Always use unsigned comparisons: above and below, not less and greater.
+  void CmpInstanceType(Register map, InstanceType type);
+
   // -------------------------------------------------------------------------
   // Debugger Support.
 
   void DebugBreak() { UNIMPLEMENTED(); }
 
+    // ---------------------------------------------------------------------------
+  // Debugging
+
+  // Calls Abort(msg) if the condition cond is not satisfied.
+  // Use --debug_code to enable.
+  void Assert(Condition cond, BailoutReason reason);
+  void AssertFastElements(Register elements);
+
+  // Like Assert(), but always enabled.
+  void Check(Condition cond, BailoutReason reason);
+
+  // Print a message to stdout and abort execution.
+  void Abort(BailoutReason reason);
+
+  // Abort execution if argument is not a JSFunction, enabled via --debug-code.
+  void AssertFunction(Register object);
+
+  // ---------------------------------------------------------------------------
+  // Exception handling
+
+  // Store a new stack handler and link into stack handler chain.
+  void LinkStackHandler(Temporary& link_frame_slot); // is PushStackHandler() in all other Platforms
+
+  // Unlink the stack handler from the stack handler chain.
+  // Must preserve the result register.
+  void UnlinkStackHandler(Temporary& link_frame_slot); // is PopStackHandler() in all other Platforms  
   // ---------------------------------------------------------------------------
   // Runtime calls
 
@@ -688,6 +825,42 @@ private:
   // traversal.
   friend class StandardFrame;
 };
+
+
+class SparcFrameScope {
+ public:
+  explicit SparcFrameScope(MacroAssembler* masm, StackFrame::Type type, Register additional_words = g0)
+      : masm_(masm), type_(type), old_has_frame_(masm->has_frame()) {
+    masm->set_has_frame(true);
+    if (type != StackFrame::MANUAL && type_ != StackFrame::NONE) {
+      masm->EnterFrame(type, additional_words);
+    }
+  }
+
+  ~SparcFrameScope() {
+    if (type_ != StackFrame::MANUAL && type_ != StackFrame::NONE) {
+      masm_->LeaveFrame(type_);
+    }
+    masm_->set_has_frame(old_has_frame_);
+  }
+
+  // Normally we generate the leave-frame code when this object goes
+  // out of scope.  Sometimes we may need to generate the code somewhere else
+  // in addition.  Calling this will achieve that, but the object stays in
+  // scope, the MacroAssembler is still marked as being in a frame scope, and
+  // the code will be generated again when it goes out of scope.
+  void GenerateLeaveFrame() {
+    DCHECK(type_ != StackFrame::MANUAL && type_ != StackFrame::NONE);
+    masm_->LeaveFrame(type_);
+  }
+
+ private:
+  MacroAssembler* masm_;
+  StackFrame::Type type_;
+  bool old_has_frame_;
+};
+
+
 
 // The code patcher is used to patch (typically) small parts of code e.g. for
 // debugging and other types of instrumentation. When using the code patcher

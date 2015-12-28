@@ -1434,6 +1434,7 @@
             '../../src/compiler/sparc/code-generator-sparc.cc',
             '../../src/compiler/sparc/instruction-codes-sparc.h',
             '../../src/compiler/sparc/instruction-selector-sparc.cc',
+            '../../src/compiler/sparc/instruction-scheduler-sparc.cc',
             '../../src/crankshaft/sparc/lithium-sparc.cc',
             '../../src/crankshaft/sparc/lithium-sparc.h',
             '../../src/crankshaft/sparc/lithium-codegen-sparc.cc',

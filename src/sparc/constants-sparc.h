@@ -25,16 +25,30 @@ const int kNumDoubleRegisters = 64;
 #define LP64_ONLY(code) code
 #define NOT_LP64(code)
     const unsigned kStackBias = 2047;
-    const unsigned kFixedFrameSize = 176;
+    const unsigned kMinimumFrameSize = 176;
     const unsigned kInstructionsPerPachableSet = 8;
 #else  // !_LP64
 #define LP64_ONLY(code)
 #define NOT_LP64(code) code
     const unsigned kStackBias = 0;
-    const unsigned kFixedFrameSize = 96;
+    const unsigned kMinimumFrameSize = 96;
     const unsigned kInstructionsPerPachableSet = 2;
 #endif // _LP64
   
+      
+/*  
+ ---- <- FP Points HERE in SPARC
+  kCallerSPOffset = kCallerPCOffset + 1 * kPCOnStackSize;
+  kCallerPCOffset = +1 * kFPOnStackSize;
+  kCallerFPOffset = 0 * kPointerSize;  <-FP points here in other platforms
+  kContextOffset = -1 * kPointerSize;
+  kMarkerOffset = -2 * kPointerSize;
+  kCodeOffset = -3 * kPointerSize;
+*/
+
+// difference between SPARC and others frame
+ const int kSparcFrameBias = kStackBias - 3 * kPointerSize;
+ 
 const int kWordSize = sizeof(char*);
 
 // On SPARC all instructions are 32 bits.

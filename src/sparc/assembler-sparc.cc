@@ -153,7 +153,7 @@ Address Assembler::target_address_at(Address pc) {
   instr = instr_at(pc + i * kInstructionSize); // last instruction, 32bits i=1, 64bits i=7 => add(d, low10(value), d)
   i++;
   CHECK(i == kInstructionsPerPachableSet);
-  CHECK(inv_op(instr) == arith_op && inv_op3(instr) == add_op3); 
+  CHECK(is_part_of_patchable_set(instr)); 
   addr += static_cast<int64_t>(low10(instr));
 
   return reinterpret_cast<Address>(addr);
@@ -175,6 +175,10 @@ Address Assembler::target_address_at(Address pc) {
 //  6  sllx(d, 10, d);                  // Shift leaving disp field 0'd
 //  7  add(d, low10(value), d);//
 //
+// Instruction 1 on 32bits and 7 on 64 can any of
+//  
+//
+//
 // Defined in MacroAssembler::set()
 // Patching the address must replace all the instructions,
 // and flush the i-cache.
@@ -186,7 +190,7 @@ void Assembler::set_target_address_at(Isolate* isolate, Address pc,
   uint64_t addr = reinterpret_cast<uint64_t>(target);    
   
   Instr instr = instr_at(pc + i * kInstructionSize); // last instruction, 32bits i=1, 64bits i=7 => add(d, low10(value), d)
-  CHECK(inv_op(instr) == arith_op && inv_op3(instr) == add_op3); 
+  CHECK(is_part_of_patchable_set(instr)); 
   instr &= ~((1 << 10) - 1);
   instr |= low10(addr);
   instr_at_put(pc + i * kInstructionSize, instr);
@@ -454,8 +458,45 @@ int Assembler::link(Label* L) {
 }
 
 
-void Assembler::GrowBuffer(int needed) {
-    WARNING("Assembler::GrowBuffer");
+void Assembler::GrowBuffer() {
+  if (!own_buffer_) FATAL("external code buffer is too small");
+
+  // Compute new buffer size.
+  CodeDesc desc;  // The new buffer.
+  if (buffer_size_ < 1 * MB) {
+    desc.buffer_size = 2*buffer_size_;
+  } else {
+    desc.buffer_size = buffer_size_ + 1*MB;
+  }
+  CHECK_GT(desc.buffer_size, 0);  // No overflow.
+
+  // Set up new buffer.
+  desc.buffer = NewArray<byte>(desc.buffer_size);
+  desc.origin = this;
+
+  desc.instr_size = pc_offset();
+  desc.reloc_size =
+      static_cast<int>((buffer_ + buffer_size_) - reloc_info_writer.pos());
+
+  // Copy the data.
+  intptr_t pc_delta = desc.buffer - buffer_;
+  intptr_t rc_delta = (desc.buffer + desc.buffer_size) -
+      (buffer_ + buffer_size_);
+  MemMove(desc.buffer, buffer_, desc.instr_size);
+  MemMove(reloc_info_writer.pos() + rc_delta,
+              reloc_info_writer.pos(), desc.reloc_size);
+
+  // Switch buffers.
+  DeleteArray(buffer_);
+  buffer_ = desc.buffer;
+  buffer_size_ = desc.buffer_size;
+  pc_ += pc_delta;
+  reloc_info_writer.Reposition(reloc_info_writer.pos() + rc_delta,
+                               reloc_info_writer.last_pc() + pc_delta);
+
+  // Nothing else to do here since we keep all internal references and
+  // deferred relocation entries relative to the buffer (until
+  // EmitRelocations).
 }
 
 

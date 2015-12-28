@@ -244,77 +244,132 @@ void CEntryStub::Generate(MacroAssembler* masm) {
 // Output:
 //   i0: result.
 void JSEntryStub::Generate(MacroAssembler* masm) {
+  Label invoke, handler_entry, exit;
 
   ProfileEntryHookStub::MaybeCallEntryHook(masm);
   
-  // Set up frame
-    __ Save(0); // I don't know how much to reserve for now
-
-  
-  /* const Argument code_entry = Argument(0, false); 
-  const Argument function = Argument(1, false);
-  const Argument receiver = Argument(2, false);
-  const Argument argc = Argument(3, false);
-  const Argument argv = Argument(4, false);*/
+  // Reserve 6 slots on frame for:
+  // [0]: bad frame pointer  
+  // [1]: context slot
+  // [2]: function slot.
+  // [3]: c entry fp
+  // [4]: js entry fp
+  // [5] exception handler frame address
+  // After save o registers are now i registers))
+  // i0: code entry.
+  // i1: function.
+  // i2: receiver.
+  // i3: argc.
+  // i4: argv.
  
-  // In SPARC we don't Save callee saved registers on the stack.
-  
    __ InitializeRootRegister();    
 
-    WARNING("JSEntryStub::Generate - TODO: Save callee saved registers on the stack");
+  // Save callee saved registers on the stack.
+   // In SPARC we don't save callee registers on the stack.
 
    
-    // Build an entry frame (see layout below).
-    WARNING("JSEntryStub::Generate - TODO: Build an entry frame");
+  // Build an entry frame
+   Temporary bad_frame_pointer_slot(0, true);
+   Temporary context_slot(1, true);
+   Temporary function_slot(2, true);
+   Temporary c_entry_fp_slot(3, true);   
+   Temporary js_entry_fp_slot(4, true);
+   Temporary link_frame_slot(5, true); // Used in LinkStackHandler and UnlinkStackHandler
+   
+  // Set up frame
+    __ Save(6); //Num Temps     
+   
+  __ set(Operand(-1), kScratchRegister); 
+  __ store_ptr_temporary(kScratchRegister, bad_frame_pointer_slot);  // Bad frame pointer to fail if it is used.
+  int marker = type();
+  __ set(Operand(Smi::FromInt(marker)), kScratchRegister); 
+  __ store_ptr_temporary(kScratchRegister, context_slot); // context slot.
+  __ store_ptr_temporary(kScratchRegister, function_slot); // function slot.
+  ExternalReference c_entry_fp(Isolate::kCEntryFPAddress, isolate());
+  __ set(Operand(c_entry_fp), kScratchRegister); 
+  __ store_ptr_temporary(kScratchRegister, c_entry_fp_slot); // c entry fp.
+
   
   // If this is the outermost JS call, set js_entry_sp value.
-    WARNING("JSEntryStub::Generate - TODO: If this is the outermost JS call, set js_entry_sp value");
-    
+  Label non_outermost_js, done;
+  ExternalReference js_entry_sp(Isolate::kJSEntrySPAddress, isolate());
+  __ load_ptr_contents(Operand(js_entry_sp), g2);
+  __ br_notnull_short(g2, Predict::pt, &non_outermost_js); // not delayed
+  __ st_ptr(fp, MemOperand(kScratchRegister));
+  __ set(Operand(Smi::FromInt(StackFrame::OUTERMOST_JSENTRY_FRAME)), kScratchRegister);
+  __ store_ptr_temporary(kScratchRegister, js_entry_fp_slot); // js entry fp.  
+  __ ba_short(&done);
+  __ bind(&non_outermost_js);
+  // We spare one instruction by pushing xzr since the marker is 0.
+  DCHECK(Smi::FromInt(StackFrame::INNER_JSENTRY_FRAME) == NULL);
+  __ store_ptr_temporary(kZeroRegister, js_entry_fp_slot); // js entry fp.
+  __ bind(&done);
+ 
+  
   // Jump to a faked try block that does the invoke, with a faked catch
   // block that sets the pending exception.
-    WARNING("JSEntryStub::Generate - TODO: Jump to a faked try block that does the invoke");
-    
+  __ ba_short(&invoke);
+
+  __ bind(&handler_entry);
+   handler_offset_ = handler_entry.pos();
+  // Caught exception: Store result (exception) in the pending exception
+  // field in the JSEnv and return a failure sentinel.
+  ExternalReference pending_exception_address(Isolate::kPendingExceptionAddress, isolate());
+// We come back from 'invoke'. result is in o0
+  __ store_ptr_contents( o0, Operand(pending_exception_address), kScratchRegister);
+  
+  __ LoadRoot(Heap::kExceptionRootIndex, o0);
+  __ ba_short(&exit); 
+ 
+    // Invoke: Link this frame into the handler chain.
+  __ bind(&invoke);
+  __ LinkStackHandler(link_frame_slot); // uses temp(5)
+
   // Clear any pending exceptions.
-  __ LoadRoot(Heap::kTheHoleValueRootIndex, g1);
-  __ set(Operand(ExternalReference(Isolate::kPendingExceptionAddress, isolate())), g2);
-  __ st_ptr(g1, MemOperand(g2));
+  __ LoadRoot(Heap::kTheHoleValueRootIndex, g2);
+  __ store_ptr_contents( g2, Operand(pending_exception_address), kScratchRegister);
+
 
   // Invoke the function by calling through JS entry trampoline builtin.
   // Notice that we cannot store a reference to the trampoline code directly in
   // this stub, because runtime stubs are not traversed when doing GC.
 
   // Copy C++ arguments
-  __ mov(i0, o0);
-  __ mov(i1, o1);
-  __ mov(i2, o2);
-  __ mov(i3, o3);
-  __ mov(i4, o4);
+  __ mov(i0, o0); // copy code entry
+  __ mov(i1, o1); // copy function
+  __ mov(i2, o2); // copy receiver.
+  __ mov(i3, o3); // copy argc.
+  __ mov(i4, o4); // copy argv.
   
   if (type() == StackFrame::ENTRY_CONSTRUCT) {
-    ExternalReference construct_entry(Builtins::kJSConstructEntryTrampoline,
-                                      isolate());
-    __ set(Operand(construct_entry), g1);
+    ExternalReference construct_entry(Builtins::kJSConstructEntryTrampoline, isolate());
+    __ load_ptr_contents(Operand(construct_entry), kScratchRegister);
   } else {
     ExternalReference entry(Builtins::kJSEntryTrampoline, isolate());
-    __ set(Operand(entry), g1);
+    __ load_ptr_contents(Operand(entry), kScratchRegister);
   }
-  __ ld_ptr(MemOperand(g1), g1);  // Deref address.
   // Call JSEntryTrampoline.
-  __ callr(g1, Code::kHeaderSize - kHeapObjectTag);
+  __ callr(kScratchRegister, Code::kHeaderSize - kHeapObjectTag);
   __ delayed()->nop();
   
+  // Unlink this frame from the handler chain.
+  __ UnlinkStackHandler(link_frame_slot); // uses temp(5)
 
-    // Unlink this frame from the handler chain.
-   WARNING("JSEntryStub::Generate - TODO: Unlink this frame from the handler chain");
-
+  __ bind(&exit);  // o0 holds result
    // Check if the current stack frame is marked as the outermost JS frame.
-   WARNING("JSEntryStub::Generate - TODO: Check the current stack frame");
+  Label non_outermost_js_2;
+  __ load_ptr_temporary(js_entry_fp_slot, kScratchRegister); // js entry fp.  
+  __ set(Operand(Smi::FromInt(StackFrame::OUTERMOST_JSENTRY_FRAME)), g2);
+  __ cmp_and_brx_short(kScratchRegister, g2,  Condition::notEqual,  Predict::pt, &non_outermost_js_2);
+  __ store_ptr_contents(kZeroRegister, Operand(ExternalReference(js_entry_sp)), kScratchRegister);
+  __ bind(&non_outermost_js_2);
 
-   // Restore the top frame descriptors from the stack.
-   WARNING("JSEntryStub::Generate - TODO: Restore the top frame descriptors from the stack");
-  
+   // Restore the top frame descriptor from the stack.
+  __ load_ptr_temporary(c_entry_fp_slot, g2); // c entry fp.
+  __ store_ptr_contents(g2, Operand(ExternalReference(c_entry_fp)), kScratchRegister);
+ 
    // Restore callee saved registers from the stack.
-   WARNING("JSEntryStub::Generate - TODO: Restore callee saved registers from the stack");
+   // In SPARC we don't save callee registers on the stack.
 
   // Restore frame pointer and return.
   __ ret(); 
@@ -516,15 +571,14 @@ void CompareICStub::GenerateStrings(MacroAssembler* masm) {
 }
 
 
-void CompareICStub::GenerateObjects(MacroAssembler* masm) {
+void CompareICStub::GenerateReceivers(MacroAssembler* masm) {
    UNIMPLEMENTED(); 
 }
 
 
-void CompareICStub::GenerateKnownObjects(MacroAssembler* masm) {
+void CompareICStub::GenerateKnownReceivers(MacroAssembler* masm) {
    UNIMPLEMENTED(); 
 }
-
 
 void CompareICStub::GenerateMiss(MacroAssembler* masm) {
    UNIMPLEMENTED(); 

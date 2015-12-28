@@ -81,6 +81,7 @@ class Decoder {
   void PrintShCnt64(Instr* instr);
   void PrintTrapNumber(Instr* instr);
   void PrintDisp(Instr* instr, int nbits);
+  void PrintDisp16(Instr* instr);
 
   // Handle formatting of instructions and their options.
   int FormatRegister(Instr* instr, const char* option);
@@ -153,6 +154,14 @@ void Decoder::PrintTrapNumber(Instr* instr) {
 // Print n-bit signed displacement value.
 void Decoder::PrintDisp(Instr* instr, int nbits) {
   int32_t disp = Assembler::inv_wdisp(*instr, nbits);
+  out_buffer_pos_ +=
+      SNPrintF(out_buffer_ + out_buffer_pos_, "%s",
+               converter_.NameOfAddress(reinterpret_cast<byte*>(instr) + disp));
+}
+
+// Print 16-bit signed displacement value.
+void Decoder::PrintDisp16(Instr* instr) {
+  int32_t disp = Assembler::inv_wdisp16(*instr);
   out_buffer_pos_ +=
       SNPrintF(out_buffer_ + out_buffer_pos_, "%s",
                converter_.NameOfAddress(reinterpret_cast<byte*>(instr) + disp));
@@ -263,7 +272,7 @@ int Decoder::FormatOption(Instr* instr, const char* format) {
       if (format[4] == '1') { // 'disp16.
         if (format[5] == '6') {
           DCHECK(STRING_STARTS_WITH(format, "disp16"));
-          PrintDisp(instr, 16);
+          PrintDisp16(instr);
           return 6;
         }
         if (format[5] == '9') {
@@ -319,7 +328,7 @@ void Decoder::DecodeCall(Instr* instr) {
 void Decoder::DecodeBranch(Instr* instr) {
   switch (Assembler::inv_op2(*instr)) {
   case bpr_op2: 
-    switch(Assembler::inv_u_field(*instr, 12, 10))   {
+    switch(Assembler::inv_u_field(*instr, 27, 25))   {
     case rc_z:
       Print("brz");
       break;
@@ -462,9 +471,9 @@ void Decoder::DecodeBranch(Instr* instr) {
     if(Assembler::inv_u_field(*instr, 20, 20) == 1)
       UNREACHABLE();
     if(Assembler::inv_u_field(*instr, 21, 21) == 1)
-      Format(instr, "    xcc, 'disp19");
+      Format(instr, "    %xcc, 'disp19");
     else
-      Format(instr, "    icc, 'disp19");
+      Format(instr, "    %icc, 'disp19");
     break;
   case sethi_op2:
     if(*instr == 0x1000000)

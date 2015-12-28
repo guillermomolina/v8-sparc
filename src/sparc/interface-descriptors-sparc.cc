@@ -184,6 +184,12 @@ void CallTrampolineDescriptor::InitializePlatformSpecific(
 }
 
 
+void ConstructStubDescriptor::InitializePlatformSpecific(
+    CallInterfaceDescriptorData* data) {
+ UNIMPLEMENTED();
+}
+
+
 void ConstructTrampolineDescriptor::InitializePlatformSpecific(
     CallInterfaceDescriptorData* data) {
  UNIMPLEMENTED();

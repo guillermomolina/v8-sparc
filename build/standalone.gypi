@@ -708,16 +708,14 @@
           [ 'component=="shared_library"', {
             'cflags': [ '-fPIC', ],
           }],
-<<<<<<< HEAD
           [ 'OS=="solaris"', {
              'defines': [ '_GLIBCXX_USE_C99_MATH', ],
              'libraries': [ '-lkstat' ],
-=======
+          }],
           [ 'coverage==1', {
             'cflags!': [ '-O3', '-O2', '-O1', ],
             'cflags': [ '-fprofile-arcs', '-ftest-coverage', '-O0'],
             'ldflags': [ '-fprofile-arcs'],
->>>>>>> 44a8fec8a1d101e90f429dcd4828e930ee690b71
           }],
         ],
       },
