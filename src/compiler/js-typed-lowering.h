@@ -35,6 +35,7 @@ class JSTypedLowering final : public AdvancedReducer {
   enum Flag {
     kNoFlags = 0u,
     kDeoptimizationEnabled = 1u << 0,
+    kDisableBinaryOpReduction = 1u << 1,
   };
   typedef base::Flags<Flag> Flags;
 
@@ -71,6 +72,7 @@ class JSTypedLowering final : public AdvancedReducer {
   Reduction ReduceJSCreateArguments(Node* node);
   Reduction ReduceJSCreateArray(Node* node);
   Reduction ReduceJSCreateClosure(Node* node);
+  Reduction ReduceJSCreateIterResultObject(Node* node);
   Reduction ReduceJSCreateLiteralArray(Node* node);
   Reduction ReduceJSCreateLiteralObject(Node* node);
   Reduction ReduceJSCreateFunctionContext(Node* node);

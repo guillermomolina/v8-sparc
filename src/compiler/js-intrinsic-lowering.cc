@@ -37,6 +37,8 @@ Reduction JSIntrinsicLowering::Reduce(Node* node) {
   switch (f->function_id) {
     case Runtime::kInlineConstructDouble:
       return ReduceConstructDouble(node);
+    case Runtime::kInlineCreateIterResultObject:
+      return ReduceCreateIterResultObject(node);
     case Runtime::kInlineDateField:
       return ReduceDateField(node);
     case Runtime::kInlineDeoptimizeNow:
@@ -45,8 +47,6 @@ Reduction JSIntrinsicLowering::Reduce(Node* node) {
       return ReduceDoubleHi(node);
     case Runtime::kInlineDoubleLo:
       return ReduceDoubleLo(node);
-    case Runtime::kInlineHeapObjectGetMap:
-      return ReduceHeapObjectGetMap(node);
     case Runtime::kInlineIncrementStatsCounter:
       return ReduceIncrementStatsCounter(node);
     case Runtime::kInlineIsArray:
@@ -56,7 +56,7 @@ Reduction JSIntrinsicLowering::Reduce(Node* node) {
     case Runtime::kInlineIsTypedArray:
       return ReduceIsInstanceType(node, JS_TYPED_ARRAY_TYPE);
     case Runtime::kInlineIsFunction:
-      return ReduceIsInstanceType(node, JS_FUNCTION_TYPE);
+      return ReduceIsFunction(node);
     case Runtime::kInlineIsRegExp:
       return ReduceIsInstanceType(node, JS_REGEXP_TYPE);
     case Runtime::kInlineIsJSReceiver:
@@ -65,8 +65,6 @@ Reduction JSIntrinsicLowering::Reduce(Node* node) {
       return ReduceIsSmi(node);
     case Runtime::kInlineJSValueGetValue:
       return ReduceJSValueGetValue(node);
-    case Runtime::kInlineMapGetInstanceType:
-      return ReduceMapGetInstanceType(node);
     case Runtime::kInlineMathClz32:
       return ReduceMathClz32(node);
     case Runtime::kInlineMathFloor:
@@ -117,6 +115,16 @@ Reduction JSIntrinsicLowering::Reduce(Node* node) {
       break;
   }
   return NoChange();
+}
+
+
+Reduction JSIntrinsicLowering::ReduceCreateIterResultObject(Node* node) {
+  Node* const value = NodeProperties::GetValueInput(node, 0);
+  Node* const done = NodeProperties::GetValueInput(node, 1);
+  Node* const context = NodeProperties::GetContextInput(node);
+  Node* const effect = NodeProperties::GetEffectInput(node);
+  return Change(node, javascript()->CreateIterResultObject(), value, done,
+                context, effect);
 }
 
 
@@ -176,15 +184,6 @@ Reduction JSIntrinsicLowering::ReduceDoubleHi(Node* node) {
 
 Reduction JSIntrinsicLowering::ReduceDoubleLo(Node* node) {
   return Change(node, machine()->Float64ExtractLowWord32());
-}
-
-
-Reduction JSIntrinsicLowering::ReduceHeapObjectGetMap(Node* node) {
-  Node* value = NodeProperties::GetValueInput(node, 0);
-  Node* effect = NodeProperties::GetEffectInput(node);
-  Node* control = NodeProperties::GetControlInput(node);
-  return Change(node, simplified()->LoadField(AccessBuilder::ForMap()), value,
-                effect, control);
 }
 
 
@@ -252,6 +251,48 @@ Reduction JSIntrinsicLowering::ReduceIsInstanceType(
 }
 
 
+Reduction JSIntrinsicLowering::ReduceIsFunction(Node* node) {
+  Node* value = NodeProperties::GetValueInput(node, 0);
+  Type* value_type = NodeProperties::GetType(value);
+  Node* effect = NodeProperties::GetEffectInput(node);
+  Node* control = NodeProperties::GetControlInput(node);
+  if (value_type->Is(Type::Function())) {
+    value = jsgraph()->TrueConstant();
+  } else {
+    // if (%_IsSmi(value)) {
+    //   return false;
+    // } else {
+    //   return FIRST_FUNCTION_TYPE <= %_GetInstanceType(%_GetMap(value))
+    // }
+    STATIC_ASSERT(LAST_TYPE == LAST_FUNCTION_TYPE);
+
+    Node* check = graph()->NewNode(simplified()->ObjectIsSmi(), value);
+    Node* branch = graph()->NewNode(common()->Branch(), check, control);
+
+    Node* if_true = graph()->NewNode(common()->IfTrue(), branch);
+    Node* etrue = effect;
+    Node* vtrue = jsgraph()->FalseConstant();
+
+    Node* if_false = graph()->NewNode(common()->IfFalse(), branch);
+    Node* efalse = graph()->NewNode(
+        simplified()->LoadField(AccessBuilder::ForMapInstanceType()),
+        graph()->NewNode(simplified()->LoadField(AccessBuilder::ForMap()),
+                         value, effect, if_false),
+        effect, if_false);
+    Node* vfalse =
+        graph()->NewNode(machine()->Uint32LessThanOrEqual(),
+                         jsgraph()->Int32Constant(FIRST_FUNCTION_TYPE), efalse);
+
+    control = graph()->NewNode(common()->Merge(2), if_true, if_false);
+    effect = graph()->NewNode(common()->EffectPhi(2), etrue, efalse, control);
+    value = graph()->NewNode(common()->Phi(MachineRepresentation::kTagged, 2),
+                             vtrue, vfalse, control);
+  }
+  ReplaceWithValue(node, node, effect, control);
+  return Replace(value);
+}
+
+
 Reduction JSIntrinsicLowering::ReduceIsJSReceiver(Node* node) {
   Node* value = NodeProperties::GetValueInput(node, 0);
   Type* value_type = NodeProperties::GetType(value);
@@ -307,16 +348,6 @@ Reduction JSIntrinsicLowering::ReduceJSValueGetValue(Node* node) {
   Node* control = NodeProperties::GetControlInput(node);
   return Change(node, simplified()->LoadField(AccessBuilder::ForValue()), value,
                 effect, control);
-}
-
-
-Reduction JSIntrinsicLowering::ReduceMapGetInstanceType(Node* node) {
-  Node* value = NodeProperties::GetValueInput(node, 0);
-  Node* effect = NodeProperties::GetEffectInput(node);
-  Node* control = NodeProperties::GetControlInput(node);
-  return Change(node,
-                simplified()->LoadField(AccessBuilder::ForMapInstanceType()),
-                value, effect, control);
 }
 
 

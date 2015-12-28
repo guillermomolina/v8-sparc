@@ -27,9 +27,11 @@ class Register;
 // when rest parameters implementation has settled down.
 enum class CreateArgumentsType { kMappedArguments, kUnmappedArguments };
 
-class BytecodeArrayBuilder {
+class BytecodeArrayBuilder final {
  public:
   BytecodeArrayBuilder(Isolate* isolate, Zone* zone);
+  ~BytecodeArrayBuilder();
+
   Handle<BytecodeArray> ToBytecodeArray();
 
   // Set the number of parameters expected by function.
@@ -68,9 +70,6 @@ class BytecodeArrayBuilder {
   // Return true if the register |reg| represents a temporary register.
   bool RegisterIsTemporary(Register reg) const;
 
-  // Gets a constant pool entry for the |object|.
-  size_t GetConstantPoolEntry(Handle<Object> object);
-
   // Constant loads to accumulator.
   BytecodeArrayBuilder& LoadLiteral(v8::internal::Smi* value);
   BytecodeArrayBuilder& LoadLiteral(Handle<Object> object);
@@ -82,10 +81,11 @@ class BytecodeArrayBuilder {
   BytecodeArrayBuilder& LoadBooleanConstant(bool value);
 
   // Global loads to the accumulator and stores from the accumulator.
-  BytecodeArrayBuilder& LoadGlobal(size_t name_index, int feedback_slot,
+  BytecodeArrayBuilder& LoadGlobal(const Handle<String> name, int feedback_slot,
                                    LanguageMode language_mode,
                                    TypeofMode typeof_mode);
-  BytecodeArrayBuilder& StoreGlobal(size_t name_index, int feedback_slot,
+  BytecodeArrayBuilder& StoreGlobal(const Handle<String> name,
+                                    int feedback_slot,
                                     LanguageMode language_mode);
 
   // Load the object at |slot_index| in |context| into the accumulator.
@@ -102,7 +102,8 @@ class BytecodeArrayBuilder {
   BytecodeArrayBuilder& MoveRegister(Register from, Register to);
 
   // Named load property.
-  BytecodeArrayBuilder& LoadNamedProperty(Register object, size_t name_index,
+  BytecodeArrayBuilder& LoadNamedProperty(Register object,
+                                          const Handle<String> name,
                                           int feedback_slot,
                                           LanguageMode language_mode);
   // Keyed load property. The key should be in the accumulator.
@@ -110,12 +111,21 @@ class BytecodeArrayBuilder {
                                           LanguageMode language_mode);
 
   // Store properties. The value to be stored should be in the accumulator.
-  BytecodeArrayBuilder& StoreNamedProperty(Register object, size_t name_index,
+  BytecodeArrayBuilder& StoreNamedProperty(Register object,
+                                           const Handle<String> name,
                                            int feedback_slot,
                                            LanguageMode language_mode);
   BytecodeArrayBuilder& StoreKeyedProperty(Register object, Register key,
                                            int feedback_slot,
                                            LanguageMode language_mode);
+
+  // Lookup the variable with |name|.
+  BytecodeArrayBuilder& LoadLookupSlot(const Handle<String> name,
+                                       TypeofMode typeof_mode);
+
+  // Store value in the accumulator into the variable with |name|.
+  BytecodeArrayBuilder& StoreLookupSlot(const Handle<String> name,
+                                        LanguageMode language_mode);
 
   // Create a new closure for the SharedFunctionInfo.
   BytecodeArrayBuilder& CreateClosure(Handle<SharedFunctionInfo> shared_info,
@@ -178,6 +188,7 @@ class BytecodeArrayBuilder {
   // Deletes property from an object. This expects that accumulator contains
   // the key to be deleted and the register contains a reference to the object.
   BytecodeArrayBuilder& Delete(Register object, LanguageMode language_mode);
+  BytecodeArrayBuilder& DeleteLookupSlot();
 
   // Tests.
   BytecodeArrayBuilder& CompareOperation(Token::Value op, Register reg,
@@ -203,9 +214,12 @@ class BytecodeArrayBuilder {
   BytecodeArrayBuilder& Return();
 
   // Complex flow control.
-  BytecodeArrayBuilder& ForInPrepare(Register receiver);
-  BytecodeArrayBuilder& ForInNext(Register for_in_state, Register index);
-  BytecodeArrayBuilder& ForInDone(Register for_in_state);
+  BytecodeArrayBuilder& ForInPrepare(Register cache_type, Register cache_array,
+                                     Register cache_length);
+  BytecodeArrayBuilder& ForInDone(Register index, Register cache_length);
+  BytecodeArrayBuilder& ForInNext(Register receiver, Register cache_type,
+                                  Register cache_array, Register index);
+  BytecodeArrayBuilder& ForInStep(Register index);
 
   // Accessors
   Zone* zone() const { return zone_; }
@@ -226,6 +240,7 @@ class BytecodeArrayBuilder {
   static Bytecode BytecodeForLoadGlobal(LanguageMode language_mode,
                                         TypeofMode typeof_mode);
   static Bytecode BytecodeForStoreGlobal(LanguageMode language_mode);
+  static Bytecode BytecodeForStoreLookupSlot(LanguageMode language_mode);
   static Bytecode BytecodeForCreateArguments(CreateArgumentsType type);
   static Bytecode BytecodeForDelete(LanguageMode language_mode);
 
@@ -264,6 +279,8 @@ class BytecodeArrayBuilder {
   bool IsRegisterInAccumulator(Register reg);
 
   int BorrowTemporaryRegister();
+  int BorrowTemporaryRegisterNotInRange(int start_index, int end_index);
+  int AllocateAndBorrowTemporaryRegister();
   void ReturnTemporaryRegister(int reg_index);
   int PrepareForConsecutiveTemporaryRegisters(size_t count);
   void BorrowConsecutiveTemporaryRegister(int reg_index);
@@ -272,6 +289,9 @@ class BytecodeArrayBuilder {
   Register first_temporary_register() const;
   Register last_temporary_register() const;
 
+  // Gets a constant pool entry for the |object|.
+  size_t GetConstantPoolEntry(Handle<Object> object);
+
   Isolate* isolate_;
   Zone* zone_;
   ZoneVector<uint8_t> bytecodes_;
@@ -279,6 +299,7 @@ class BytecodeArrayBuilder {
   size_t last_block_end_;
   size_t last_bytecode_start_;
   bool exit_seen_in_block_;
+  int unbound_jumps_;
 
   IdentityMap<size_t> constants_map_;
   ZoneVector<Handle<Object>> constants_;
@@ -304,22 +325,24 @@ class BytecodeLabel final {
  public:
   BytecodeLabel() : bound_(false), offset_(kInvalidOffset) {}
 
-  INLINE(bool is_bound() const) { return bound_; }
+  bool is_bound() const { return bound_; }
+  size_t offset() const { return offset_; }
 
  private:
   static const size_t kInvalidOffset = static_cast<size_t>(-1);
 
-  INLINE(void bind_to(size_t offset)) {
+  void bind_to(size_t offset) {
     DCHECK(!bound_ && offset != kInvalidOffset);
     offset_ = offset;
     bound_ = true;
   }
-  INLINE(void set_referrer(size_t offset)) {
+
+  void set_referrer(size_t offset) {
     DCHECK(!bound_ && offset != kInvalidOffset && offset_ == kInvalidOffset);
     offset_ = offset;
   }
-  INLINE(size_t offset() const) { return offset_; }
-  INLINE(bool is_forward_target() const) {
+
+  bool is_forward_target() const {
     return offset() != kInvalidOffset && !is_bound();
   }
 
@@ -344,11 +367,14 @@ class TemporaryRegisterScope {
   explicit TemporaryRegisterScope(BytecodeArrayBuilder* builder);
   ~TemporaryRegisterScope();
   Register NewRegister();
+  Register AllocateNewRegister();
 
   void PrepareForConsecutiveAllocations(size_t count);
   Register NextConsecutiveRegister();
 
   bool RegisterIsAllocatedInThisScope(Register reg) const;
+
+  bool hasConsecutiveAllocations() const { return next_consecutive_count_ > 0; }
 
  private:
   void* operator new(size_t size);

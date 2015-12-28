@@ -269,8 +269,7 @@ class Genesis BASE_EMBEDDED {
     FUNCTION_WITH_WRITEABLE_PROTOTYPE,
     FUNCTION_WITH_READONLY_PROTOTYPE,
     // Without prototype.
-    FUNCTION_WITHOUT_PROTOTYPE,
-    BOUND_FUNCTION
+    FUNCTION_WITHOUT_PROTOTYPE
   };
 
   static bool IsFunctionModeWithPrototype(FunctionMode function_mode) {
@@ -486,7 +485,7 @@ void Genesis::SetFunctionInstanceDescriptor(Handle<Map> map,
 Handle<Map> Genesis::CreateSloppyFunctionMap(FunctionMode function_mode) {
   Handle<Map> map = factory()->NewMap(JS_FUNCTION_TYPE, JSFunction::kSize);
   SetFunctionInstanceDescriptor(map, function_mode);
-  map->set_is_constructor(IsFunctionModeWithPrototype(function_mode));
+  if (IsFunctionModeWithPrototype(function_mode)) map->set_is_constructor();
   map->set_is_callable();
   return map;
 }
@@ -609,35 +608,22 @@ void Genesis::SetStrictFunctionInstanceDescriptor(Handle<Map> map,
   PropertyAttributes roc_attribs =
       static_cast<PropertyAttributes>(DONT_ENUM | READ_ONLY);
 
-  if (function_mode == BOUND_FUNCTION) {
-    {  // Add length.
-      Handle<String> length_string = isolate()->factory()->length_string();
-      DataDescriptor d(length_string, 0, roc_attribs, Representation::Tagged());
-      map->AppendDescriptor(&d);
-    }
-    {  // Add name.
-      Handle<String> name_string = isolate()->factory()->name_string();
-      DataDescriptor d(name_string, 1, roc_attribs, Representation::Tagged());
-      map->AppendDescriptor(&d);
-    }
-  } else {
-    DCHECK(function_mode == FUNCTION_WITH_WRITEABLE_PROTOTYPE ||
-           function_mode == FUNCTION_WITH_READONLY_PROTOTYPE ||
-           function_mode == FUNCTION_WITHOUT_PROTOTYPE);
-    {  // Add length.
-      Handle<AccessorInfo> length =
-          Accessors::FunctionLengthInfo(isolate(), roc_attribs);
-      AccessorConstantDescriptor d(Handle<Name>(Name::cast(length->name())),
-                                   length, roc_attribs);
-      map->AppendDescriptor(&d);
-    }
-    {  // Add name.
-      Handle<AccessorInfo> name =
-          Accessors::FunctionNameInfo(isolate(), roc_attribs);
-      AccessorConstantDescriptor d(Handle<Name>(Name::cast(name->name())), name,
-                                   roc_attribs);
-      map->AppendDescriptor(&d);
-    }
+  DCHECK(function_mode == FUNCTION_WITH_WRITEABLE_PROTOTYPE ||
+         function_mode == FUNCTION_WITH_READONLY_PROTOTYPE ||
+         function_mode == FUNCTION_WITHOUT_PROTOTYPE);
+  {  // Add length.
+    Handle<AccessorInfo> length =
+        Accessors::FunctionLengthInfo(isolate(), roc_attribs);
+    AccessorConstantDescriptor d(Handle<Name>(Name::cast(length->name())),
+                                 length, roc_attribs);
+    map->AppendDescriptor(&d);
+  }
+  {  // Add name.
+    Handle<AccessorInfo> name =
+        Accessors::FunctionNameInfo(isolate(), roc_attribs);
+    AccessorConstantDescriptor d(Handle<Name>(Name::cast(name->name())), name,
+                                 roc_attribs);
+    map->AppendDescriptor(&d);
   }
   if (IsFunctionModeWithPrototype(function_mode)) {
     // Add prototype.
@@ -732,7 +718,7 @@ Handle<Map> Genesis::CreateStrictFunctionMap(
     FunctionMode function_mode, Handle<JSFunction> empty_function) {
   Handle<Map> map = factory()->NewMap(JS_FUNCTION_TYPE, JSFunction::kSize);
   SetStrictFunctionInstanceDescriptor(map, function_mode);
-  map->set_is_constructor(IsFunctionModeWithPrototype(function_mode));
+  if (IsFunctionModeWithPrototype(function_mode)) map->set_is_constructor();
   map->set_is_callable();
   Map::SetPrototype(map, empty_function);
   return map;
@@ -743,7 +729,7 @@ Handle<Map> Genesis::CreateStrongFunctionMap(
     Handle<JSFunction> empty_function, bool is_constructor) {
   Handle<Map> map = factory()->NewMap(JS_FUNCTION_TYPE, JSFunction::kSize);
   SetStrongFunctionInstanceDescriptor(map);
-  map->set_is_constructor(is_constructor);
+  if (is_constructor) map->set_is_constructor();
   Map::SetPrototype(map, empty_function);
   map->set_is_callable();
   map->set_is_extensible(is_constructor);
@@ -770,21 +756,6 @@ void Genesis::CreateStrictModeFunctionMaps(Handle<JSFunction> empty) {
   // This map is installed in MakeFunctionInstancePrototypeWritable.
   strict_function_map_writable_prototype_ =
       CreateStrictFunctionMap(FUNCTION_WITH_WRITEABLE_PROTOTYPE, empty);
-
-  // Special map for non-constructor bound functions.
-  // TODO(bmeurer): Bound functions should not be represented as JSFunctions.
-  Handle<Map> bound_function_without_constructor_map =
-      CreateStrictFunctionMap(BOUND_FUNCTION, empty);
-  native_context()->set_bound_function_without_constructor_map(
-      *bound_function_without_constructor_map);
-
-  // Special map for constructor bound functions.
-  // TODO(bmeurer): Bound functions should not be represented as JSFunctions.
-  Handle<Map> bound_function_with_constructor_map =
-      Map::Copy(bound_function_without_constructor_map, "IsConstructor");
-  bound_function_with_constructor_map->set_is_constructor(true);
-  native_context()->set_bound_function_with_constructor_map(
-      *bound_function_with_constructor_map);
 }
 
 
@@ -1117,11 +1088,13 @@ void Genesis::InitializeGlobal(Handle<JSGlobalObject> global_object,
   {  // --- F u n c t i o n ---
     Handle<JSFunction> function_function =
         InstallFunction(global, "Function", JS_FUNCTION_TYPE, JSFunction::kSize,
-                        empty_function, Builtins::kIllegal);
+                        empty_function, Builtins::kFunctionConstructor);
     function_function->set_prototype_or_initial_map(
         *sloppy_function_map_writable_prototype_);
+    function_function->shared()->DontAdaptArguments();
     function_function->shared()->set_construct_stub(
-        *isolate->builtins()->JSBuiltinsConstructStub());
+        *isolate->builtins()->FunctionConstructor());
+    function_function->shared()->set_length(1);
     InstallWithIntrinsicDefaultProto(isolate, function_function,
                                      Context::FUNCTION_FUNCTION_INDEX);
 
@@ -1455,6 +1428,35 @@ void Genesis::InitializeGlobal(Handle<JSGlobalObject> global_object,
         isolate->initial_object_prototype(), Builtins::kIllegal);
     InstallWithIntrinsicDefaultProto(isolate, js_weak_set_fun,
                                      Context::JS_WEAK_SET_FUN_INDEX);
+  }
+
+  {  // --- B o u n d F u n c t i o n
+    Handle<Map> map =
+        factory->NewMap(JS_BOUND_FUNCTION_TYPE, JSBoundFunction::kSize);
+    map->set_is_callable();
+    Map::SetPrototype(map, empty_function);
+
+    PropertyAttributes roc_attribs =
+        static_cast<PropertyAttributes>(DONT_ENUM | READ_ONLY);
+    Map::EnsureDescriptorSlack(map, 2);
+
+    {  // length
+      DataDescriptor d(factory->length_string(), JSBoundFunction::kLengthIndex,
+                       roc_attribs, Representation::Tagged());
+      map->AppendDescriptor(&d);
+    }
+    {  // name
+      DataDescriptor d(factory->name_string(), JSBoundFunction::kNameIndex,
+                       roc_attribs, Representation::Tagged());
+      map->AppendDescriptor(&d);
+    }
+
+    map->SetInObjectProperties(2);
+    native_context()->set_bound_function_without_constructor_map(*map);
+
+    map = Map::Copy(map, "IsConstructor");
+    map->set_is_constructor();
+    native_context()->set_bound_function_with_constructor_map(*map);
   }
 
   {  // --- sloppy arguments map
@@ -1865,11 +1867,8 @@ void Bootstrapper::ExportFromRuntime(Isolate* isolate,
     Handle<JSFunction> apply = InstallFunction(
         container, "reflect_apply", JS_OBJECT_TYPE, JSObject::kHeaderSize,
         MaybeHandle<JSObject>(), Builtins::kReflectApply);
-    apply->shared()->set_internal_formal_parameter_count(3);
+    apply->shared()->DontAdaptArguments();
     apply->shared()->set_length(3);
-    Handle<TypeFeedbackVector> feedback_vector =
-        TypeFeedbackVector::CreatePushAppliedArgumentsVector(isolate);
-    apply->shared()->set_feedback_vector(*feedback_vector);
     native_context->set_reflect_apply(*apply);
   }
 
@@ -1877,11 +1876,8 @@ void Bootstrapper::ExportFromRuntime(Isolate* isolate,
     Handle<JSFunction> construct = InstallFunction(
         container, "reflect_construct", JS_OBJECT_TYPE, JSObject::kHeaderSize,
         MaybeHandle<JSObject>(), Builtins::kReflectConstruct);
-    construct->shared()->set_internal_formal_parameter_count(3);
+    construct->shared()->DontAdaptArguments();
     construct->shared()->set_length(2);
-    Handle<TypeFeedbackVector> feedback_vector =
-        TypeFeedbackVector::CreatePushAppliedArgumentsVector(isolate);
-    construct->shared()->set_feedback_vector(*feedback_vector);
     native_context->set_reflect_construct(*construct);
   }
 
@@ -1915,14 +1911,16 @@ void Bootstrapper::ExportFromRuntime(Isolate* isolate,
         generator_function_prototype, NONE);
 
     static const bool kUseStrictFunctionMap = true;
-    Handle<JSFunction> generator_function_function =
-        InstallFunction(container, "GeneratorFunction", JS_FUNCTION_TYPE,
-                        JSFunction::kSize, generator_function_prototype,
-                        Builtins::kIllegal, kUseStrictFunctionMap);
+    Handle<JSFunction> generator_function_function = InstallFunction(
+        container, "GeneratorFunction", JS_FUNCTION_TYPE, JSFunction::kSize,
+        generator_function_prototype, Builtins::kGeneratorFunctionConstructor,
+        kUseStrictFunctionMap);
     generator_function_function->set_prototype_or_initial_map(
         native_context->sloppy_generator_function_map());
+    generator_function_function->shared()->DontAdaptArguments();
     generator_function_function->shared()->set_construct_stub(
-        *isolate->builtins()->JSBuiltinsConstructStub());
+        *isolate->builtins()->GeneratorFunctionConstructor());
+    generator_function_function->shared()->set_length(1);
     InstallWithIntrinsicDefaultProto(
         isolate, generator_function_function,
         Context::GENERATOR_FUNCTION_FUNCTION_INDEX);
@@ -2287,7 +2285,7 @@ void Genesis::InstallJSProxyMaps() {
 
   Handle<Map> proxy_function_map =
       Map::Copy(isolate()->sloppy_function_without_prototype_map(), "Proxy");
-  proxy_function_map->set_is_constructor(true);
+  proxy_function_map->set_is_constructor();
   native_context()->set_proxy_function_map(*proxy_function_map);
 
   Handle<Map> proxy_map =
@@ -2301,7 +2299,7 @@ void Genesis::InstallJSProxyMaps() {
 
   Handle<Map> proxy_constructor_map =
       Map::Copy(proxy_callable_map, "constructor Proxy");
-  proxy_constructor_map->set_is_constructor(true);
+  proxy_constructor_map->set_is_constructor();
   native_context()->set_proxy_constructor_map(*proxy_constructor_map);
 }
 
@@ -2320,7 +2318,7 @@ void Genesis::InitializeGlobal_harmony_proxies() {
   Handle<Code> code(isolate->builtins()->ProxyConstructor());
 
   Handle<JSFunction> proxy_function = factory->NewFunction(
-      isolate->proxy_function_map(), factory->Object_string(), code);
+      isolate->proxy_function_map(), factory->Proxy_string(), code);
 
   JSFunction::SetInitialMap(proxy_function,
                             Handle<Map>(native_context()->proxy_map(), isolate),
@@ -2462,6 +2460,14 @@ bool Genesis::InstallNatives(ContextType context_type) {
   native_context()->set_string_function_prototype_map(
       HeapObject::cast(string_function->initial_map()->prototype())->map());
 
+  // Install Global.eval.
+  {
+    Handle<JSFunction> eval = SimpleInstallFunction(
+        handle(native_context()->global_object()), factory()->eval_string(),
+        Builtins::kGlobalEval, 1, true);
+    native_context()->set_global_eval_fun(*eval);
+  }
+
   // Install Date.prototype[@@toPrimitive].
   {
     Handle<String> key = factory()->Date_string();
@@ -2519,7 +2525,8 @@ bool Genesis::InstallNatives(ContextType context_type) {
     // Set the lengths for the functions to satisfy ECMA-262.
     concat->shared()->set_length(1);
   }
-  // Install Function.prototype.call and apply.
+
+  // Install Function.prototype.apply, bind, call, and toString.
   {
     Handle<String> key = factory()->Function_string();
     Handle<JSFunction> function =
@@ -2528,29 +2535,15 @@ bool Genesis::InstallNatives(ContextType context_type) {
     Handle<JSObject> proto =
         Handle<JSObject>(JSObject::cast(function->instance_prototype()));
 
-    // Install the call and the apply functions.
-    Handle<JSFunction> call =
-        InstallFunction(proto, "call", JS_OBJECT_TYPE, JSObject::kHeaderSize,
-                        MaybeHandle<JSObject>(), Builtins::kFunctionCall);
-    Handle<JSFunction> apply =
-        InstallFunction(proto, "apply", JS_OBJECT_TYPE, JSObject::kHeaderSize,
-                        MaybeHandle<JSObject>(), Builtins::kFunctionApply);
-    Handle<TypeFeedbackVector> feedback_vector =
-        TypeFeedbackVector::CreatePushAppliedArgumentsVector(isolate());
-    apply->shared()->set_feedback_vector(*feedback_vector);
-
-    // Make sure that Function.prototype.call appears to be compiled.
-    // The code will never be called, but inline caching for call will
-    // only work if it appears to be compiled.
-    call->shared()->DontAdaptArguments();
-    DCHECK(call->is_compiled());
-
-    // Set the expected parameters for apply to 2; required by builtin.
-    apply->shared()->set_internal_formal_parameter_count(2);
-
-    // Set the lengths for the functions to satisfy ECMA-262.
-    call->shared()->set_length(1);
-    apply->shared()->set_length(2);
+    // Install the apply, bind, call and toString functions.
+    SimpleInstallFunction(proto, factory()->apply_string(),
+                          Builtins::kFunctionPrototypeApply, 2, false);
+    SimpleInstallFunction(proto, factory()->bind_string(),
+                          Builtins::kFunctionPrototypeBind, 1, false);
+    SimpleInstallFunction(proto, factory()->call_string(),
+                          Builtins::kFunctionPrototypeCall, 1, false);
+    SimpleInstallFunction(proto, factory()->toString_string(),
+                          Builtins::kFunctionPrototypeToString, 0, false);
   }
 
   // Set up the Promise constructor.

@@ -215,6 +215,7 @@ namespace internal {
   V(arguments_string, "arguments")                               \
   V(Arguments_string, "Arguments")                               \
   V(Array_string, "Array")                                       \
+  V(bind_string, "bind")                                         \
   V(bool16x8_string, "bool16x8")                                 \
   V(Bool16x8_string, "Bool16x8")                                 \
   V(bool32x4_string, "bool32x4")                                 \
@@ -223,8 +224,10 @@ namespace internal {
   V(Bool8x16_string, "Bool8x16")                                 \
   V(boolean_string, "boolean")                                   \
   V(Boolean_string, "Boolean")                                   \
+  V(bound__string, "bound ")                                     \
   V(byte_length_string, "byteLength")                            \
   V(byte_offset_string, "byteOffset")                            \
+  V(call_string, "call")                                         \
   V(callee_string, "callee")                                     \
   V(caller_string, "caller")                                     \
   V(cell_value_string, "%cell_value")                            \
@@ -817,6 +820,7 @@ class Heap {
   // TODO(hpayer): There is still a missmatch between capacity and actual
   // committed memory size.
   bool CanExpandOldGeneration(int size) {
+    if (force_oom_) return false;
     return (CommittedOldGenerationMemory() + size) < MaxOldGenerationSize();
   }
 
@@ -834,8 +838,14 @@ class Heap {
   // when introducing gaps within pages.
   void CreateFillerObjectAt(Address addr, int size);
 
+  bool CanMoveObjectStart(HeapObject* object);
+
   // Maintain consistency of live bytes during incremental marking.
   void AdjustLiveBytes(HeapObject* object, int by, InvocationMode mode);
+
+  // Trim the given array from the left. Note that this relocates the object
+  // start and hence is only valid if there is only a single reference to it.
+  FixedArrayBase* LeftTrimFixedArray(FixedArrayBase* obj, int elements_to_trim);
 
   // Trim the given array from the right.
   template<Heap::InvocationMode mode>
@@ -2117,6 +2127,8 @@ class Heap {
 
   MUST_USE_RESULT AllocationResult InternalizeString(String* str);
 
+  void set_force_oom(bool value) { force_oom_ = value; }
+
   // The amount of external memory registered through the API kept alive
   // by global handles
   int64_t amount_of_external_allocated_memory_;
@@ -2364,6 +2376,9 @@ class Heap {
   StrongRootsList* strong_roots_list_;
 
   ArrayBufferTracker* array_buffer_tracker_;
+
+  // Used for testing purposes.
+  bool force_oom_;
 
   // Classes in "heap" can be friends.
   friend class AlwaysAllocateScope;

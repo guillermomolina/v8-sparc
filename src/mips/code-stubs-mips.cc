@@ -1472,15 +1472,6 @@ void InstanceOfStub::Generate(MacroAssembler* masm) {
   __ And(at, scratch, Operand(1 << Map::kHasNonInstancePrototype));
   __ Branch(&slow_case, ne, at, Operand(zero_reg));
 
-  // Ensure that {function} is not bound.
-  Register const shared_info = scratch;
-  __ lw(shared_info,
-        FieldMemOperand(function, JSFunction::kSharedFunctionInfoOffset));
-  __ lbu(scratch,
-         FieldMemOperand(shared_info, SharedFunctionInfo::kBoundByteOffset));
-  __ And(at, scratch, Operand(1 << SharedFunctionInfo::kBoundBitWithinByte));
-  __ Branch(&slow_case, ne, at, Operand(zero_reg));
-
   // Get the "prototype" (or initial map) of the {function}.
   __ lw(function_prototype,
         FieldMemOperand(function, JSFunction::kPrototypeOrInitialMapOffset));
@@ -1506,15 +1497,25 @@ void InstanceOfStub::Generate(MacroAssembler* masm) {
   // Loop through the prototype chain looking for the {function} prototype.
   // Assume true, and change to false if not found.
   Register const object_instance_type = function_map;
+  Register const map_bit_field = function_map;
   Register const null = scratch;
   Register const result = v0;
-  Label done, loop, proxy_case;
+
+  Label done, loop, fast_runtime_fallback;
   __ LoadRoot(result, Heap::kTrueValueRootIndex);
   __ LoadRoot(null, Heap::kNullValueRootIndex);
   __ bind(&loop);
+
+  // Check if the object needs to be access checked.
+  __ lbu(map_bit_field, FieldMemOperand(object_map, Map::kBitFieldOffset));
+  __ And(map_bit_field, map_bit_field, Operand(1 << Map::kIsAccessCheckNeeded));
+  __ Branch(&fast_runtime_fallback, ne, map_bit_field, Operand(zero_reg));
+  // Check if the current object is a Proxy.
   __ lbu(object_instance_type,
          FieldMemOperand(object_map, Map::kInstanceTypeOffset));
-  __ Branch(&proxy_case, eq, object_instance_type, Operand(JS_PROXY_TYPE));
+  __ Branch(&fast_runtime_fallback, eq, object_instance_type,
+            Operand(JS_PROXY_TYPE));
+
   __ lw(object, FieldMemOperand(object_map, Map::kPrototypeOffset));
   __ Branch(&done, eq, object, Operand(function_prototype));
   __ Branch(USE_DELAY_SLOT, &loop, ne, object, Operand(null));
@@ -1526,8 +1527,8 @@ void InstanceOfStub::Generate(MacroAssembler* masm) {
   __ StoreRoot(result,
                Heap::kInstanceofCacheAnswerRootIndex);  // In delay slot.
 
-  // Proxy-case: Call the %HasInPrototypeChain runtime function.
-  __ bind(&proxy_case);
+  // Found Proxy or access check needed: Call the runtime
+  __ bind(&fast_runtime_fallback);
   __ Push(object, function_prototype);
   // Invalidate the instanceof cache.
   DCHECK(Smi::FromInt(0) == 0);
@@ -1964,6 +1965,34 @@ void ArgumentsAccessStub::GenerateNewStrict(MacroAssembler* masm) {
   __ bind(&runtime);
   __ Push(a1, a3, a2);
   __ TailCallRuntime(Runtime::kNewStrictArguments, 3, 1);
+}
+
+
+void RestParamAccessStub::GenerateNew(MacroAssembler* masm) {
+  // sp[0] : language mode
+  // sp[4] : index of rest parameter
+  // sp[8] : number of parameters
+  // sp[12] : receiver displacement
+  // Check if the calling frame is an arguments adaptor frame.
+
+  Label runtime;
+  __ lw(a2, MemOperand(fp, StandardFrameConstants::kCallerFPOffset));
+  __ lw(a3, MemOperand(a2, StandardFrameConstants::kContextOffset));
+  __ Branch(&runtime, ne, a3,
+            Operand(Smi::FromInt(StackFrame::ARGUMENTS_ADAPTOR)));
+
+  // Patch the arguments.length and the parameters pointer.
+  __ lw(a1, MemOperand(a2, ArgumentsAdaptorFrameConstants::kLengthOffset));
+  __ sw(a1, MemOperand(sp, 2 * kPointerSize));
+  __ sll(at, a1, kPointerSizeLog2 - kSmiTagSize);
+  __ Addu(a3, a2, Operand(at));
+
+  __ Addu(a3, a3, Operand(StandardFrameConstants::kCallerSPOffset));
+  __ sw(a3, MemOperand(sp, 3 * kPointerSize));
+
+  // Do the runtime call to allocate the arguments object.
+  __ bind(&runtime);
+  __ TailCallRuntime(Runtime::kNewRestParam, 4, 1);
 }
 
 
@@ -4243,11 +4272,11 @@ void RecordWriteStub::CheckNeedsToInformIncrementalMarker(
   // We need extra registers for this, so we push the object and the address
   // register temporarily.
   __ Push(regs_.object(), regs_.address());
-  __ EnsureNotWhite(regs_.scratch0(),  // The value.
-                    regs_.scratch1(),  // Scratch.
-                    regs_.object(),  // Scratch.
-                    regs_.address(),  // Scratch.
-                    &need_incremental_pop_scratch);
+  __ JumpIfWhite(regs_.scratch0(),  // The value.
+                 regs_.scratch1(),  // Scratch.
+                 regs_.object(),    // Scratch.
+                 regs_.address(),   // Scratch.
+                 &need_incremental_pop_scratch);
   __ Pop(regs_.object(), regs_.address());
 
   regs_.Restore(masm);

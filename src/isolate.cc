@@ -135,6 +135,22 @@ Isolate::PerIsolateThreadData*
 }
 
 
+void Isolate::DiscardPerThreadDataForThisThread() {
+  int thread_id_int = base::Thread::GetThreadLocalInt(Isolate::thread_id_key_);
+  if (thread_id_int) {
+    ThreadId thread_id = ThreadId(thread_id_int);
+    DCHECK(!thread_manager_->mutex_owner_.Equals(thread_id));
+    base::LockGuard<base::Mutex> lock_guard(thread_data_table_mutex_.Pointer());
+    PerIsolateThreadData* per_thread =
+        thread_data_table_->Lookup(this, thread_id);
+    if (per_thread) {
+      DCHECK(!per_thread->thread_state_);
+      thread_data_table_->Remove(per_thread);
+    }
+  }
+}
+
+
 Isolate::PerIsolateThreadData* Isolate::FindPerThreadDataForThisThread() {
   ThreadId thread_id = ThreadId::Current();
   return FindPerThreadDataForThread(thread_id);
@@ -779,10 +795,10 @@ bool Isolate::MayAccess(Handle<Context> accessing_context,
   // Check for compatibility between the security tokens in the
   // current lexical context and the accessed object.
 
+  // During bootstrapping, callback functions are not enabled yet.
+  if (bootstrapper()->IsActive()) return true;
   {
     DisallowHeapAllocation no_gc;
-    // During bootstrapping, callback functions are not enabled yet.
-    if (bootstrapper()->IsActive()) return true;
 
     if (receiver->IsJSGlobalProxy()) {
       Object* receiver_context =
@@ -1877,6 +1893,10 @@ void Isolate::Deinit() {
 
   if (FLAG_print_deopt_stress) {
     PrintF(stdout, "=== Stress deopt counter: %u\n", stress_deopt_count_);
+  }
+
+  if (cpu_profiler_) {
+    cpu_profiler_->DeleteAllProfiles();
   }
 
   // We must stop the logger before we tear down other components.

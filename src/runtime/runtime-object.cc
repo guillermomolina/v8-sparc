@@ -671,7 +671,7 @@ static Object* HasOwnPropertyImplementation(Isolate* isolate,
   // look like they are on this object.
   PrototypeIterator iter(isolate, object);
   if (!iter.IsAtEnd() &&
-      Handle<JSObject>::cast(PrototypeIterator::GetCurrent(iter))
+      PrototypeIterator::GetCurrent<HeapObject>(iter)
           ->map()
           ->is_hidden_prototype()) {
     // TODO(verwaest): The recursion is not necessary for keys that are array
@@ -679,8 +679,7 @@ static Object* HasOwnPropertyImplementation(Isolate* isolate,
     // Casting to JSObject is fine because JSProxies are never used as
     // hidden prototypes.
     return HasOwnPropertyImplementation(
-        isolate, Handle<JSObject>::cast(PrototypeIterator::GetCurrent(iter)),
-        key);
+        isolate, PrototypeIterator::GetCurrent<JSObject>(iter), key);
   }
   RETURN_FAILURE_IF_SCHEDULED_EXCEPTION(isolate);
   return isolate->heap()->false_value();
@@ -706,7 +705,9 @@ RUNTIME_FUNCTION(Runtime_HasOwnProperty) {
     // handle all cases directly (without this custom fast path).
     Maybe<bool> maybe = Nothing<bool>();
     if (key_is_array_index) {
-      maybe = JSObject::HasOwnElement(js_obj, index);
+      LookupIterator it(js_obj->GetIsolate(), js_obj, index,
+                        LookupIterator::HIDDEN);
+      maybe = JSReceiver::HasProperty(&it);
     } else {
       maybe = JSObject::HasRealNamedProperty(js_obj, key);
     }
@@ -1087,22 +1088,6 @@ RUNTIME_FUNCTION(Runtime_JSValueGetValue) {
 }
 
 
-RUNTIME_FUNCTION(Runtime_HeapObjectGetMap) {
-  SealHandleScope shs(isolate);
-  DCHECK(args.length() == 1);
-  CONVERT_ARG_CHECKED(HeapObject, obj, 0);
-  return obj->map();
-}
-
-
-RUNTIME_FUNCTION(Runtime_MapGetInstanceType) {
-  SealHandleScope shs(isolate);
-  DCHECK(args.length() == 1);
-  CONVERT_ARG_CHECKED(Map, map, 0);
-  return Smi::FromInt(map->instance_type());
-}
-
-
 RUNTIME_FUNCTION(Runtime_ObjectEquals) {
   SealHandleScope shs(isolate);
   DCHECK(args.length() == 2);
@@ -1361,14 +1346,12 @@ RUNTIME_FUNCTION(Runtime_InstanceOf) {
   if (!object->IsJSReceiver()) {
     return isolate->heap()->false_value();
   }
-  // Check if {callable} is bound, if so, get [[BoundFunction]] from it and use
-  // that instead of {callable}.
-  if (callable->IsJSFunction()) {
-    Handle<JSFunction> function = Handle<JSFunction>::cast(callable);
-    if (function->shared()->bound()) {
-      Handle<BindingsArray> bindings(function->function_bindings(), isolate);
-      callable = handle(bindings->bound_function(), isolate);
-    }
+  // Check if {callable} is bound, if so, get [[BoundTargetFunction]] from it
+  // and use that instead of {callable}.
+  while (callable->IsJSBoundFunction()) {
+    callable =
+        handle(Handle<JSBoundFunction>::cast(callable)->bound_target_function(),
+               isolate);
   }
   DCHECK(callable->IsCallable());
   // Get the "prototype" of {callable}; raise an error if it's not a receiver.

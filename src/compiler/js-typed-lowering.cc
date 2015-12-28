@@ -450,6 +450,8 @@ JSTypedLowering::JSTypedLowering(Editor* editor,
 
 
 Reduction JSTypedLowering::ReduceJSAdd(Node* node) {
+  if (flags() & kDisableBinaryOpReduction) return NoChange();
+
   JSBinopReduction r(this, node);
   if (r.BothInputsAre(Type::Number())) {
     // JSAdd(x:number, y:number) => NumberAdd(x, y)
@@ -480,6 +482,8 @@ Reduction JSTypedLowering::ReduceJSAdd(Node* node) {
 
 
 Reduction JSTypedLowering::ReduceJSModulus(Node* node) {
+  if (flags() & kDisableBinaryOpReduction) return NoChange();
+
   JSBinopReduction r(this, node);
   if (r.BothInputsAre(Type::Number())) {
     // JSModulus(x:number, x:number) => NumberModulus(x, y)
@@ -492,6 +496,8 @@ Reduction JSTypedLowering::ReduceJSModulus(Node* node) {
 
 Reduction JSTypedLowering::ReduceNumberBinop(Node* node,
                                              const Operator* numberOp) {
+  if (flags() & kDisableBinaryOpReduction) return NoChange();
+
   JSBinopReduction r(this, node);
   if (r.IsStrong() || numberOp == simplified()->NumberModulus()) {
     if (r.BothInputsAre(Type::Number())) {
@@ -506,6 +512,8 @@ Reduction JSTypedLowering::ReduceNumberBinop(Node* node,
 
 
 Reduction JSTypedLowering::ReduceInt32Binop(Node* node, const Operator* intOp) {
+  if (flags() & kDisableBinaryOpReduction) return NoChange();
+
   JSBinopReduction r(this, node);
   if (r.IsStrong()) {
     if (r.BothInputsAre(Type::Number())) {
@@ -524,6 +532,8 @@ Reduction JSTypedLowering::ReduceInt32Binop(Node* node, const Operator* intOp) {
 Reduction JSTypedLowering::ReduceUI32Shift(Node* node,
                                            Signedness left_signedness,
                                            const Operator* shift_op) {
+  if (flags() & kDisableBinaryOpReduction) return NoChange();
+
   JSBinopReduction r(this, node);
   if (r.IsStrong()) {
     if (r.BothInputsAre(Type::Number())) {
@@ -540,6 +550,8 @@ Reduction JSTypedLowering::ReduceUI32Shift(Node* node,
 
 
 Reduction JSTypedLowering::ReduceJSComparison(Node* node) {
+  if (flags() & kDisableBinaryOpReduction) return NoChange();
+
   JSBinopReduction r(this, node);
   if (r.BothInputsAre(Type::String())) {
     // If both inputs are definitely strings, perform a string comparison.
@@ -611,6 +623,8 @@ Reduction JSTypedLowering::ReduceJSComparison(Node* node) {
 
 
 Reduction JSTypedLowering::ReduceJSEqual(Node* node, bool invert) {
+  if (flags() & kDisableBinaryOpReduction) return NoChange();
+
   JSBinopReduction r(this, node);
 
   if (r.BothInputsAre(Type::Number())) {
@@ -652,6 +666,8 @@ Reduction JSTypedLowering::ReduceJSEqual(Node* node, bool invert) {
 
 
 Reduction JSTypedLowering::ReduceJSStrictEqual(Node* node, bool invert) {
+  if (flags() & kDisableBinaryOpReduction) return NoChange();
+
   JSBinopReduction r(this, node);
   if (r.left() == r.right()) {
     // x === x is always true if x != NaN
@@ -1104,7 +1120,10 @@ Reduction JSTypedLowering::ReduceJSInstanceOf(Node* node) {
   Node* const frame_state = NodeProperties::GetFrameStateInput(node, 0);
 
   // If deoptimization is disabled, we cannot optimize.
-  if (!(flags() & kDeoptimizationEnabled)) return NoChange();
+  if (!(flags() & kDeoptimizationEnabled) ||
+      (flags() & kDisableBinaryOpReduction)) {
+    return NoChange();
+  }
 
   // If we are in a try block, don't optimize since the runtime call
   // in the proxy case can throw.
@@ -1114,125 +1133,154 @@ Reduction JSTypedLowering::ReduceJSInstanceOf(Node* node) {
   Node* effect = r.effect();
   Node* control = r.control();
 
-  if (r.right_type()->IsConstant() &&
-      r.right_type()->AsConstant()->Value()->IsJSFunction()) {
-    Handle<JSFunction> function =
-        Handle<JSFunction>::cast(r.right_type()->AsConstant()->Value());
-    Handle<SharedFunctionInfo> shared(function->shared(), isolate());
-    if (function->IsConstructor() &&
-        !function->map()->has_non_instance_prototype()) {
-      JSFunction::EnsureHasInitialMap(function);
-      DCHECK(function->has_initial_map());
-      Handle<Map> initial_map(function->initial_map(), isolate());
-      this->dependencies()->AssumeInitialMapCantChange(initial_map);
-      Node* prototype =
-          jsgraph()->Constant(handle(initial_map->prototype(), isolate()));
-
-      Node* if_is_smi = nullptr;
-      Node* e_is_smi = nullptr;
-      // If the left hand side is an object, no smi check is needed.
-      if (r.left_type()->Maybe(Type::TaggedSigned())) {
-        Node* is_smi = graph()->NewNode(simplified()->ObjectIsSmi(), r.left());
-        Node* branch_is_smi = graph()->NewNode(
-            common()->Branch(BranchHint::kFalse), is_smi, control);
-        if_is_smi = graph()->NewNode(common()->IfTrue(), branch_is_smi);
-        e_is_smi = effect;
-        control = graph()->NewNode(common()->IfFalse(), branch_is_smi);
-      }
-
-      Node* object_map = effect =
-          graph()->NewNode(simplified()->LoadField(AccessBuilder::ForMap()),
-                           r.left(), effect, control);
-
-      // Loop through the {object}s prototype chain looking for the {prototype}.
-      Node* loop = control =
-          graph()->NewNode(common()->Loop(2), control, control);
-
-      Node* loop_effect = effect =
-          graph()->NewNode(common()->EffectPhi(2), effect, effect, loop);
-
-      Node* loop_object_map =
-          graph()->NewNode(common()->Phi(MachineRepresentation::kTagged, 2),
-                           object_map, r.left(), loop);
-
-      // Check if the lhs is a proxy.
-      Node* map_instance_type = effect = graph()->NewNode(
-          simplified()->LoadField(AccessBuilder::ForMapInstanceType()),
-          loop_object_map, loop_effect, control);
-      Node* is_proxy =
-          graph()->NewNode(machine()->Word32Equal(), map_instance_type,
-                           jsgraph()->Uint32Constant(JS_PROXY_TYPE));
-      Node* branch_is_proxy = graph()->NewNode(
-          common()->Branch(BranchHint::kFalse), is_proxy, control);
-      Node* if_is_proxy = graph()->NewNode(common()->IfTrue(), branch_is_proxy);
-      Node* e_is_proxy = effect;
-
-      // If it is, make a runtime call to finish the lowering.
-      Node* bool_result = e_is_proxy = graph()->NewNode(
-          javascript()->CallRuntime(Runtime::kHasInPrototypeChain, 2), r.left(),
-          prototype, context, frame_state, e_is_proxy, if_is_proxy);
-
-      control = graph()->NewNode(common()->IfFalse(), branch_is_proxy);
-
-      Node* object_prototype = effect = graph()->NewNode(
-          simplified()->LoadField(AccessBuilder::ForMapPrototype()),
-          loop_object_map, loop_effect, control);
-
-      // Check if object prototype is equal to function prototype.
-      Node* eq_proto =
-          graph()->NewNode(simplified()->ReferenceEqual(r.right_type()),
-                           object_prototype, prototype);
-      Node* branch_eq_proto = graph()->NewNode(
-          common()->Branch(BranchHint::kFalse), eq_proto, control);
-      Node* if_eq_proto = graph()->NewNode(common()->IfTrue(), branch_eq_proto);
-      Node* e_eq_proto = effect;
-
-      control = graph()->NewNode(common()->IfFalse(), branch_eq_proto);
-
-      // If not, check if object prototype is the null prototype.
-      Node* null_proto =
-          graph()->NewNode(simplified()->ReferenceEqual(r.right_type()),
-                           object_prototype, jsgraph()->NullConstant());
-      Node* branch_null_proto = graph()->NewNode(
-          common()->Branch(BranchHint::kFalse), null_proto, control);
-      Node* if_null_proto =
-          graph()->NewNode(common()->IfTrue(), branch_null_proto);
-      Node* e_null_proto = effect;
-
-      control = graph()->NewNode(common()->IfFalse(), branch_null_proto);
-      Node* load_object_map = effect =
-          graph()->NewNode(simplified()->LoadField(AccessBuilder::ForMap()),
-                           object_prototype, effect, control);
-      // Close the loop.
-      loop_effect->ReplaceInput(1, effect);
-      loop_object_map->ReplaceInput(1, load_object_map);
-      loop->ReplaceInput(1, control);
-
-      control = graph()->NewNode(common()->Merge(3), if_is_proxy, if_eq_proto,
-                                 if_null_proto);
-      effect = graph()->NewNode(common()->EffectPhi(3), e_is_proxy, e_eq_proto,
-                                e_null_proto, control);
-
-
-      Node* result = graph()->NewNode(
-          common()->Phi(MachineRepresentation::kTagged, 3), bool_result,
-          jsgraph()->TrueConstant(), jsgraph()->FalseConstant(), control);
-
-      if (if_is_smi != nullptr) {
-        DCHECK(e_is_smi != nullptr);
-        control = graph()->NewNode(common()->Merge(2), if_is_smi, control);
-        effect =
-            graph()->NewNode(common()->EffectPhi(2), e_is_smi, effect, control);
-        result =
-            graph()->NewNode(common()->Phi(MachineRepresentation::kTagged, 2),
-                             jsgraph()->FalseConstant(), result, control);
-      }
-      ReplaceWithValue(node, result, effect, control);
-      return Changed(result);
-    }
+  if (!r.right_type()->IsConstant() ||
+      !r.right_type()->AsConstant()->Value()->IsJSFunction()) {
+    return NoChange();
   }
 
-  return NoChange();
+  Handle<JSFunction> function =
+      Handle<JSFunction>::cast(r.right_type()->AsConstant()->Value());
+  Handle<SharedFunctionInfo> shared(function->shared(), isolate());
+
+  if (!function->IsConstructor() ||
+      function->map()->has_non_instance_prototype()) {
+    return NoChange();
+  }
+
+  JSFunction::EnsureHasInitialMap(function);
+  DCHECK(function->has_initial_map());
+  Handle<Map> initial_map(function->initial_map(), isolate());
+  this->dependencies()->AssumeInitialMapCantChange(initial_map);
+  Node* prototype =
+      jsgraph()->Constant(handle(initial_map->prototype(), isolate()));
+
+  Node* if_is_smi = nullptr;
+  Node* e_is_smi = nullptr;
+  // If the left hand side is an object, no smi check is needed.
+  if (r.left_type()->Maybe(Type::TaggedSigned())) {
+    Node* is_smi = graph()->NewNode(simplified()->ObjectIsSmi(), r.left());
+    Node* branch_is_smi =
+        graph()->NewNode(common()->Branch(BranchHint::kFalse), is_smi, control);
+    if_is_smi = graph()->NewNode(common()->IfTrue(), branch_is_smi);
+    e_is_smi = effect;
+    control = graph()->NewNode(common()->IfFalse(), branch_is_smi);
+  }
+
+  Node* object_map = effect =
+      graph()->NewNode(simplified()->LoadField(AccessBuilder::ForMap()),
+                       r.left(), effect, control);
+
+  // Loop through the {object}s prototype chain looking for the {prototype}.
+  Node* loop = control = graph()->NewNode(common()->Loop(2), control, control);
+
+  Node* loop_effect = effect =
+      graph()->NewNode(common()->EffectPhi(2), effect, effect, loop);
+
+  Node* loop_object_map =
+      graph()->NewNode(common()->Phi(MachineRepresentation::kTagged, 2),
+                       object_map, r.left(), loop);
+
+  // Check if the lhs needs access checks.
+  Node* map_bit_field = effect =
+      graph()->NewNode(simplified()->LoadField(AccessBuilder::ForMapBitField()),
+                       loop_object_map, loop_effect, control);
+  int is_access_check_needed_bit = 1 << Map::kIsAccessCheckNeeded;
+  Node* is_access_check_needed_num =
+      graph()->NewNode(simplified()->NumberBitwiseAnd(), map_bit_field,
+                       jsgraph()->Uint32Constant(is_access_check_needed_bit));
+  Node* is_access_check_needed =
+      graph()->NewNode(machine()->Word32Equal(), is_access_check_needed_num,
+                       jsgraph()->Uint32Constant(is_access_check_needed_bit));
+
+  Node* branch_is_access_check_needed = graph()->NewNode(
+      common()->Branch(BranchHint::kFalse), is_access_check_needed, control);
+  Node* if_is_access_check_needed =
+      graph()->NewNode(common()->IfTrue(), branch_is_access_check_needed);
+  Node* e_is_access_check_needed = effect;
+
+  control =
+      graph()->NewNode(common()->IfFalse(), branch_is_access_check_needed);
+
+  // Check if the lhs is a proxy.
+  Node* map_instance_type = effect = graph()->NewNode(
+      simplified()->LoadField(AccessBuilder::ForMapInstanceType()),
+      loop_object_map, loop_effect, control);
+  Node* is_proxy = graph()->NewNode(machine()->Word32Equal(), map_instance_type,
+                                    jsgraph()->Uint32Constant(JS_PROXY_TYPE));
+  Node* branch_is_proxy =
+      graph()->NewNode(common()->Branch(BranchHint::kFalse), is_proxy, control);
+  Node* if_is_proxy = graph()->NewNode(common()->IfTrue(), branch_is_proxy);
+  Node* e_is_proxy = effect;
+
+
+  Node* runtime_has_in_proto_chain = control = graph()->NewNode(
+      common()->Merge(2), if_is_access_check_needed, if_is_proxy);
+  effect = graph()->NewNode(common()->EffectPhi(2), e_is_access_check_needed,
+                            e_is_proxy, control);
+
+  // If we need an access check or the object is a Proxy, make a runtime call
+  // to finish the lowering.
+  Node* bool_result_runtime_has_in_proto_chain_case = graph()->NewNode(
+      javascript()->CallRuntime(Runtime::kHasInPrototypeChain, 2), r.left(),
+      prototype, context, frame_state, effect, control);
+
+  control = graph()->NewNode(common()->IfFalse(), branch_is_proxy);
+
+  Node* object_prototype = effect = graph()->NewNode(
+      simplified()->LoadField(AccessBuilder::ForMapPrototype()),
+      loop_object_map, loop_effect, control);
+
+  // Check if object prototype is equal to function prototype.
+  Node* eq_proto =
+      graph()->NewNode(simplified()->ReferenceEqual(r.right_type()),
+                       object_prototype, prototype);
+  Node* branch_eq_proto =
+      graph()->NewNode(common()->Branch(BranchHint::kFalse), eq_proto, control);
+  Node* if_eq_proto = graph()->NewNode(common()->IfTrue(), branch_eq_proto);
+  Node* e_eq_proto = effect;
+
+  control = graph()->NewNode(common()->IfFalse(), branch_eq_proto);
+
+  // If not, check if object prototype is the null prototype.
+  Node* null_proto =
+      graph()->NewNode(simplified()->ReferenceEqual(r.right_type()),
+                       object_prototype, jsgraph()->NullConstant());
+  Node* branch_null_proto = graph()->NewNode(
+      common()->Branch(BranchHint::kFalse), null_proto, control);
+  Node* if_null_proto = graph()->NewNode(common()->IfTrue(), branch_null_proto);
+  Node* e_null_proto = effect;
+
+  control = graph()->NewNode(common()->IfFalse(), branch_null_proto);
+  Node* load_object_map = effect =
+      graph()->NewNode(simplified()->LoadField(AccessBuilder::ForMap()),
+                       object_prototype, effect, control);
+  // Close the loop.
+  loop_effect->ReplaceInput(1, effect);
+  loop_object_map->ReplaceInput(1, load_object_map);
+  loop->ReplaceInput(1, control);
+
+  control = graph()->NewNode(common()->Merge(3), runtime_has_in_proto_chain,
+                             if_eq_proto, if_null_proto);
+  effect = graph()->NewNode(common()->EffectPhi(3),
+                            bool_result_runtime_has_in_proto_chain_case,
+                            e_eq_proto, e_null_proto, control);
+
+  Node* result = graph()->NewNode(
+      common()->Phi(MachineRepresentation::kTagged, 3),
+      bool_result_runtime_has_in_proto_chain_case, jsgraph()->TrueConstant(),
+      jsgraph()->FalseConstant(), control);
+
+  if (if_is_smi != nullptr) {
+    DCHECK(e_is_smi != nullptr);
+    control = graph()->NewNode(common()->Merge(2), if_is_smi, control);
+    effect =
+        graph()->NewNode(common()->EffectPhi(2), e_is_smi, effect, control);
+    result = graph()->NewNode(common()->Phi(MachineRepresentation::kTagged, 2),
+                              jsgraph()->FalseConstant(), result, control);
+  }
+
+  ReplaceWithValue(node, result, effect, control);
+  return Changed(result);
 }
 
 
@@ -1382,8 +1430,9 @@ const int kMaxInlineInstanceSize = 64 * kPointerSize;
 
 // Checks whether allocation using the given constructor can be inlined.
 bool IsAllocationInlineable(Handle<JSFunction> constructor) {
-  // TODO(bmeurer): Support inlining of class constructors.
-  if (IsClassConstructor(constructor->shared()->kind())) return false;
+  // TODO(bmeurer): Further relax restrictions on inlining, i.e.
+  // instance type and maybe instance size (inobject properties
+  // are limited anyways by the runtime).
   return constructor->has_initial_map() &&
          constructor->initial_map()->instance_type() == JS_OBJECT_TYPE &&
          constructor->initial_map()->instance_size() < kMaxInlineInstanceSize;
@@ -1734,6 +1783,37 @@ Reduction JSTypedLowering::ReduceJSCreateClosure(Node* node) {
   }
 
   return NoChange();
+}
+
+
+Reduction JSTypedLowering::ReduceJSCreateIterResultObject(Node* node) {
+  DCHECK_EQ(IrOpcode::kJSCreateIterResultObject, node->opcode());
+  Node* value = NodeProperties::GetValueInput(node, 0);
+  Node* done = NodeProperties::GetValueInput(node, 1);
+  Node* context = NodeProperties::GetContextInput(node);
+  Node* effect = NodeProperties::GetEffectInput(node);
+
+  // Load the JSIteratorResult map for the {context}.
+  Node* native_context = effect = graph()->NewNode(
+      javascript()->LoadContext(0, Context::NATIVE_CONTEXT_INDEX, true),
+      context, context, effect);
+  Node* iterator_result_map = effect = graph()->NewNode(
+      javascript()->LoadContext(0, Context::ITERATOR_RESULT_MAP_INDEX, true),
+      native_context, native_context, effect);
+
+  // Emit code to allocate the JSIteratorResult instance.
+  AllocationBuilder a(jsgraph(), effect, graph()->start());
+  a.Allocate(JSIteratorResult::kSize);
+  a.Store(AccessBuilder::ForMap(), iterator_result_map);
+  a.Store(AccessBuilder::ForJSObjectProperties(),
+          jsgraph()->EmptyFixedArrayConstant());
+  a.Store(AccessBuilder::ForJSObjectElements(),
+          jsgraph()->EmptyFixedArrayConstant());
+  a.Store(AccessBuilder::ForJSIteratorResultValue(), value);
+  a.Store(AccessBuilder::ForJSIteratorResultDone(), done);
+  STATIC_ASSERT(JSIteratorResult::kSize == 5 * kPointerSize);
+  a.FinishAndChange(node);
+  return Changed(node);
 }
 
 
@@ -2515,6 +2595,8 @@ Reduction JSTypedLowering::Reduce(Node* node) {
       return ReduceJSCreateArray(node);
     case IrOpcode::kJSCreateClosure:
       return ReduceJSCreateClosure(node);
+    case IrOpcode::kJSCreateIterResultObject:
+      return ReduceJSCreateIterResultObject(node);
     case IrOpcode::kJSCreateLiteralArray:
       return ReduceJSCreateLiteralArray(node);
     case IrOpcode::kJSCreateLiteralObject:

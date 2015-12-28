@@ -110,6 +110,9 @@ void HeapObject::HeapObjectPrint(std::ostream& os) {  // NOLINT
     case JS_MODULE_TYPE:
       JSModule::cast(this)->JSModulePrint(os);
       break;
+    case JS_BOUND_FUNCTION_TYPE:
+      JSBoundFunction::cast(this)->JSBoundFunctionPrint(os);
+      break;
     case JS_FUNCTION_TYPE:
       JSFunction::cast(this)->JSFunctionPrint(os);
       break;
@@ -844,21 +847,26 @@ void JSDataView::JSDataViewPrint(std::ostream& os) {  // NOLINT
 }
 
 
+void JSBoundFunction::JSBoundFunctionPrint(std::ostream& os) {  // NOLINT
+  JSObjectPrintHeader(os, this, "JSBoundFunction");
+  os << "\n - bound_target_function = " << Brief(bound_target_function());
+  os << "\n - bound_this = " << Brief(bound_this());
+  os << "\n - bound_arguments = " << Brief(bound_arguments());
+  JSObjectPrintBody(os, this);
+}
+
+
 void JSFunction::JSFunctionPrint(std::ostream& os) {  // NOLINT
   JSObjectPrintHeader(os, this, "Function");
   os << "\n - initial_map = ";
   if (has_initial_map()) os << Brief(initial_map());
   os << "\n - shared_info = " << Brief(shared());
-  os << "\n   - name = " << Brief(shared()->name());
+  os << "\n - name = " << Brief(shared()->name());
   if (shared()->is_generator()) {
     os << "\n   - generator";
   }
   os << "\n - context = " << Brief(context());
-  if (shared()->bound()) {
-    os << "\n - bindings = " << Brief(function_bindings());
-  } else {
-    os << "\n - literals = " << Brief(literals());
-  }
+  os << "\n - literals = " << Brief(literals());
   os << "\n - code = " << Brief(code());
   JSObjectPrintBody(os, this);
 }

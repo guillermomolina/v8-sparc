@@ -410,22 +410,10 @@ class MacroAssembler: public Assembler {
                    Register scratch1,
                    Label* on_black);
 
-  // Checks the color of an object.  If the object is already grey or black
-  // then we just fall through, since it is already live.  If it is white and
-  // we can determine that it doesn't need to be scanned, then we just mark it
-  // black and fall through.  For the rest we jump to the label so the
-  // incremental marker can fix its assumptions.
-  void EnsureNotWhite(Register object,
-                      Register scratch1,
-                      Register scratch2,
-                      Register scratch3,
-                      Label* object_is_white_and_not_data);
-
-  // Detects conservatively whether an object is data-only, i.e. it does need to
-  // be scanned by the garbage collector.
-  void JumpIfDataObject(Register value,
-                        Register scratch,
-                        Label* not_data_object);
+  // Checks the color of an object.  If the object is white we jump to the
+  // incremental marker.
+  void JumpIfWhite(Register value, Register scratch1, Register scratch2,
+                   Register scratch3, Label* value_is_white);
 
   // Notify the garbage collector that we wrote a pointer into an object.
   // |object| is the object being stored into, |value| is the object being
@@ -1278,12 +1266,48 @@ class MacroAssembler: public Assembler {
                                 const Operand& right, Register overflow_dst,
                                 Register scratch);
 
+  inline void DaddBranchOvf(Register dst, Register left, const Operand& right,
+                            Label* overflow_label, Register scratch = at) {
+    DaddBranchOvf(dst, left, right, overflow_label, nullptr, scratch);
+  }
+
+  inline void DaddBranchNoOvf(Register dst, Register left, const Operand& right,
+                              Label* no_overflow_label, Register scratch = at) {
+    DaddBranchOvf(dst, left, right, nullptr, no_overflow_label, scratch);
+  }
+
+  void DaddBranchOvf(Register dst, Register left, const Operand& right,
+                     Label* overflow_label, Label* no_overflow_label,
+                     Register scratch = at);
+
+  void DaddBranchOvf(Register dst, Register left, Register right,
+                     Label* overflow_label, Label* no_overflow_label,
+                     Register scratch = at);
+
   void DsubuAndCheckForOverflow(Register dst, Register left, Register right,
                                 Register overflow_dst, Register scratch = at);
 
   void DsubuAndCheckForOverflow(Register dst, Register left,
                                 const Operand& right, Register overflow_dst,
                                 Register scratch);
+
+  inline void DsubBranchOvf(Register dst, Register left, const Operand& right,
+                            Label* overflow_label, Register scratch = at) {
+    DsubBranchOvf(dst, left, right, overflow_label, nullptr, scratch);
+  }
+
+  inline void DsubBranchNoOvf(Register dst, Register left, const Operand& right,
+                              Label* no_overflow_label, Register scratch = at) {
+    DsubBranchOvf(dst, left, right, nullptr, no_overflow_label, scratch);
+  }
+
+  void DsubBranchOvf(Register dst, Register left, const Operand& right,
+                     Label* overflow_label, Label* no_overflow_label,
+                     Register scratch = at);
+
+  void DsubBranchOvf(Register dst, Register left, Register right,
+                     Label* overflow_label, Label* no_overflow_label,
+                     Register scratch = at);
 
   void BranchOnOverflow(Label* label,
                         Register overflow_check,
@@ -1603,6 +1627,10 @@ const Operand& rt = Operand(zero_reg), BranchDelaySlot bd = PROTECT
 
   // Abort execution if argument is not a JSFunction, enabled via --debug-code.
   void AssertFunction(Register object);
+
+  // Abort execution if argument is not a JSBoundFunction,
+  // enabled via --debug-code.
+  void AssertBoundFunction(Register object);
 
   // Abort execution if argument is not undefined or an AllocationSite, enabled
   // via --debug-code.

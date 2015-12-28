@@ -129,6 +129,24 @@ FieldAccess AccessBuilder::ForJSDateField(JSDate::FieldIndex index) {
 
 
 // static
+FieldAccess AccessBuilder::ForJSIteratorResultDone() {
+  FieldAccess access = {kTaggedBase, JSIteratorResult::kDoneOffset,
+                        MaybeHandle<Name>(), Type::Any(),
+                        MachineType::AnyTagged()};
+  return access;
+}
+
+
+// static
+FieldAccess AccessBuilder::ForJSIteratorResultValue() {
+  FieldAccess access = {kTaggedBase, JSIteratorResult::kValueOffset,
+                        MaybeHandle<Name>(), Type::Any(),
+                        MachineType::AnyTagged()};
+  return access;
+}
+
+
+// static
 FieldAccess AccessBuilder::ForJSRegExpFlags() {
   FieldAccess access = {kTaggedBase, JSRegExp::kFlagsOffset,
                         MaybeHandle<Name>(), Type::Tagged(),
@@ -169,6 +187,14 @@ FieldAccess AccessBuilder::ForDescriptorArrayEnumCacheBridgeCache() {
   FieldAccess access = {
       kTaggedBase, DescriptorArray::kEnumCacheBridgeCacheOffset, Handle<Name>(),
       Type::TaggedPointer(), MachineType::AnyTagged()};
+  return access;
+}
+
+
+// static
+FieldAccess AccessBuilder::ForMapBitField() {
+  FieldAccess access = {kTaggedBase, Map::kBitFieldOffset, Handle<Name>(),
+                        TypeCache::Get().kUint8, MachineType::Uint8()};
   return access;
 }
 

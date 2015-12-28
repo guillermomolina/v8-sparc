@@ -367,6 +367,8 @@
       },
       'include_dirs+': [
         '../..',
+        # To be able to find base/trace_event/common/trace_event_common.h
+        '../../..',
       ],
       'defines': [
         # TODO(jochen): Remove again after this is globally turned on.
@@ -474,6 +476,8 @@
         '../../src/compiler/basic-block-instrumentor.h',
         '../../src/compiler/branch-elimination.cc',
         '../../src/compiler/branch-elimination.h',
+        '../../src/compiler/bytecode-branch-analysis.cc',
+        '../../src/compiler/bytecode-branch-analysis.h',
         '../../src/compiler/bytecode-graph-builder.cc',
         '../../src/compiler/bytecode-graph-builder.h',
         '../../src/compiler/change-lowering.cc',
@@ -1028,6 +1032,8 @@
         '../../src/strtod.h',
         '../../src/ic/stub-cache.cc',
         '../../src/ic/stub-cache.h',
+        '../../src/tracing/trace-event.cc',
+        '../../src/tracing/trace-event.h',
         '../../src/transitions-inl.h',
         '../../src/transitions.cc',
         '../../src/transitions.h',

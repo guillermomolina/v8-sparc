@@ -2259,24 +2259,13 @@ void LCodeGen::DoClassOfTestAndBranch(LClassOfTestAndBranch* instr) {
   __ JumpIfSmi(input, false_label);
 
   Register map = scratch2;
+  __ CompareObjectType(input, map, scratch1, JS_FUNCTION_TYPE);
   if (String::Equals(isolate()->factory()->Function_string(), class_name)) {
-    // Assuming the following assertions, we can use the same compares to test
-    // for both being a function type and being in the object type range.
-    STATIC_ASSERT(NUM_OF_CALLABLE_SPEC_OBJECT_TYPES == 2);
-    STATIC_ASSERT(LAST_NONCALLABLE_SPEC_OBJECT_TYPE ==
-                  LAST_JS_RECEIVER_TYPE - 1);
-    STATIC_ASSERT(LAST_JS_RECEIVER_TYPE == LAST_TYPE);
-
-    // We expect CompareObjectType to load the object instance type in scratch1.
-    __ CompareObjectType(input, map, scratch1, FIRST_JS_RECEIVER_TYPE);
-    __ B(lt, false_label);
-    __ Cmp(scratch1, LAST_JS_RECEIVER_TYPE);
     __ B(eq, true_label);
   } else {
-    __ IsObjectJSObjectType(input, map, scratch1, false_label);
+    __ B(eq, false_label);
   }
 
-  // Now we are in the FIRST-LAST_NONCALLABLE_SPEC_OBJECT_TYPE range.
   // Check if the constructor in the map is a function.
   {
     UseScratchRegisterScope temps(masm());
@@ -2916,8 +2905,16 @@ void LCodeGen::DoHasInPrototypeChainAndBranch(
   __ Ldr(object_map, FieldMemOperand(object, HeapObject::kMapOffset));
   Label loop;
   __ Bind(&loop);
+
+  // Deoptimize if the object needs to be access checked.
+  __ Ldrb(object_instance_type,
+          FieldMemOperand(object_map, Map::kBitFieldOffset));
+  __ Tst(object_instance_type, Operand(1 << Map::kIsAccessCheckNeeded));
+  DeoptimizeIf(ne, instr, Deoptimizer::kAccessCheck);
+  // Deoptimize for proxies.
   __ CompareInstanceType(object_map, object_instance_type, JS_PROXY_TYPE);
   DeoptimizeIf(eq, instr, Deoptimizer::kProxy);
+
   __ Ldr(object_prototype, FieldMemOperand(object_map, Map::kPrototypeOffset));
   __ Cmp(object_prototype, prototype);
   __ B(eq, instr->TrueLabel(chunk_));

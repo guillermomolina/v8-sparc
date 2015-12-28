@@ -1152,6 +1152,32 @@ void ArgumentsAccessStub::GenerateNewStrict(MacroAssembler* masm) {
 }
 
 
+void RestParamAccessStub::GenerateNew(MacroAssembler* masm) {
+  // esp[0] : return address
+  // esp[4] : language mode
+  // esp[8] : index of rest parameter
+  // esp[12] : number of parameters
+  // esp[16] : receiver displacement
+
+  // Check if the calling frame is an arguments adaptor frame.
+  Label runtime;
+  __ mov(edx, Operand(ebp, StandardFrameConstants::kCallerFPOffset));
+  __ mov(ecx, Operand(edx, StandardFrameConstants::kContextOffset));
+  __ cmp(ecx, Immediate(Smi::FromInt(StackFrame::ARGUMENTS_ADAPTOR)));
+  __ j(not_equal, &runtime);
+
+  // Patch the arguments.length and the parameters pointer.
+  __ mov(ecx, Operand(edx, ArgumentsAdaptorFrameConstants::kLengthOffset));
+  __ mov(Operand(esp, 3 * kPointerSize), ecx);
+  __ lea(edx,
+         Operand(edx, ecx, times_2, StandardFrameConstants::kCallerSPOffset));
+  __ mov(Operand(esp, 4 * kPointerSize), edx);
+
+  __ bind(&runtime);
+  __ TailCallRuntime(Runtime::kNewRestParam, 4, 1);
+}
+
+
 void RegExpExecStub::Generate(MacroAssembler* masm) {
   // Just jump directly to runtime if native RegExp is not selected at compile
   // time or if regexp entry in generated code is turned off runtime switch or
@@ -2531,14 +2557,6 @@ void InstanceOfStub::Generate(MacroAssembler* masm) {
             static_cast<uint8_t>(1 << Map::kHasNonInstancePrototype));
   __ j(not_zero, &slow_case);
 
-  // Ensure that {function} is not bound.
-  Register const shared_info = scratch;
-  __ mov(shared_info,
-         FieldOperand(function, JSFunction::kSharedFunctionInfoOffset));
-  __ BooleanBitTest(shared_info, SharedFunctionInfo::kCompilerHintsOffset,
-                    SharedFunctionInfo::kBoundFunction);
-  __ j(not_zero, &slow_case);
-
   // Get the "prototype" (or initial map) of the {function}.
   __ mov(function_prototype,
          FieldOperand(function, JSFunction::kPrototypeOrInitialMapOffset));
@@ -2564,24 +2582,32 @@ void InstanceOfStub::Generate(MacroAssembler* masm) {
 
   // Loop through the prototype chain looking for the {function} prototype.
   // Assume true, and change to false if not found.
-  Label done, loop, proxy_case;
+  Label done, loop, fast_runtime_fallback;
   __ mov(eax, isolate()->factory()->true_value());
   __ bind(&loop);
+
+  // Check if the object needs to be access checked.
+  __ test_b(FieldOperand(object_map, Map::kBitFieldOffset),
+            1 << Map::kIsAccessCheckNeeded);
+  __ j(not_zero, &fast_runtime_fallback, Label::kNear);
+  // Check if the current object is a Proxy.
   __ CmpInstanceType(object_map, JS_PROXY_TYPE);
-  __ j(equal, &proxy_case, Label::kNear);
+  __ j(equal, &fast_runtime_fallback, Label::kNear);
+
   __ mov(object, FieldOperand(object_map, Map::kPrototypeOffset));
   __ cmp(object, function_prototype);
   __ j(equal, &done, Label::kNear);
-  __ cmp(object, isolate()->factory()->null_value());
   __ mov(object_map, FieldOperand(object, HeapObject::kMapOffset));
+  __ cmp(object, isolate()->factory()->null_value());
   __ j(not_equal, &loop);
   __ mov(eax, isolate()->factory()->false_value());
+
   __ bind(&done);
   __ StoreRoot(eax, scratch, Heap::kInstanceofCacheAnswerRootIndex);
   __ ret(0);
 
-  // Proxy-case: Call the %HasInPrototypeChain runtime function.
-  __ bind(&proxy_case);
+  // Found Proxy or access check needed: Call the runtime.
+  __ bind(&fast_runtime_fallback);
   __ PopReturnAddressTo(scratch);
   __ Push(object);
   __ Push(function_prototype);
@@ -4068,11 +4094,10 @@ void RecordWriteStub::CheckNeedsToInformIncrementalMarker(
   // We need an extra register for this, so we push the object register
   // temporarily.
   __ push(regs_.object());
-  __ EnsureNotWhite(regs_.scratch0(),  // The value.
-                    regs_.scratch1(),  // Scratch.
-                    regs_.object(),  // Scratch.
-                    &need_incremental_pop_object,
-                    Label::kNear);
+  __ JumpIfWhite(regs_.scratch0(),  // The value.
+                 regs_.scratch1(),  // Scratch.
+                 regs_.object(),    // Scratch.
+                 &need_incremental_pop_object, Label::kNear);
   __ pop(regs_.object());
 
   regs_.Restore(masm);

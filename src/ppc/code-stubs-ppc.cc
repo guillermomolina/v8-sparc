@@ -1458,14 +1458,23 @@ void InstanceOfStub::Generate(MacroAssembler* masm) {
   // Loop through the prototype chain looking for the {function} prototype.
   // Assume true, and change to false if not found.
   Register const object_instance_type = function_map;
+  Register const map_bit_field = function_map;
   Register const null = scratch;
   Register const result = r3;
-  Label done, loop, proxy_case;
+
+  Label done, loop, fast_runtime_fallback;
   __ LoadRoot(result, Heap::kTrueValueRootIndex);
   __ LoadRoot(null, Heap::kNullValueRootIndex);
   __ bind(&loop);
+
+  // Check if the object needs to be access checked.
+  __ lbz(map_bit_field, FieldMemOperand(object_map, Map::kBitFieldOffset));
+  __ TestBit(map_bit_field, Map::kIsAccessCheckNeeded, r0);
+  __ bne(&fast_runtime_fallback, cr0);
+  // Check if the current object is a Proxy.
   __ CompareInstanceType(object_map, object_instance_type, JS_PROXY_TYPE);
-  __ beq(&proxy_case);
+  __ beq(&fast_runtime_fallback);
+
   __ LoadP(object, FieldMemOperand(object_map, Map::kPrototypeOffset));
   __ cmp(object, function_prototype);
   __ beq(&done);
@@ -1477,8 +1486,8 @@ void InstanceOfStub::Generate(MacroAssembler* masm) {
   __ StoreRoot(result, Heap::kInstanceofCacheAnswerRootIndex);
   __ Ret();
 
-  // Proxy-case: Call the %HasInPrototypeChain runtime function.
-  __ bind(&proxy_case);
+  // Found Proxy or access check needed: Call the runtime
+  __ bind(&fast_runtime_fallback);
   __ Push(object, function_prototype);
   // Invalidate the instanceof cache.
   __ LoadSmiLiteral(scratch, Smi::FromInt(0));
@@ -1975,6 +1984,32 @@ void ArgumentsAccessStub::GenerateNewStrict(MacroAssembler* masm) {
   __ bind(&runtime);
   __ Push(r4, r6, r5);
   __ TailCallRuntime(Runtime::kNewStrictArguments, 3, 1);
+}
+
+
+void RestParamAccessStub::GenerateNew(MacroAssembler* masm) {
+  // Stack layout on entry.
+  //  sp[0] : language mode
+  //  sp[4] : index of rest parameter
+  //  sp[8] : number of parameters
+  //  sp[12] : receiver displacement
+
+  Label runtime;
+  __ LoadP(r5, MemOperand(fp, StandardFrameConstants::kCallerFPOffset));
+  __ LoadP(r6, MemOperand(r5, StandardFrameConstants::kContextOffset));
+  __ CmpSmiLiteral(r6, Smi::FromInt(StackFrame::ARGUMENTS_ADAPTOR), r0);
+  __ bne(&runtime);
+
+  // Patch the arguments.length and the parameters pointer.
+  __ LoadP(r4, MemOperand(r5, ArgumentsAdaptorFrameConstants::kLengthOffset));
+  __ StoreP(r4, MemOperand(sp, 2 * kPointerSize));
+  __ SmiToPtrArrayOffset(r0, r4);
+  __ add(r6, r5, r0);
+  __ addi(r6, r6, Operand(StandardFrameConstants::kCallerSPOffset));
+  __ StoreP(r6, MemOperand(sp, 3 * kPointerSize));
+
+  __ bind(&runtime);
+  __ TailCallRuntime(Runtime::kNewRestParam, 4, 1);
 }
 
 
@@ -4223,11 +4258,11 @@ void RecordWriteStub::CheckNeedsToInformIncrementalMarker(
   // We need extra registers for this, so we push the object and the address
   // register temporarily.
   __ Push(regs_.object(), regs_.address());
-  __ EnsureNotWhite(regs_.scratch0(),  // The value.
-                    regs_.scratch1(),  // Scratch.
-                    regs_.object(),    // Scratch.
-                    regs_.address(),   // Scratch.
-                    &need_incremental_pop_scratch);
+  __ JumpIfWhite(regs_.scratch0(),  // The value.
+                 regs_.scratch1(),  // Scratch.
+                 regs_.object(),    // Scratch.
+                 regs_.address(),   // Scratch.
+                 &need_incremental_pop_scratch);
   __ Pop(regs_.object(), regs_.address());
 
   regs_.Restore(masm);

@@ -17,6 +17,7 @@ namespace internal {
 namespace interpreter {
 
 using compiler::Node;
+
 #define __ assembler->
 
 
@@ -420,6 +421,71 @@ void Interpreter::DoStaContextSlot(compiler::InterpreterAssembler* assembler) {
   Node* slot_index = __ BytecodeOperandIdx(1);
   __ StoreContextSlot(context, slot_index, value);
   __ Dispatch();
+}
+
+
+void Interpreter::DoLoadLookupSlot(Runtime::FunctionId function_id,
+                                   compiler::InterpreterAssembler* assembler) {
+  Node* index = __ BytecodeOperandIdx(0);
+  Node* name = __ LoadConstantPoolEntry(index);
+  Node* context = __ GetContext();
+  Node* result_pair = __ CallRuntime(function_id, context, name);
+  Node* result = __ Projection(0, result_pair);
+  __ SetAccumulator(result);
+  __ Dispatch();
+}
+
+
+// LdaLookupSlot <name_index>
+//
+// Lookup the object with the name in constant pool entry |name_index|
+// dynamically.
+void Interpreter::DoLdaLookupSlot(compiler::InterpreterAssembler* assembler) {
+  DoLoadLookupSlot(Runtime::kLoadLookupSlot, assembler);
+}
+
+
+// LdaLookupSlotInsideTypeof <name_index>
+//
+// Lookup the object with the name in constant pool entry |name_index|
+// dynamically without causing a NoReferenceError.
+void Interpreter::DoLdaLookupSlotInsideTypeof(
+    compiler::InterpreterAssembler* assembler) {
+  DoLoadLookupSlot(Runtime::kLoadLookupSlotNoReferenceError, assembler);
+}
+
+
+void Interpreter::DoStoreLookupSlot(LanguageMode language_mode,
+                                    compiler::InterpreterAssembler* assembler) {
+  Node* value = __ GetAccumulator();
+  Node* index = __ BytecodeOperandIdx(0);
+  Node* name = __ LoadConstantPoolEntry(index);
+  Node* context = __ GetContext();
+  Node* language_mode_node = __ NumberConstant(language_mode);
+  Node* result = __ CallRuntime(Runtime::kStoreLookupSlot, value, context, name,
+                                language_mode_node);
+  __ SetAccumulator(result);
+  __ Dispatch();
+}
+
+
+// StaLookupSlotSloppy <name_index>
+//
+// Store the object in accumulator to the object with the name in constant
+// pool entry |name_index| in sloppy mode.
+void Interpreter::DoStaLookupSlotSloppy(
+    compiler::InterpreterAssembler* assembler) {
+  DoStoreLookupSlot(LanguageMode::SLOPPY, assembler);
+}
+
+
+// StaLookupSlotStrict <name_index>
+//
+// Store the object in accumulator to the object with the name in constant
+// pool entry |name_index| in strict mode.
+void Interpreter::DoStaLookupSlotStrict(
+    compiler::InterpreterAssembler* assembler) {
+  DoStoreLookupSlot(LanguageMode::STRICT, assembler);
 }
 
 
@@ -897,6 +963,20 @@ void Interpreter::DoDeletePropertySloppy(
 }
 
 
+// DeleteLookupSlot
+//
+// Delete the variable with the name specified in the accumulator by dynamically
+// looking it up.
+void Interpreter::DoDeleteLookupSlot(
+    compiler::InterpreterAssembler* assembler) {
+  Node* name = __ GetAccumulator();
+  Node* context = __ GetContext();
+  Node* result = __ CallRuntime(Runtime::kDeleteLookupSlot, context, name);
+  __ SetAccumulator(result);
+  __ Dispatch();
+}
+
+
 void Interpreter::DoJSCall(compiler::InterpreterAssembler* assembler) {
   Node* function_reg = __ BytecodeOperandReg(0);
   Node* function = __ LoadRegister(function_reg);
@@ -1188,9 +1268,9 @@ void Interpreter::DoJumpIfFalseConstant(
 void Interpreter::DoJumpIfToBooleanTrue(
     compiler::InterpreterAssembler* assembler) {
   Node* accumulator = __ GetAccumulator();
-  Node* relative_jump = __ BytecodeOperandImm(0);
   Node* to_boolean_value =
       __ CallRuntime(Runtime::kInterpreterToBoolean, accumulator);
+  Node* relative_jump = __ BytecodeOperandImm(0);
   Node* true_value = __ BooleanConstant(true);
   __ JumpIfWordEqual(to_boolean_value, true_value, relative_jump);
 }
@@ -1221,9 +1301,9 @@ void Interpreter::DoJumpIfToBooleanTrueConstant(
 void Interpreter::DoJumpIfToBooleanFalse(
     compiler::InterpreterAssembler* assembler) {
   Node* accumulator = __ GetAccumulator();
-  Node* relative_jump = __ BytecodeOperandImm(0);
   Node* to_boolean_value =
       __ CallRuntime(Runtime::kInterpreterToBoolean, accumulator);
+  Node* relative_jump = __ BytecodeOperandImm(0);
   Node* false_value = __ BooleanConstant(false);
   __ JumpIfWordEqual(to_boolean_value, false_value, relative_jump);
 }
@@ -1450,33 +1530,36 @@ void Interpreter::DoReturn(compiler::InterpreterAssembler* assembler) {
 }
 
 
-// ForInPrepare <receiver>
+// ForInPrepare <cache_type> <cache_array> <cache_length>
 //
-// Returns state for for..in loop execution based on the |receiver| and
-// the property names in the accumulator.
+// Returns state for for..in loop execution based on the object in the
+// accumulator. The registers |cache_type|, |cache_array|, and
+// |cache_length| represent output parameters.
 void Interpreter::DoForInPrepare(compiler::InterpreterAssembler* assembler) {
-  Node* receiver_reg = __ BytecodeOperandReg(0);
-  Node* receiver = __ LoadRegister(receiver_reg);
-  Node* property_names = __ GetAccumulator();
-  Node* result = __ CallRuntime(Runtime::kInterpreterForInPrepare, receiver,
-                                property_names);
+  Node* object = __ GetAccumulator();
+  Node* result = __ CallRuntime(Runtime::kInterpreterForInPrepare, object);
+  for (int i = 0; i < 3; i++) {
+    // 0 == cache_type, 1 == cache_array, 2 == cache_length
+    Node* cache_info = __ LoadFixedArrayElement(result, i);
+    Node* cache_info_reg = __ BytecodeOperandReg(i);
+    __ StoreRegister(cache_info, cache_info_reg);
+  }
   __ SetAccumulator(result);
   __ Dispatch();
 }
 
 
-// ForInNext <for_in_state> <index>
+// ForInNext <receiver> <cache_type> <cache_array> <index>
 //
-// Returns the next key in a for..in loop. The state associated with the
-// iteration is contained in |for_in_state| and |index| is the current
-// zero-based iteration count.
+// Returns the next enumerable property in the the accumulator.
 void Interpreter::DoForInNext(compiler::InterpreterAssembler* assembler) {
-  Node* for_in_state_reg = __ BytecodeOperandReg(0);
-  Node* for_in_state = __ LoadRegister(for_in_state_reg);
-  Node* receiver = __ LoadFixedArrayElement(for_in_state, 0);
-  Node* cache_array = __ LoadFixedArrayElement(for_in_state, 1);
-  Node* cache_type = __ LoadFixedArrayElement(for_in_state, 2);
-  Node* index_reg = __ BytecodeOperandReg(1);
+  Node* receiver_reg = __ BytecodeOperandReg(0);
+  Node* receiver = __ LoadRegister(receiver_reg);
+  Node* cache_type_reg = __ BytecodeOperandReg(1);
+  Node* cache_type = __ LoadRegister(cache_type_reg);
+  Node* cache_array_reg = __ BytecodeOperandReg(2);
+  Node* cache_array = __ LoadRegister(cache_array_reg);
+  Node* index_reg = __ BytecodeOperandReg(3);
   Node* index = __ LoadRegister(index_reg);
   Node* result = __ CallRuntime(Runtime::kForInNext, receiver, cache_array,
                                 cache_type, index);
@@ -1485,21 +1568,33 @@ void Interpreter::DoForInNext(compiler::InterpreterAssembler* assembler) {
 }
 
 
-// ForInDone <for_in_state>
+// ForInDone <index> <cache_length>
 //
-// Returns the next key in a for..in loop. The accumulator contains the current
-// zero-based iteration count and |for_in_state| is the state returned by an
-// earlier invocation of ForInPrepare.
+// Returns true if the end of the enumerable properties has been reached.
 void Interpreter::DoForInDone(compiler::InterpreterAssembler* assembler) {
-  Node* index = __ GetAccumulator();
-  Node* for_in_state_reg = __ BytecodeOperandReg(0);
-  Node* for_in_state = __ LoadRegister(for_in_state_reg);
-  Node* cache_length = __ LoadFixedArrayElement(for_in_state, 3);
+  // TODO(oth): Implement directly rather than making a runtime call.
+  Node* index_reg = __ BytecodeOperandReg(0);
+  Node* index = __ LoadRegister(index_reg);
+  Node* cache_length_reg = __ BytecodeOperandReg(1);
+  Node* cache_length = __ LoadRegister(cache_length_reg);
   Node* result = __ CallRuntime(Runtime::kForInDone, index, cache_length);
   __ SetAccumulator(result);
   __ Dispatch();
 }
 
+
+// ForInStep <index>
+//
+// Increments the loop counter in register |index| and stores the result
+// in the accumulator.
+void Interpreter::DoForInStep(compiler::InterpreterAssembler* assembler) {
+  // TODO(oth): Implement directly rather than making a runtime call.
+  Node* index_reg = __ BytecodeOperandReg(0);
+  Node* index = __ LoadRegister(index_reg);
+  Node* result = __ CallRuntime(Runtime::kForInStep, index);
+  __ SetAccumulator(result);
+  __ Dispatch();
+}
 
 }  // namespace interpreter
 }  // namespace internal

@@ -1217,6 +1217,11 @@ Type* Typer::Visitor::TypeJSCreateArray(Node* node) {
 
 
 Type* Typer::Visitor::TypeJSCreateClosure(Node* node) {
+  return Type::Function();
+}
+
+
+Type* Typer::Visitor::TypeJSCreateIterResultObject(Node* node) {
   return Type::OtherObject();
 }
 
@@ -1563,6 +1568,7 @@ Type* Typer::Visitor::TypeJSCallRuntime(Node* node) {
       return Type::Number();
     case Runtime::kInlineMathClz32:
       return Type::Range(0, 32, zone());
+    case Runtime::kInlineCreateIterResultObject:
     case Runtime::kInlineRegExpConstructResult:
       return Type::OtherObject();
     case Runtime::kInlineSubString:
@@ -2075,7 +2081,17 @@ Type* Typer::Visitor::TypeUint32MulHigh(Node* node) {
 Type* Typer::Visitor::TypeInt64Add(Node* node) { return Type::Internal(); }
 
 
+Type* Typer::Visitor::TypeInt64AddWithOverflow(Node* node) {
+  return Type::Internal();
+}
+
+
 Type* Typer::Visitor::TypeInt64Sub(Node* node) { return Type::Internal(); }
+
+
+Type* Typer::Visitor::TypeInt64SubWithOverflow(Node* node) {
+  return Type::Internal();
+}
 
 
 Type* Typer::Visitor::TypeInt64Mul(Node* node) { return Type::Internal(); }

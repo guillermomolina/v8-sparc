@@ -55,6 +55,12 @@ class AccessBuilder final : public AllStatic {
   // Provides access to JSDate fields.
   static FieldAccess ForJSDateField(JSDate::FieldIndex index);
 
+  // Provides access to JSIteratorResult::done() field.
+  static FieldAccess ForJSIteratorResultDone();
+
+  // Provides access to JSIteratorResult::value() field.
+  static FieldAccess ForJSIteratorResultValue();
+
   // Provides access to JSRegExp::flags() field.
   static FieldAccess ForJSRegExpFlags();
 
@@ -69,6 +75,9 @@ class AccessBuilder final : public AllStatic {
 
   // Provides access to DescriptorArray::enum_cache_bridge_cache() field.
   static FieldAccess ForDescriptorArrayEnumCacheBridgeCache();
+
+  // Provides access to Map::bit_field() byte.
+  static FieldAccess ForMapBitField();
 
   // Provides access to Map::bit_field3() field.
   static FieldAccess ForMapBitField3();

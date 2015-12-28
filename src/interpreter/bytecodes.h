@@ -66,6 +66,12 @@ namespace interpreter {
   V(LdaContextSlot, OperandType::kReg8, OperandType::kIdx8)                    \
   V(StaContextSlot, OperandType::kReg8, OperandType::kIdx8)                    \
                                                                                \
+  /* Load-Store lookup slots */                                                \
+  V(LdaLookupSlot, OperandType::kIdx8)                                         \
+  V(LdaLookupSlotInsideTypeof, OperandType::kIdx8)                             \
+  V(StaLookupSlotSloppy, OperandType::kIdx8)                                   \
+  V(StaLookupSlotStrict, OperandType::kIdx8)                                   \
+                                                                               \
   /* Register-accumulator transfers */                                         \
   V(Ldar, OperandType::kReg8)                                                  \
   V(Star, OperandType::kReg8)                                                  \
@@ -123,6 +129,7 @@ namespace interpreter {
   V(TypeOf, OperandType::kNone)                                                \
   V(DeletePropertyStrict, OperandType::kReg8)                                  \
   V(DeletePropertySloppy, OperandType::kReg8)                                  \
+  V(DeleteLookupSlot, OperandType::kNone)                                      \
                                                                                \
   /* Call operations */                                                        \
   V(Call, OperandType::kReg8, OperandType::kReg8, OperandType::kCount8,        \
@@ -193,9 +200,11 @@ namespace interpreter {
   V(JumpIfUndefinedConstant, OperandType::kIdx8)                               \
                                                                                \
   /* Complex flow control For..in */                                           \
-  V(ForInPrepare, OperandType::kReg8)                                          \
-  V(ForInNext, OperandType::kReg8, OperandType::kReg8)                         \
-  V(ForInDone, OperandType::kReg8)                                             \
+  V(ForInPrepare, OperandType::kReg8, OperandType::kReg8, OperandType::kReg8)  \
+  V(ForInDone, OperandType::kReg8, OperandType::kReg8)                         \
+  V(ForInNext, OperandType::kReg8, OperandType::kReg8, OperandType::kReg8,     \
+    OperandType::kReg8)                                                        \
+  V(ForInStep, OperandType::kReg8)                                             \
                                                                                \
   /* Non-local flow control */                                                 \
   V(Throw, OperandType::kNone)                                                 \
@@ -340,13 +349,32 @@ class Bytecodes {
   // Returns the size of |operand|.
   static OperandSize SizeOfOperand(OperandType operand);
 
+  // Return true if the bytecode is a conditional jump taking
+  // an immediate byte operand (OperandType::kImm8).
+  static bool IsConditionalJumpImmediate(Bytecode bytecode);
+
+  // Return true if the bytecode is a conditional jump taking
+  // a constant pool entry (OperandType::kIdx).
+  static bool IsConditionalJumpConstant(Bytecode bytecode);
+
+  // Return true if the bytecode is a conditional jump taking
+  // any kind of operand.
+  static bool IsConditionalJump(Bytecode bytecode);
+
   // Return true if the bytecode is a jump or a conditional jump taking
   // an immediate byte operand (OperandType::kImm8).
-  static bool IsJump(Bytecode bytecode);
+  static bool IsJumpImmediate(Bytecode bytecode);
 
   // Return true if the bytecode is a jump or conditional jump taking a
   // constant pool entry (OperandType::kIdx).
   static bool IsJumpConstant(Bytecode bytecode);
+
+  // Return true if the bytecode is a jump or conditional jump taking
+  // any kind of operand.
+  static bool IsJump(Bytecode bytecode);
+
+  // Return true if the bytecode is a conditional jump, a jump, or a return.
+  static bool IsJumpOrReturn(Bytecode bytecode);
 
   // Decode a single bytecode and operands to |os|.
   static std::ostream& Decode(std::ostream& os, const uint8_t* bytecode_start,

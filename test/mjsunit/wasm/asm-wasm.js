@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// Flags: --expose-wasm
+
 function IntTest() {
   "use asm";
   function sum(a, b) {
@@ -551,3 +553,88 @@ function TestGlobalsWithInit() {
 var module = WASM.instantiateModuleFromAsm(TestGlobalsWithInit.toString());
 module.__init__();
 assertEquals(77.5, module.add());
+
+function TestForLoop() {
+  "use asm"
+
+  function caller() {
+    var ret = 0;
+    var i = 0;
+    for (i = 2; i <= 10; i = (i+1)|0) {
+      ret = (ret + i) | 0;
+    }
+    return ret|0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(54, WASM.asmCompileRun(TestForLoop.toString()));
+
+function TestForLoopWithoutInit() {
+  "use asm"
+
+  function caller() {
+    var ret = 0;
+    var i = 0;
+    for (; i < 10; i = (i+1)|0) {
+      ret = (ret + 10) | 0;
+    }
+    return ret|0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(100, WASM.asmCompileRun(TestForLoopWithoutInit.toString()));
+
+function TestForLoopWithoutCondition() {
+  "use asm"
+
+  function caller() {
+    var ret = 0;
+    var i = 0;
+    for (i=1;; i = (i+1)|0) {
+      ret = (ret + i) | 0;
+      if (i == 11) {
+        break;
+      }
+    }
+    return ret|0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(66, WASM.asmCompileRun(TestForLoopWithoutCondition.toString()));
+
+function TestForLoopWithoutNext() {
+  "use asm"
+
+  function caller() {
+    var i = 0;
+    for (i=1; i < 41;) {
+      i = (i + 1) | 0;
+    }
+    return i|0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(41, WASM.asmCompileRun(TestForLoopWithoutNext.toString()));
+
+function TestForLoopWithoutBody() {
+  "use asm"
+
+  function caller() {
+    var i = 0;
+    for (i=1; i < 45 ; i = (i+1)|0) {
+    }
+    return i|0;
+  }
+
+  return {caller:caller};
+}
+
+assertEquals(45, WASM.asmCompileRun(TestForLoopWithoutBody.toString()));

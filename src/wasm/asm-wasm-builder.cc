@@ -226,16 +226,39 @@ class AsmWasmBuilderImpl : public AstVisitor {
   }
 
   void VisitForStatement(ForStatement* stmt) {
+    DCHECK(in_function_);
     if (stmt->init() != NULL) {
+      block_size_++;
       RECURSE(Visit(stmt->init()));
     }
+    current_function_builder_->Emit(kExprLoop);
+    uint32_t index = current_function_builder_->EmitEditableImmediate(0);
+    int prev_block_size = block_size_;
+    block_size_ = 0;
+    breakable_blocks_.push_back(
+        std::make_pair(stmt->AsBreakableStatement(), true));
     if (stmt->cond() != NULL) {
+      block_size_++;
+      current_function_builder_->Emit(kExprIf);
+      current_function_builder_->Emit(kExprBoolNot);
       RECURSE(Visit(stmt->cond()));
+      current_function_builder_->EmitWithU8(kExprBr, 1);
+      current_function_builder_->Emit(kExprNop);
+    }
+    if (stmt->body() != NULL) {
+      block_size_++;
+      RECURSE(Visit(stmt->body()));
     }
     if (stmt->next() != NULL) {
+      block_size_++;
       RECURSE(Visit(stmt->next()));
     }
-    RECURSE(Visit(stmt->body()));
+    block_size_++;
+    current_function_builder_->EmitWithU8(kExprBr, 0);
+    current_function_builder_->Emit(kExprNop);
+    current_function_builder_->EditImmediate(index, block_size_);
+    block_size_ = prev_block_size;
+    breakable_blocks_.pop_back();
   }
 
   void VisitForInStatement(ForInStatement* stmt) {
@@ -296,7 +319,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
         std::vector<uint8_t> index =
             UnsignedLEB128From(LookupOrInsertFunction(var));
         current_function_builder_->EmitCode(
-            index.data(), static_cast<uint32_t>(index.size()));
+            &index[0], static_cast<uint32_t>(index.size()));
       } else {
         if (is_set_op_) {
           if (var->IsContextSlot()) {
@@ -763,11 +786,11 @@ class AsmWasmBuilderImpl : public AstVisitor {
     if (is_local) {
       uint32_t pos_of_index[1] = {0};
       current_function_builder_->EmitCode(
-          index_vec.data(), static_cast<uint32_t>(index_vec.size()),
-          pos_of_index, 1);
+          &index_vec[0], static_cast<uint32_t>(index_vec.size()), pos_of_index,
+          1);
     } else {
       current_function_builder_->EmitCode(
-          index_vec.data(), static_cast<uint32_t>(index_vec.size()));
+          &index_vec[0], static_cast<uint32_t>(index_vec.size()));
     }
   }
 
@@ -833,6 +856,7 @@ class AsmWasmBuilderImpl : public AstVisitor {
       return kFloat64;
     } else {
       UNREACHABLE();
+      return kInt32;
     }
   }
 
