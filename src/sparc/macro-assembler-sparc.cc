@@ -588,6 +588,7 @@ void MacroAssembler::TailCallExternalReference(const ExternalReference& ext,
 }
 
 
+
 void MacroAssembler::CallStub(CodeStub* stub, TypeFeedbackId ast_id) {
   DCHECK(AllowThisStubCall(stub));  // Stub calls are not allowed in some stubs.
   Call(stub->GetCode(), RelocInfo::CODE_TARGET, ast_id);
@@ -617,12 +618,8 @@ void MacroAssembler::CallRuntime(const Runtime::Function* f,
 }
 
 
-void MacroAssembler::TailCallRuntime(Runtime::FunctionId fid,
-                                     int num_arguments,
-                                     int result_size) {
-  TailCallExternalReference(ExternalReference(fid, isolate()),
-                            num_arguments,
-                            result_size);
+void MacroAssembler::TailCallRuntime(Runtime::FunctionId fid) {
+  UNIMPLEMENTED();
 }
 
 

@@ -63,6 +63,11 @@ const Register ArgumentsAccessNewDescriptor::parameter_count()  { UNIMPLEMENTED(
 const Register ArgumentsAccessNewDescriptor::parameter_pointer()  { UNIMPLEMENTED(); }
 
 
+const Register RestParamAccessDescriptor::parameter_count() { UNIMPLEMENTED(); }
+const Register RestParamAccessDescriptor::parameter_pointer() { UNIMPLEMENTED(); }
+const Register RestParamAccessDescriptor::rest_parameter_index() { UNIMPLEMENTED(); }
+
+
 const Register ApiGetterDescriptor::function_address()  { UNIMPLEMENTED(); }
 
 

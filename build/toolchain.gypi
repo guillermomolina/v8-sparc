@@ -300,7 +300,6 @@
       ['v8_target_arch=="sparc"', {
         'defines': [
           'V8_TARGET_ARCH_SPARC',
-          'V8_INTERPRETED_REGEXP',
         ],
       }],  # sparc
       ['v8_target_arch=="ppc" or v8_target_arch=="ppc64"', {
