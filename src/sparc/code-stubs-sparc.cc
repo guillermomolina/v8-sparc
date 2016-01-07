@@ -417,20 +417,16 @@ void ArgumentsAccessStub::GenerateNewStrict(MacroAssembler* masm) {
 }
 
 
+void RestParamAccessStub::GenerateNew(MacroAssembler* masm) {
+    UNIMPLEMENTED();
+}
+
+
 void RegExpExecStub::Generate(MacroAssembler* masm) {
     UNIMPLEMENTED();
 }
 
-/*
-static void CallStubInRecordCallTarget(MacroAssembler* masm, CodeStub* stub,
-                                       bool is_super) {
-    UNIMPLEMENTED();
-}
 
-
-static void GenerateRecordCallTarget(MacroAssembler* masm, bool is_super) { UNIMPLEMENTED(); }
-
-*/
 void CallConstructStub::Generate(MacroAssembler* masm) {
     UNIMPLEMENTED(); 
 }

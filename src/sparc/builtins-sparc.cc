@@ -282,6 +282,28 @@ void Builtins::Generate_InterpreterPushArgsAndConstruct(MacroAssembler* masm) {
     __ breakpoint_trap();
 }
 
+static void Generate_InterpreterNotifyDeoptimizedHelper(
+    MacroAssembler* masm, Deoptimizer::BailoutType type) {
+    WARNING("Builtins::Generate_CompileLazy");
+    __ breakpoint_trap();
+}
+
+
+void Builtins::Generate_InterpreterNotifyDeoptimized(MacroAssembler* masm) {
+  Generate_InterpreterNotifyDeoptimizedHelper(masm, Deoptimizer::EAGER);
+}
+
+
+void Builtins::Generate_InterpreterNotifySoftDeoptimized(MacroAssembler* masm) {
+  Generate_InterpreterNotifyDeoptimizedHelper(masm, Deoptimizer::SOFT);
+}
+
+
+void Builtins::Generate_InterpreterNotifyLazyDeoptimized(MacroAssembler* masm) {
+  Generate_InterpreterNotifyDeoptimizedHelper(masm, Deoptimizer::LAZY);
+}
+
+
 
 void Builtins::Generate_CompileLazy(MacroAssembler* masm) {
     WARNING("Builtins::Generate_CompileLazy");
@@ -403,26 +425,15 @@ void Builtins::Generate_OsrAfterStackCheck(MacroAssembler* masm) {
 
 
 // static
-void Builtins::Generate_FunctionCall(MacroAssembler* masm) {
-    WARNING("Builtins::Generate_FunctionCall");
+void Builtins::Generate_FunctionPrototypeApply(MacroAssembler* masm) {
+    WARNING("Builtins::Generate_FunctionPrototypeApply");
     __ breakpoint_trap();
 }
 
-
-/*static void Generate_PushAppliedArguments(MacroAssembler* masm,
-                                          const int vectorOffset,
-                                          const int argumentsOffset,
-                                          const int indexOffset,
-                                          const int limitOffset) {
-    WARNING("Builtins::");
-}*/
-
-
-// Used by FunctionApply and ReflectApply
-/*static void Generate_ApplyHelper(MacroAssembler* masm, bool targetIsArgument) {
-    WARNING("Builtins::");
-}*/
-
+void Builtins::Generate_FunctionPrototypeCall(MacroAssembler* masm) {
+    WARNING("Builtins::Generate_FunctionPrototypeApply");
+    __ breakpoint_trap();
+}
 
 static void Generate_ConstructHelper(MacroAssembler* masm) {
     WARNING("Generate_ConstructHelper");
@@ -436,12 +447,6 @@ static void Generate_ConstructHelper(MacroAssembler* masm) {
     __ nop();
     __ nop();
  }
-
-
-void Builtins::Generate_FunctionApply(MacroAssembler* masm) {
-    WARNING("Builtins::Generate_FunctionApply");
-    __ breakpoint_trap();
-}
 
 
 void Builtins::Generate_ReflectApply(MacroAssembler* masm) {
@@ -470,6 +475,10 @@ void Builtins::Generate_ReflectConstruct(MacroAssembler* masm) {
     WARNING("Builtins::");
 }*/
 
+void Builtins::Generate_Apply(MacroAssembler* masm) {
+    WARNING("Builtins::Generate_Apply");
+    __ breakpoint_trap();
+}
 
 // static
 void Builtins::Generate_CallFunction(MacroAssembler* masm,
@@ -478,6 +487,10 @@ void Builtins::Generate_CallFunction(MacroAssembler* masm,
     __ nop();
 }
 
+void Builtins::Generate_CallBoundFunction(MacroAssembler* masm) {
+   WARNING("Builtins::Generate_CallBoundFunction");
+    __ breakpoint_trap();  
+}
 
 // static
 void Builtins::Generate_Call(MacroAssembler* masm, ConvertReceiverMode mode) {
@@ -495,8 +508,13 @@ void Builtins::Generate_ConstructFunction(MacroAssembler* masm) {
     __ breakpoint_trap();
 }
 
+void Builtins::Generate_ConstructBoundFunction(MacroAssembler* masm) {
+    WARNING("Builtins::Generate_ConstructFunction");
+    __ breakpoint_trap();
+}
+ 
 
-// static
+  // static
 void Builtins::Generate_ConstructProxy(MacroAssembler* masm) {
     WARNING("Builtins::Generate_ConstructProxy");
     __ breakpoint_trap();

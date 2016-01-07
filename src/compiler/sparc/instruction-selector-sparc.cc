@@ -475,9 +475,9 @@ void InstructionSelector::VisitFloat64RoundTiesEven(Node* node) {
 }
 
 
-void InstructionSelector::EmitPrepareArguments(NodeVector* arguments,
-                                               const CallDescriptor* descriptor,
-                                               Node* node) {
+void InstructionSelector::EmitPrepareArguments(
+    ZoneVector<PushParameter>* arguments, const CallDescriptor* descriptor,
+    Node* node) {
       UNIMPLEMENTED();
 }
 
@@ -498,15 +498,7 @@ void InstructionSelector::VisitCheckedStore(Node* node) {
 
 
 namespace {
-/*
-// Shared routine for multiple compare operations.
-static void VisitCompare(InstructionSelector* selector, InstructionCode opcode,
-                         InstructionOperand left, InstructionOperand right,
-                         FlagsContinuation* cont) {
-      UNIMPLEMENTED();
-}
 
-*/
 // Shared routine for multiple float32 compare operations.
 void VisitFloat32Compare(InstructionSelector* selector, Node* node,
                          FlagsContinuation* cont) {
@@ -598,6 +590,18 @@ void InstructionSelector::VisitInt32AddWithOverflow(Node* node) {
 
 
 void InstructionSelector::VisitInt32SubWithOverflow(Node* node) {
+      UNIMPLEMENTED();
+}
+
+
+
+
+void InstructionSelector::VisitInt64AddWithOverflow(Node* node) {
+      UNIMPLEMENTED();
+}
+
+
+void InstructionSelector::VisitInt64SubWithOverflow(Node* node) {
       UNIMPLEMENTED();
 }
 
