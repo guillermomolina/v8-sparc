@@ -1027,6 +1027,33 @@ Object* FunctionTemplateInfo::GetCompatibleReceiver(Isolate* isolate,
 }
 
 
+// static
+MaybeHandle<JSObject> JSObject::New(Handle<JSFunction> constructor,
+                                    Handle<JSReceiver> new_target,
+                                    Handle<AllocationSite> site) {
+  // If called through new, new.target can be:
+  // - a subclass of constructor,
+  // - a proxy wrapper around constructor, or
+  // - the constructor itself.
+  // If called through Reflect.construct, it's guaranteed to be a constructor.
+  Isolate* const isolate = constructor->GetIsolate();
+  DCHECK(constructor->IsConstructor());
+  DCHECK(new_target->IsConstructor());
+  DCHECK(!constructor->has_initial_map() ||
+         constructor->initial_map()->instance_type() != JS_FUNCTION_TYPE);
+
+  Handle<Map> initial_map;
+  ASSIGN_RETURN_ON_EXCEPTION(
+      isolate, initial_map,
+      JSFunction::GetDerivedMap(isolate, constructor, new_target), JSObject);
+  Handle<JSObject> result =
+      isolate->factory()->NewJSObjectFromMap(initial_map, NOT_TENURED, site);
+  isolate->counters()->constructed_objects()->Increment();
+  isolate->counters()->constructed_objects_runtime()->Increment();
+  return result;
+}
+
+
 Handle<FixedArray> JSObject::EnsureWritableFastElements(
     Handle<JSObject> object) {
   DCHECK(object->HasFastSmiOrObjectElements());
@@ -1575,6 +1602,56 @@ bool Object::SameValueZero(Object* other) {
     }
   }
   return false;
+}
+
+
+MaybeHandle<Object> Object::ArraySpeciesConstructor(
+    Isolate* isolate, Handle<Object> original_array) {
+  Handle<Context> native_context = isolate->native_context();
+  if (!FLAG_harmony_species) {
+    return Handle<Object>(native_context->array_function(), isolate);
+  }
+  Handle<Object> constructor = isolate->factory()->undefined_value();
+  Maybe<bool> is_array = Object::IsArray(original_array);
+  MAYBE_RETURN_NULL(is_array);
+  if (is_array.FromJust()) {
+    ASSIGN_RETURN_ON_EXCEPTION(
+        isolate, constructor,
+        Object::GetProperty(original_array,
+                            isolate->factory()->constructor_string()),
+        Object);
+    if (constructor->IsConstructor()) {
+      Handle<Context> constructor_context;
+      ASSIGN_RETURN_ON_EXCEPTION(
+          isolate, constructor_context,
+          JSReceiver::GetFunctionRealm(Handle<JSReceiver>::cast(constructor)),
+          Object);
+      if (*constructor_context != *native_context &&
+          *constructor == constructor_context->array_function()) {
+        constructor = isolate->factory()->undefined_value();
+      }
+    }
+    if (constructor->IsJSReceiver()) {
+      ASSIGN_RETURN_ON_EXCEPTION(
+          isolate, constructor,
+          Object::GetProperty(constructor,
+                              isolate->factory()->species_symbol()),
+          Object);
+      if (constructor->IsNull()) {
+        constructor = isolate->factory()->undefined_value();
+      }
+    }
+  }
+  if (constructor->IsUndefined()) {
+    return Handle<Object>(native_context->array_function(), isolate);
+  } else {
+    if (!constructor->IsConstructor()) {
+      THROW_NEW_ERROR(isolate,
+          NewTypeError(MessageTemplate::kSpeciesNotConstructor),
+          Object);
+    }
+    return constructor;
+  }
 }
 
 
@@ -2679,9 +2756,10 @@ bool Map::InstancesNeedRewriting(Map* target, int target_number_of_fields,
 }
 
 
-static void UpdatePrototypeUserRegistration(Handle<Map> old_map,
-                                            Handle<Map> new_map,
-                                            Isolate* isolate) {
+// static
+void JSObject::UpdatePrototypeUserRegistration(Handle<Map> old_map,
+                                               Handle<Map> new_map,
+                                               Isolate* isolate) {
   if (!FLAG_track_prototype_users) return;
   if (!old_map->is_prototype_map()) return;
   DCHECK(new_map->is_prototype_map());
@@ -6285,28 +6363,31 @@ Object* JSReceiver::DefineProperty(Isolate* isolate, Handle<Object> object,
 
 // ES6 19.1.2.3.1
 // static
-Object* JSReceiver::DefineProperties(Isolate* isolate, Handle<Object> object,
-                                     Handle<Object> properties) {
+MaybeHandle<Object> JSReceiver::DefineProperties(Isolate* isolate,
+                                                 Handle<Object> object,
+                                                 Handle<Object> properties) {
   // 1. If Type(O) is not Object, throw a TypeError exception.
   if (!object->IsJSReceiver()) {
     Handle<String> fun_name =
         isolate->factory()->InternalizeUtf8String("Object.defineProperties");
-    THROW_NEW_ERROR_RETURN_FAILURE(
-        isolate, NewTypeError(MessageTemplate::kCalledOnNonObject, fun_name));
+    THROW_NEW_ERROR(isolate,
+                    NewTypeError(MessageTemplate::kCalledOnNonObject, fun_name),
+                    Object);
   }
   // 2. Let props be ToObject(Properties).
   // 3. ReturnIfAbrupt(props).
   Handle<JSReceiver> props;
   if (!Object::ToObject(isolate, properties).ToHandle(&props)) {
-    THROW_NEW_ERROR_RETURN_FAILURE(
-        isolate, NewTypeError(MessageTemplate::kUndefinedOrNullToObject));
+    THROW_NEW_ERROR(isolate,
+                    NewTypeError(MessageTemplate::kUndefinedOrNullToObject),
+                    Object);
   }
   // 4. Let keys be props.[[OwnPropertyKeys]]().
   // 5. ReturnIfAbrupt(keys).
   Handle<FixedArray> keys;
-  ASSIGN_RETURN_FAILURE_ON_EXCEPTION(
+  ASSIGN_RETURN_ON_EXCEPTION(
       isolate, keys,
-      JSReceiver::GetKeys(props, JSReceiver::OWN_ONLY, ALL_PROPERTIES));
+      JSReceiver::GetKeys(props, JSReceiver::OWN_ONLY, ALL_PROPERTIES), Object);
   // 6. Let descriptors be an empty List.
   int capacity = keys->length();
   std::vector<PropertyDescriptor> descriptors(capacity);
@@ -6321,7 +6402,7 @@ Object* JSReceiver::DefineProperties(Isolate* isolate, Handle<Object> object,
         isolate, props, next_key, &success, LookupIterator::HIDDEN);
     DCHECK(success);
     Maybe<PropertyAttributes> maybe = JSReceiver::GetPropertyAttributes(&it);
-    if (!maybe.IsJust()) return isolate->heap()->exception();
+    if (!maybe.IsJust()) return MaybeHandle<Object>();
     PropertyAttributes attrs = maybe.FromJust();
     // 7c. If propDesc is not undefined and propDesc.[[Enumerable]] is true:
     if (attrs == ABSENT) continue;
@@ -6329,13 +6410,13 @@ Object* JSReceiver::DefineProperties(Isolate* isolate, Handle<Object> object,
     // 7c i. Let descObj be Get(props, nextKey).
     // 7c ii. ReturnIfAbrupt(descObj).
     Handle<Object> desc_obj;
-    ASSIGN_RETURN_FAILURE_ON_EXCEPTION(isolate, desc_obj,
-                                       Object::GetProperty(&it));
+    ASSIGN_RETURN_ON_EXCEPTION(isolate, desc_obj, Object::GetProperty(&it),
+                               Object);
     // 7c iii. Let desc be ToPropertyDescriptor(descObj).
     success = PropertyDescriptor::ToPropertyDescriptor(
         isolate, desc_obj, &descriptors[descriptors_index]);
     // 7c iv. ReturnIfAbrupt(desc).
-    if (!success) return isolate->heap()->exception();
+    if (!success) return MaybeHandle<Object>();
     // 7c v. Append the pair (a two element List) consisting of nextKey and
     //       desc to the end of descriptors.
     descriptors[descriptors_index].set_name(next_key);
@@ -6351,11 +6432,11 @@ Object* JSReceiver::DefineProperties(Isolate* isolate, Handle<Object> object,
         DefineOwnProperty(isolate, Handle<JSReceiver>::cast(object),
                           desc->name(), desc, THROW_ON_ERROR);
     // 8d. ReturnIfAbrupt(status).
-    MAYBE_RETURN(status, isolate->heap()->exception());
+    if (!status.IsJust()) return MaybeHandle<Object>();
     CHECK(status.FromJust());
   }
   // 9. Return o.
-  return *object;
+  return object;
 }
 
 
@@ -12431,7 +12512,6 @@ static bool PrototypeBenefitsFromNormalization(Handle<JSObject> object) {
 void JSObject::OptimizeAsPrototype(Handle<JSObject> object,
                                    PrototypeOptimizationMode mode) {
   if (object->IsJSGlobalObject()) return;
-  if (object->IsJSGlobalProxy()) return;
   if (mode == FAST_PROTOTYPE && PrototypeBenefitsFromNormalization(object)) {
     // First normalize to ensure all JSFunctions are DATA_CONSTANT.
     JSObject::NormalizeProperties(object, KEEP_INOBJECT_PROPERTIES, 0,
@@ -12489,7 +12569,6 @@ void JSObject::LazyRegisterPrototypeUser(Handle<Map> user, Isolate* isolate) {
       break;
     }
     Handle<Object> maybe_proto = PrototypeIterator::GetCurrent(iter);
-    if (maybe_proto->IsJSGlobalProxy()) continue;
     // Proxies on the prototype chain are not supported. They make it
     // impossible to make any assumptions about the prototype chain anyway.
     if (maybe_proto->IsJSProxy()) return;
@@ -12524,17 +12603,18 @@ bool JSObject::UnregisterPrototypeUser(Handle<Map> user, Isolate* isolate) {
   DCHECK(user->is_prototype_map());
   // If it doesn't have a PrototypeInfo, it was never registered.
   if (!user->prototype_info()->IsPrototypeInfo()) return false;
-  // If it doesn't have a prototype, it can't be registered.
-  if (!user->prototype()->IsJSObject()) return false;
+  // If it had no prototype before, see if it had users that might expect
+  // registration.
+  if (!user->prototype()->IsJSObject()) {
+    Object* users =
+        PrototypeInfo::cast(user->prototype_info())->prototype_users();
+    return users->IsWeakFixedArray();
+  }
   Handle<JSObject> prototype(JSObject::cast(user->prototype()), isolate);
   Handle<PrototypeInfo> user_info =
       Map::GetOrCreatePrototypeInfo(user, isolate);
   int slot = user_info->registry_slot();
   if (slot == PrototypeInfo::UNREGISTERED) return false;
-  if (prototype->IsJSGlobalProxy()) {
-    PrototypeIterator iter(isolate, prototype);
-    prototype = PrototypeIterator::GetCurrent<JSObject>(iter);
-  }
   DCHECK(prototype->map()->is_prototype_map());
   Object* maybe_proto_info = prototype->map()->prototype_info();
   // User knows its registry slot, prototype info and user registry must exist.
@@ -12583,10 +12663,6 @@ static void InvalidatePrototypeChainsInternal(Map* map) {
 void JSObject::InvalidatePrototypeChains(Map* map) {
   if (!FLAG_eliminate_prototype_chain_checks) return;
   DisallowHeapAllocation no_gc;
-  if (map->IsJSGlobalProxyMap()) {
-    PrototypeIterator iter(map);
-    map = iter.GetCurrent<JSObject>()->map();
-  }
   InvalidatePrototypeChainsInternal(map);
 }
 
@@ -12623,10 +12699,6 @@ Handle<Cell> Map::GetOrCreatePrototypeChainValidityCell(Handle<Map> map,
   Handle<Object> maybe_prototype(map->prototype(), isolate);
   if (!maybe_prototype->IsJSObject()) return Handle<Cell>::null();
   Handle<JSObject> prototype = Handle<JSObject>::cast(maybe_prototype);
-  if (prototype->IsJSGlobalProxy()) {
-    PrototypeIterator iter(isolate, prototype);
-    prototype = PrototypeIterator::GetCurrent<JSObject>(iter);
-  }
   // Ensure the prototype is registered with its own prototypes so its cell
   // will be invalidated when necessary.
   JSObject::LazyRegisterPrototypeUser(handle(prototype->map(), isolate),
@@ -14842,13 +14914,22 @@ void BytecodeArray::Disassemble(std::ostream& os) {
     SNPrintF(buf, "%p", bytecode_start);
     os << buf.start() << " : ";
     interpreter::Bytecodes::Decode(os, bytecode_start, parameter_count());
-    if (interpreter::Bytecodes::IsJump(bytecode)) {
-      int offset = static_cast<int8_t>(bytecode_start[1]);
+
+    if (interpreter::Bytecodes::IsJumpConstantWide(bytecode)) {
+      DCHECK_EQ(bytecode_size, 3);
+      int index = static_cast<int>(ReadUnalignedUInt16(bytecode_start + 1));
+      int offset = Smi::cast(constant_pool()->get(index))->value();
       SNPrintF(buf, " (%p)", bytecode_start + offset);
       os << buf.start();
     } else if (interpreter::Bytecodes::IsJumpConstant(bytecode)) {
+      DCHECK_EQ(bytecode_size, 2);
       int index = static_cast<int>(bytecode_start[1]);
       int offset = Smi::cast(constant_pool()->get(index))->value();
+      SNPrintF(buf, " (%p)", bytecode_start + offset);
+      os << buf.start();
+    } else if (interpreter::Bytecodes::IsJump(bytecode)) {
+      DCHECK_EQ(bytecode_size, 2);
+      int offset = static_cast<int8_t>(bytecode_start[1]);
       SNPrintF(buf, " (%p)", bytecode_start + offset);
       os << buf.start();
     }
@@ -19091,6 +19172,39 @@ int BreakPointInfo::GetBreakPointCount() {
 }
 
 
+// static
+MaybeHandle<JSDate> JSDate::New(Handle<JSFunction> constructor,
+                                Handle<JSReceiver> new_target, double tv) {
+  Isolate* const isolate = constructor->GetIsolate();
+  Handle<JSObject> result;
+  ASSIGN_RETURN_ON_EXCEPTION(isolate, result,
+                             JSObject::New(constructor, new_target), JSDate);
+  if (-DateCache::kMaxTimeInMs <= tv && tv <= DateCache::kMaxTimeInMs) {
+    tv = DoubleToInteger(tv) + 0.0;
+  } else {
+    tv = std::numeric_limits<double>::quiet_NaN();
+  }
+  Handle<Object> value = isolate->factory()->NewNumber(tv);
+  Handle<JSDate>::cast(result)->SetValue(*value, std::isnan(tv));
+  return Handle<JSDate>::cast(result);
+}
+
+
+// static
+double JSDate::CurrentTimeValue(Isolate* isolate) {
+  if (FLAG_log_timer_events || FLAG_prof_cpp) LOG(isolate, CurrentTimeEvent());
+
+  // According to ECMA-262, section 15.9.1, page 117, the precision of
+  // the number in a Date object representing a particular instant in
+  // time is milliseconds. Therefore, we floor the result of getting
+  // the OS time.
+  return Floor(FLAG_verify_predictable
+                   ? isolate->heap()->MonotonicallyIncreasingTimeInMs()
+                   : base::OS::TimeCurrentMillis());
+}
+
+
+// static
 Object* JSDate::GetField(Object* object, Smi* index) {
   return JSDate::cast(object)->DoGetField(
       static_cast<FieldIndex>(index->value()));

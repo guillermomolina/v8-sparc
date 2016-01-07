@@ -313,8 +313,7 @@ void LoadIC::GenerateMiss(MacroAssembler* masm) {
   LoadIC_PushArgs(masm);
 
   // Perform tail call to the entry.
-  int arg_count = 4;
-  __ TailCallRuntime(Runtime::kLoadIC_Miss, arg_count, 1);
+  __ TailCallRuntime(Runtime::kLoadIC_Miss);
 }
 
 
@@ -327,8 +326,7 @@ void LoadIC::GenerateRuntimeGetProperty(MacroAssembler* masm,
 
   // Do tail-call to runtime routine.
   __ TailCallRuntime(is_strong(language_mode) ? Runtime::kGetPropertyStrong
-                                              : Runtime::kGetProperty,
-                     2, 1);
+                                              : Runtime::kGetProperty);
 }
 
 
@@ -343,8 +341,7 @@ void KeyedLoadIC::GenerateMiss(MacroAssembler* masm) {
   LoadIC_PushArgs(masm);
 
   // Perform tail call to the entry.
-  int arg_count = 4;
-  __ TailCallRuntime(Runtime::kKeyedLoadIC_Miss, arg_count, 1);
+  __ TailCallRuntime(Runtime::kKeyedLoadIC_Miss);
 }
 
 
@@ -356,8 +353,7 @@ void KeyedLoadIC::GenerateRuntimeGetProperty(MacroAssembler* masm,
 
   // Do tail-call to runtime routine.
   __ TailCallRuntime(is_strong(language_mode) ? Runtime::kKeyedGetPropertyStrong
-                                              : Runtime::kKeyedGetProperty,
-                     2, 1);
+                                              : Runtime::kKeyedGetProperty);
 }
 
 
@@ -474,8 +470,12 @@ static void KeyedStoreGenerateMegamorphicHelper(
 
   // Fast case: Do the store, could be either Object or double.
   __ bind(fast_object);
-  Register scratch_value = a4;
+  Register scratch = a4;
+  Register scratch2 = t0;
   Register address = a5;
+  DCHECK(!AreAliased(value, key, receiver, receiver_map, elements_map, elements,
+                     scratch, scratch2, address));
+
   if (check_map == kCheckMap) {
     __ ld(elements_map, FieldMemOperand(elements, HeapObject::kMapOffset));
     __ Branch(fast_double, ne, elements_map,
@@ -489,12 +489,11 @@ static void KeyedStoreGenerateMegamorphicHelper(
   __ Daddu(address, elements, FixedArray::kHeaderSize - kHeapObjectTag);
   __ SmiScale(at, key, kPointerSizeLog2);
   __ daddu(address, address, at);
-  __ ld(scratch_value, MemOperand(address));
+  __ ld(scratch, MemOperand(address));
 
-  __ Branch(&holecheck_passed1, ne, scratch_value,
+  __ Branch(&holecheck_passed1, ne, scratch,
             Operand(masm->isolate()->factory()->the_hole_value()));
-  __ JumpIfDictionaryInPrototypeChain(receiver, elements_map, scratch_value,
-                                      slow);
+  __ JumpIfDictionaryInPrototypeChain(receiver, elements_map, scratch, slow);
 
   __ bind(&holecheck_passed1);
 
@@ -504,37 +503,36 @@ static void KeyedStoreGenerateMegamorphicHelper(
 
   if (increment_length == kIncrementLength) {
     // Add 1 to receiver->length.
-    __ Daddu(scratch_value, key, Operand(Smi::FromInt(1)));
-    __ sd(scratch_value, FieldMemOperand(receiver, JSArray::kLengthOffset));
+    __ Daddu(scratch, key, Operand(Smi::FromInt(1)));
+    __ sd(scratch, FieldMemOperand(receiver, JSArray::kLengthOffset));
   }
   // It's irrelevant whether array is smi-only or not when writing a smi.
   __ Daddu(address, elements,
            Operand(FixedArray::kHeaderSize - kHeapObjectTag));
-  __ SmiScale(scratch_value, key, kPointerSizeLog2);
-  __ Daddu(address, address, scratch_value);
+  __ SmiScale(scratch, key, kPointerSizeLog2);
+  __ Daddu(address, address, scratch);
   __ sd(value, MemOperand(address));
   __ Ret();
 
   __ bind(&non_smi_value);
   // Escape to elements kind transition case.
-  __ CheckFastObjectElements(receiver_map, scratch_value,
-                             &transition_smi_elements);
+  __ CheckFastObjectElements(receiver_map, scratch, &transition_smi_elements);
 
   // Fast elements array, store the value to the elements backing store.
   __ bind(&finish_object_store);
   if (increment_length == kIncrementLength) {
     // Add 1 to receiver->length.
-    __ Daddu(scratch_value, key, Operand(Smi::FromInt(1)));
-    __ sd(scratch_value, FieldMemOperand(receiver, JSArray::kLengthOffset));
+    __ Daddu(scratch, key, Operand(Smi::FromInt(1)));
+    __ sd(scratch, FieldMemOperand(receiver, JSArray::kLengthOffset));
   }
   __ Daddu(address, elements,
            Operand(FixedArray::kHeaderSize - kHeapObjectTag));
-  __ SmiScale(scratch_value, key, kPointerSizeLog2);
-  __ Daddu(address, address, scratch_value);
+  __ SmiScale(scratch, key, kPointerSizeLog2);
+  __ Daddu(address, address, scratch);
   __ sd(value, MemOperand(address));
   // Update write barrier for the elements array address.
-  __ mov(scratch_value, value);  // Preserve the value which is returned.
-  __ RecordWrite(elements, address, scratch_value, kRAHasNotBeenSaved,
+  __ mov(scratch, value);  // Preserve the value which is returned.
+  __ RecordWrite(elements, address, scratch, kRAHasNotBeenSaved,
                  kDontSaveFPRegs, EMIT_REMEMBERED_SET, OMIT_SMI_CHECK);
   __ Ret();
 
@@ -554,34 +552,31 @@ static void KeyedStoreGenerateMegamorphicHelper(
                    kHeapObjectTag));
   __ SmiScale(at, key, kPointerSizeLog2);
   __ daddu(address, address, at);
-  __ lw(scratch_value, MemOperand(address));
-  __ Branch(&fast_double_without_map_check, ne, scratch_value,
+  __ lw(scratch, MemOperand(address));
+  __ Branch(&fast_double_without_map_check, ne, scratch,
             Operand(static_cast<int32_t>(kHoleNanUpper32)));
-  __ JumpIfDictionaryInPrototypeChain(receiver, elements_map, scratch_value,
-                                      slow);
+  __ JumpIfDictionaryInPrototypeChain(receiver, elements_map, scratch, slow);
 
   __ bind(&fast_double_without_map_check);
-  __ StoreNumberToDoubleElements(value, key,
-                                 elements,  // Overwritten.
-                                 a3,        // Scratch regs...
-                                 a4, &transition_double_elements);
+  __ StoreNumberToDoubleElements(value, key, elements, scratch, scratch2,
+                                 &transition_double_elements);
   if (increment_length == kIncrementLength) {
     // Add 1 to receiver->length.
-    __ Daddu(scratch_value, key, Operand(Smi::FromInt(1)));
-    __ sd(scratch_value, FieldMemOperand(receiver, JSArray::kLengthOffset));
+    __ Daddu(scratch, key, Operand(Smi::FromInt(1)));
+    __ sd(scratch, FieldMemOperand(receiver, JSArray::kLengthOffset));
   }
   __ Ret();
 
   __ bind(&transition_smi_elements);
   // Transition the array appropriately depending on the value type.
-  __ ld(a4, FieldMemOperand(value, HeapObject::kMapOffset));
+  __ ld(scratch, FieldMemOperand(value, HeapObject::kMapOffset));
   __ LoadRoot(at, Heap::kHeapNumberMapRootIndex);
-  __ Branch(&non_double_value, ne, a4, Operand(at));
+  __ Branch(&non_double_value, ne, scratch, Operand(at));
 
   // Value is a double. Transition FAST_SMI_ELEMENTS ->
   // FAST_DOUBLE_ELEMENTS and complete the store.
   __ LoadTransitionedArrayMapConditional(
-      FAST_SMI_ELEMENTS, FAST_DOUBLE_ELEMENTS, receiver_map, a4, slow);
+      FAST_SMI_ELEMENTS, FAST_DOUBLE_ELEMENTS, receiver_map, scratch, slow);
   AllocationSiteMode mode =
       AllocationSite::GetMode(FAST_SMI_ELEMENTS, FAST_DOUBLE_ELEMENTS);
   ElementsTransitionGenerator::GenerateSmiToDouble(masm, receiver, key, value,
@@ -592,7 +587,7 @@ static void KeyedStoreGenerateMegamorphicHelper(
   __ bind(&non_double_value);
   // Value is not a double, FAST_SMI_ELEMENTS -> FAST_ELEMENTS
   __ LoadTransitionedArrayMapConditional(FAST_SMI_ELEMENTS, FAST_ELEMENTS,
-                                         receiver_map, a4, slow);
+                                         receiver_map, scratch, slow);
   mode = AllocationSite::GetMode(FAST_SMI_ELEMENTS, FAST_ELEMENTS);
   ElementsTransitionGenerator::GenerateMapChangeElementsTransition(
       masm, receiver, key, value, receiver_map, mode, slow);
@@ -604,7 +599,7 @@ static void KeyedStoreGenerateMegamorphicHelper(
   // HeapNumber. Make sure that the receiver is a Array with FAST_ELEMENTS and
   // transition array from FAST_DOUBLE_ELEMENTS to FAST_ELEMENTS
   __ LoadTransitionedArrayMapConditional(FAST_DOUBLE_ELEMENTS, FAST_ELEMENTS,
-                                         receiver_map, a4, slow);
+                                         receiver_map, scratch, slow);
   mode = AllocationSite::GetMode(FAST_DOUBLE_ELEMENTS, FAST_ELEMENTS);
   ElementsTransitionGenerator::GenerateDoubleToObject(
       masm, receiver, key, value, receiver_map, mode, slow);
@@ -748,7 +743,7 @@ static void StoreIC_PushArgs(MacroAssembler* masm) {
 void KeyedStoreIC::GenerateMiss(MacroAssembler* masm) {
   StoreIC_PushArgs(masm);
 
-  __ TailCallRuntime(Runtime::kKeyedStoreIC_Miss, 5, 1);
+  __ TailCallRuntime(Runtime::kKeyedStoreIC_Miss);
 }
 
 
@@ -774,7 +769,7 @@ void StoreIC::GenerateMiss(MacroAssembler* masm) {
   StoreIC_PushArgs(masm);
 
   // Perform tail call to the entry.
-  __ TailCallRuntime(Runtime::kStoreIC_Miss, 5, 1);
+  __ TailCallRuntime(Runtime::kStoreIC_Miss);
 }
 
 
@@ -868,8 +863,6 @@ void PatchInlinedSmiCode(Isolate* isolate, Address address,
   Address patch_address =
       andi_instruction_address - delta * Instruction::kInstrSize;
   Instr instr_at_patch = Assembler::instr_at(patch_address);
-  Instr branch_instr =
-      Assembler::instr_at(patch_address + Instruction::kInstrSize);
   // This is patching a conditional "jump if not smi/jump if smi" site.
   // Enabling by changing from
   //   andi at, rx, 0
@@ -889,13 +882,44 @@ void PatchInlinedSmiCode(Isolate* isolate, Address address,
     DCHECK(Assembler::IsAndImmediate(instr_at_patch));
     patcher.masm()->andi(at, reg, 0);
   }
+  Instr branch_instr =
+      Assembler::instr_at(patch_address + Instruction::kInstrSize);
   DCHECK(Assembler::IsBranch(branch_instr));
-  if (Assembler::IsBeq(branch_instr)) {
-    patcher.ChangeBranchCondition(ne);
-  } else {
-    DCHECK(Assembler::IsBne(branch_instr));
-    patcher.ChangeBranchCondition(eq);
+
+  uint32_t opcode = Assembler::GetOpcodeField(branch_instr);
+  // Currently only the 'eq' and 'ne' cond values are supported and the simple
+  // branch instructions and their r6 variants (with opcode being the branch
+  // type). There are some special cases (see Assembler::IsBranch()) so
+  // extending this would be tricky.
+  DCHECK(opcode == BEQ ||    // BEQ
+         opcode == BNE ||    // BNE
+         opcode == POP10 ||  // BEQC
+         opcode == POP30 ||  // BNEC
+         opcode == POP66 ||  // BEQZC
+         opcode == POP76);   // BNEZC
+  switch (opcode) {
+    case BEQ:
+      opcode = BNE;  // change BEQ to BNE.
+      break;
+    case POP10:
+      opcode = POP30;  // change BEQC to BNEC.
+      break;
+    case POP66:
+      opcode = POP76;  // change BEQZC to BNEZC.
+      break;
+    case BNE:
+      opcode = BEQ;  // change BNE to BEQ.
+      break;
+    case POP30:
+      opcode = POP10;  // change BNEC to BEQC.
+      break;
+    case POP76:
+      opcode = POP66;  // change BNEZC to BEQZC.
+      break;
+    default:
+      UNIMPLEMENTED();
   }
+  patcher.ChangeBranchCondition(branch_instr, opcode);
 }
 }  // namespace internal
 }  // namespace v8

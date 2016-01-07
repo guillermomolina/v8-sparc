@@ -340,7 +340,7 @@ TEST(InterpreterLoadLiteral) {
 TEST(InterpreterLoadStoreRegisters) {
   HandleAndZoneScope handles;
   Handle<Object> true_value = handles.main_isolate()->factory()->true_value();
-  for (int i = 0; i <= Register::kMaxRegisterIndex; i++) {
+  for (int i = 0; i <= kMaxInt8; i++) {
     BytecodeArrayBuilder builder(handles.main_isolate(), handles.main_zone());
     builder.set_locals_count(i + 1);
     builder.set_context_count(0);
@@ -357,6 +357,117 @@ TEST(InterpreterLoadStoreRegisters) {
     auto callable = tester.GetCallable<>();
     Handle<Object> return_val = callable().ToHandleChecked();
     CHECK(return_val.is_identical_to(true_value));
+  }
+}
+
+
+TEST(InterpreterExchangeRegisters) {
+  for (int locals_count = 2; locals_count < 300; locals_count += 126) {
+    HandleAndZoneScope handles;
+    for (int exchanges = 1; exchanges < 4; exchanges++) {
+      BytecodeArrayBuilder builder(handles.main_isolate(), handles.main_zone());
+      builder.set_locals_count(locals_count);
+      builder.set_context_count(0);
+      builder.set_parameter_count(0);
+
+      Register r0(0);
+      Register r1(locals_count - 1);
+      builder.LoadTrue();
+      builder.StoreAccumulatorInRegister(r0);
+      builder.ExchangeRegisters(r0, r1);
+      builder.LoadFalse();
+      builder.StoreAccumulatorInRegister(r0);
+
+      bool expected = false;
+      for (int i = 0; i < exchanges; i++) {
+        builder.ExchangeRegisters(r0, r1);
+        expected = !expected;
+      }
+      builder.LoadAccumulatorWithRegister(r0);
+      builder.Return();
+      Handle<BytecodeArray> bytecode_array = builder.ToBytecodeArray();
+      InterpreterTester tester(handles.main_isolate(), bytecode_array);
+      auto callable = tester.GetCallable<>();
+      Handle<Object> return_val = callable().ToHandleChecked();
+      Handle<Object> expected_val =
+          handles.main_isolate()->factory()->ToBoolean(expected);
+      CHECK(return_val.is_identical_to(expected_val));
+    }
+  }
+}
+
+
+TEST(InterpreterExchangeRegistersWithParameter) {
+  for (int locals_count = 2; locals_count < 300; locals_count += 126) {
+    HandleAndZoneScope handles;
+    for (int exchanges = 1; exchanges < 4; exchanges++) {
+      BytecodeArrayBuilder builder(handles.main_isolate(), handles.main_zone());
+      builder.set_locals_count(locals_count);
+      builder.set_context_count(0);
+      builder.set_parameter_count(3);
+
+      Register r0 = Register::FromParameterIndex(2, 3);
+      Register r1(locals_count - 1);
+      builder.LoadTrue();
+      builder.StoreAccumulatorInRegister(r0);
+      builder.ExchangeRegisters(r0, r1);
+      builder.LoadFalse();
+      builder.StoreAccumulatorInRegister(r0);
+
+      bool expected = false;
+      for (int i = 0; i < exchanges; i++) {
+        builder.ExchangeRegisters(r0, r1);
+        expected = !expected;
+      }
+      builder.LoadAccumulatorWithRegister(r0);
+      builder.Return();
+      Handle<BytecodeArray> bytecode_array = builder.ToBytecodeArray();
+      InterpreterTester tester(handles.main_isolate(), bytecode_array);
+      auto callable = tester.GetCallable<>();
+      Handle<Object> return_val = callable().ToHandleChecked();
+      Handle<Object> expected_val =
+          handles.main_isolate()->factory()->ToBoolean(expected);
+      CHECK(return_val.is_identical_to(expected_val));
+    }
+  }
+}
+
+
+TEST(InterpreterExchangeWideRegisters) {
+  for (int locals_count = 3; locals_count < 300; locals_count += 126) {
+    HandleAndZoneScope handles;
+    for (int exchanges = 0; exchanges < 7; exchanges++) {
+      BytecodeArrayBuilder builder(handles.main_isolate(), handles.main_zone());
+      builder.set_locals_count(locals_count);
+      builder.set_context_count(0);
+      builder.set_parameter_count(0);
+
+      Register r0(0);
+      Register r1(locals_count - 1);
+      Register r2(locals_count - 2);
+      builder.LoadLiteral(Smi::FromInt(200));
+      builder.StoreAccumulatorInRegister(r0);
+      builder.ExchangeRegisters(r0, r1);
+      builder.LoadLiteral(Smi::FromInt(100));
+      builder.StoreAccumulatorInRegister(r0);
+      builder.ExchangeRegisters(r0, r2);
+      builder.LoadLiteral(Smi::FromInt(0));
+      builder.StoreAccumulatorInRegister(r0);
+      for (int i = 0; i < exchanges; i++) {
+        builder.ExchangeRegisters(r1, r2);
+        builder.ExchangeRegisters(r0, r1);
+      }
+      builder.LoadAccumulatorWithRegister(r0);
+      builder.Return();
+      Handle<BytecodeArray> bytecode_array = builder.ToBytecodeArray();
+      InterpreterTester tester(handles.main_isolate(), bytecode_array);
+      auto callable = tester.GetCallable<>();
+      Handle<Object> return_val = callable().ToHandleChecked();
+      Handle<Object> expected_val =
+          handles.main_isolate()->factory()->NewNumberFromInt(100 *
+                                                              (exchanges % 3));
+      CHECK(return_val.is_identical_to(expected_val));
+    }
   }
 }
 
@@ -3102,6 +3213,7 @@ TEST(InterpreterLookupSlot) {
   std::pair<const char*, Handle<Object>> lookup_slot[] = {
       {"return x;", handle(Smi::FromInt(1), isolate)},
       {"return typeof x;", factory->NewStringFromStaticChars("number")},
+      {"return typeof dummy;", factory->NewStringFromStaticChars("undefined")},
       {"x = 10; return x;", handle(Smi::FromInt(10), isolate)},
       {"'use strict'; x = 20; return x;", handle(Smi::FromInt(20), isolate)},
   };
@@ -3109,6 +3221,50 @@ TEST(InterpreterLookupSlot) {
   for (size_t i = 0; i < arraysize(lookup_slot); i++) {
     std::string script = std::string(function_prologue) +
                          std::string(lookup_slot[i].first) +
+                         std::string(function_epilogue);
+
+    InterpreterTester tester(handles.main_isolate(), script.c_str(), "t");
+    auto callable = tester.GetCallable<>();
+
+    Handle<i::Object> return_value = callable().ToHandleChecked();
+    CHECK(return_value->SameValue(*lookup_slot[i].second));
+  }
+}
+
+
+TEST(InterpreterLookupSlotWide) {
+  HandleAndZoneScope handles;
+  i::Isolate* isolate = handles.main_isolate();
+  i::Factory* factory = isolate->factory();
+
+  const char* function_prologue =
+      "var f;"
+      "var x = 1;"
+      "function f1() {"
+      "  eval(\"function t() {";
+  const char* function_epilogue =
+      "        }; f = t;\");"
+      "}"
+      "f1();";
+  std::ostringstream str;
+  str << "var y = 2.3;";
+  for (int i = 1; i < 256; i++) {
+    str << "y = " << 2.3 + i << ";";
+  }
+  std::string init_function_body = str.str();
+
+  std::pair<std::string, Handle<Object>> lookup_slot[] = {
+      {init_function_body + "return x;", handle(Smi::FromInt(1), isolate)},
+      {init_function_body + "return typeof x;",
+       factory->NewStringFromStaticChars("number")},
+      {init_function_body + "return x = 10;",
+       handle(Smi::FromInt(10), isolate)},
+      {"'use strict';" + init_function_body + "x = 20; return x;",
+       handle(Smi::FromInt(20), isolate)},
+  };
+
+  for (size_t i = 0; i < arraysize(lookup_slot); i++) {
+    std::string script = std::string(function_prologue) + lookup_slot[i].first +
                          std::string(function_epilogue);
 
     InterpreterTester tester(handles.main_isolate(), script.c_str(), "t");
@@ -3191,6 +3347,43 @@ TEST(InterpreterDeleteLookupSlot) {
 
     Handle<i::Object> return_value = callable().ToHandleChecked();
     CHECK(return_value->SameValue(*delete_lookup_slot[i].second));
+  }
+}
+
+
+TEST(JumpWithConstantsAndWideConstants) {
+  HandleAndZoneScope handles;
+  auto isolate = handles.main_isolate();
+  auto factory = isolate->factory();
+  const int kStep = 13;
+  for (int constants = 3; constants < 256 + 3 * kStep; constants += kStep) {
+    std::ostringstream filler_os;
+    // Generate a string that consumes constant pool entries and
+    // spread out branch distances in script below.
+    for (int i = 0; i < constants; i++) {
+      filler_os << "var x_ = 'x_" << i << "';\n";
+    }
+    std::string filler(filler_os.str());
+    std::ostringstream script_os;
+    script_os << "function " << InterpreterTester::function_name() << "(a) {\n";
+    script_os << "  " << filler;
+    script_os << "  for (var i = a; i < 2; i++) {\n";
+    script_os << "  " << filler;
+    script_os << "    if (i == 0) { " << filler << "i = 10; continue; }\n";
+    script_os << "    else if (i == a) { " << filler << "i = 12; break; }\n";
+    script_os << "    else { " << filler << " }\n";
+    script_os << "  }\n";
+    script_os << "  return i;\n";
+    script_os << "}\n";
+    std::string script(script_os.str());
+    for (int a = 0; a < 3; a++) {
+      InterpreterTester tester(handles.main_isolate(), script.c_str());
+      auto callable = tester.GetCallable<Handle<Object>>();
+      Handle<Object> return_val =
+          callable(factory->NewNumberFromInt(a)).ToHandleChecked();
+      static const int results[] = {11, 12, 2};
+      CHECK_EQ(Handle<Smi>::cast(return_val)->value(), results[a]);
+    }
   }
 }
 

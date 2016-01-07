@@ -65,9 +65,12 @@ class BytecodeGeneratorHelper {
   }
 
   Handle<BytecodeArray> MakeBytecodeForFunctionBody(const char* body) {
-    ScopedVector<char> program(3072);
-    SNPrintF(program, "function %s() { %s }\n%s();", kFunctionName, body,
-             kFunctionName);
+    static const char kFormat[] = "function %s() { %s }\n%s();";
+    static const int kFormatLength = arraysize(kFormat);
+    int length = kFormatLength + 2 * StrLength(kFunctionName) + StrLength(body);
+    ScopedVector<char> program(length);
+    length = SNPrintF(program, kFormat, kFunctionName, body, kFunctionName);
+    CHECK_GT(length, 0);
     return MakeBytecode(program.start(), kFunctionName);
   }
 
@@ -94,9 +97,13 @@ class BytecodeGeneratorHelper {
 #if defined(V8_TARGET_LITTLE_ENDIAN)
 #define U16(x) static_cast<uint8_t>((x) & 0xff),                    \
                static_cast<uint8_t>(((x) >> kBitsPerByte) & 0xff)
+#define U16I(x) static_cast<uint8_t>((x) & 0xff),                   \
+                static_cast<uint8_t>(((x++) >> kBitsPerByte) & 0xff)
 #elif defined(V8_TARGET_BIG_ENDIAN)
 #define U16(x) static_cast<uint8_t>(((x) >> kBitsPerByte) & 0xff),   \
                static_cast<uint8_t>((x) & 0xff)
+#define U16I(x) static_cast<uint8_t>(((x) >> kBitsPerByte) & 0xff),  \
+                static_cast<uint8_t>((x++) & 0xff)
 #else
 #error Unknown byte ordering
 #endif
@@ -104,7 +111,7 @@ class BytecodeGeneratorHelper {
 #define COMMA() ,
 #define SPACE()
 
-#define REPEAT_2(SEP, ...)  \
+#define REPEAT_2(SEP, ...)                      \
   __VA_ARGS__ SEP() __VA_ARGS__
 #define REPEAT_4(SEP, ...)  \
   REPEAT_2(SEP, __VA_ARGS__) SEP() REPEAT_2(SEP, __VA_ARGS__)
@@ -925,73 +932,88 @@ TEST(PropertyLoads) {
        },
        0},
       {"function f(a) {\n"
-       " var b;\n" REPEAT_127(SPACE, " b = a.name; ") " return a.name; }\n"
-                                                      "f({name : \"test\"})\n",
+       " var b;\n"
+       "b = a.name;"
+       REPEAT_127(SPACE, " b = a.name; ")
+       " return a.name; }\n"
+       "f({name : \"test\"})\n",
        1 * kPointerSize,
        2,
-       767,
+       775,
        {
-           REPEAT_127(COMMA,  //
-                      B(LoadICSloppy), A(1, 2), U8(0),
-                      U8((wide_idx_1 += 2)),  //
-                      B(Star), R(0)),         //
-           B(LoadICSloppy),
-           A(1, 2), U8(0), U8(wide_idx_1 + 2),  //
-           B(Return),                           //
+           B(LoadICSloppy), A(1, 2), U8(0), U8(wide_idx_1 += 2),       //
+           B(Star), R(0),                                              //
+           REPEAT_127(COMMA,                                           //
+                      B(LoadICSloppy), A(1, 2), U8(0),                 //
+                                       U8((wide_idx_1 += 2)),          //
+                      B(Star), R(0)),                                  //
+           B(LoadICSloppyWide), A(1, 2), U16(0), U16(wide_idx_1 + 2),  //
+           B(Return),                                                  //
        },
        1,
        {"name"}},
       {"function f(a) {\n"
-       " 'use strict'; var b;\n" REPEAT_127(
-           SPACE, " b = a.name; ") " return a.name; }\n"
-                                   "f({name : \"test\"})\n",
+       " 'use strict'; var b;\n"
+       "  b = a.name;\n"
+       REPEAT_127(SPACE, " b = a.name; ")
+       " return a.name; }\n"
+       "f({name : \"test\"})\n",
        1 * kPointerSize,
        2,
-       767,
+       775,
        {
-           REPEAT_127(COMMA,  //
-                      B(LoadICStrict), A(1, 2), U8(0),
-                      U8((wide_idx_2 += 2)),  //
-                      B(Star), R(0)),         //
-           B(LoadICStrict),
-           A(1, 2), U8(0), U8(wide_idx_2 + 2),  //
-           B(Return),                           //
+           B(LoadICStrict), A(1, 2), U8(0), U8((wide_idx_2 += 2)),     //
+           B(Star), R(0),                                              //
+           REPEAT_127(COMMA,                                           //
+                      B(LoadICStrict), A(1, 2), U8(0),                 //
+                                       U8((wide_idx_2 += 2)),          //
+                      B(Star), R(0)),                                  //
+           B(LoadICStrictWide), A(1, 2), U16(0), U16(wide_idx_2 + 2),  //
+           B(Return),                                                  //
        },
        1,
        {"name"}},
       {"function f(a, b) {\n"
-       " var c;\n" REPEAT_127(SPACE,
-                              " c = a[b]; ") " return a[b]; }\n"
-                                             "f({name : \"test\"}, \"name\")\n",
+       " var c;\n"
+       " c = a[b];"
+       REPEAT_127(SPACE, " c = a[b]; ")
+       " return a[b]; }\n"
+       "f({name : \"test\"}, \"name\")\n",
        1 * kPointerSize,
        3,
-       895,
+       903,
        {
+           B(Ldar), A(2, 3),                                                 //
+           B(KeyedLoadICSloppy), A(1, 3), U8((wide_idx_3 += 2)),             //
+           B(Star), R(0),                                                    //
            REPEAT_127(COMMA,                                                 //
                       B(Ldar), A(2, 3),                                      //
                       B(KeyedLoadICSloppy), A(1, 3), U8((wide_idx_3 += 2)),  //
                       B(Star), R(0)),                                        //
-           B(Ldar),
-           A(2, 3),                                            //
-           B(KeyedLoadICSloppy), A(1, 3), U8(wide_idx_3 + 2),  //
-           B(Return),                                          //
+           B(Ldar), A(2, 3),                                                 //
+           B(KeyedLoadICSloppyWide), A(1, 3), U16(wide_idx_3 + 2),           //
+           B(Return),                                                        //
        }},
       {"function f(a, b) {\n"
-       " 'use strict'; var c;\n" REPEAT_127(
-           SPACE, " c = a[b]; ") " return a[b]; }\n"
-                                 "f({name : \"test\"}, \"name\")\n",
+       " 'use strict'; var c;\n"
+       "  c = a[b];"
+       REPEAT_127(SPACE, " c = a[b]; ")
+       " return a[b]; }\n"
+       "f({name : \"test\"}, \"name\")\n",
        1 * kPointerSize,
        3,
-       895,
+       903,
        {
+           B(Ldar), A(2, 3),                                                 //
+           B(KeyedLoadICStrict), A(1, 3), U8((wide_idx_4 += 2)),             //
+           B(Star), R(0),                                                    //
            REPEAT_127(COMMA,                                                 //
                       B(Ldar), A(2, 3),                                      //
                       B(KeyedLoadICStrict), A(1, 3), U8((wide_idx_4 += 2)),  //
                       B(Star), R(0)),                                        //
-           B(Ldar),
-           A(2, 3),                                            //
-           B(KeyedLoadICStrict), A(1, 3), U8(wide_idx_4 + 2),  //
-           B(Return),                                          //
+           B(Ldar), A(2, 3),                                                 //
+           B(KeyedLoadICStrictWide), A(1, 3), U16(wide_idx_4 + 2),           //
+           B(Return),                                                        //
        }},
   };
   for (size_t i = 0; i < arraysize(snippets); i++) {
@@ -1114,81 +1136,91 @@ TEST(PropertyStores) {
        },
        1,
        {"val"}},
-      {"function f(a) {\n" REPEAT_127(SPACE,
-                                      " a.name = 1; ") " a.name = 2; }\n"
-                                                       "f({name : \"test\"})\n",
+      {"function f(a) {\n"
+       "a.name = 1;"
+       REPEAT_127(SPACE, " a.name = 1; ")
+       " a.name = 2; }\n"
+       "f({name : \"test\"})\n",
        0,
        2,
-       770,
+       778,
        {
-           REPEAT_127(COMMA,              //
-                      B(LdaSmi8), U8(1),  //
-                      B(StoreICSloppy), A(1, 2), U8(0),
-                      U8((wide_idx_1 += 2))),  //
-           B(LdaSmi8),
-           U8(2),                                                 //
-           B(StoreICSloppy), A(1, 2), U8(0), U8(wide_idx_1 + 2),  //
-           B(LdaUndefined),                                       //
-           B(Return),                                             //
+           B(LdaSmi8), U8(1),                                           //
+           B(StoreICSloppy), A(1, 2), U8(0), U8((wide_idx_1 += 2)),     //
+           REPEAT_127(COMMA,                                            //
+                      B(LdaSmi8), U8(1),                                //
+                      B(StoreICSloppy), A(1, 2), U8(0),                 //
+                                        U8((wide_idx_1 += 2))),         //
+           B(LdaSmi8), U8(2),                                           //
+           B(StoreICSloppyWide), A(1, 2), U16(0), U16(wide_idx_1 + 2),  //
+           B(LdaUndefined),                                             //
+           B(Return),                                                   //
        },
        1,
        {"name"}},
       {"function f(a) {\n"
-       "'use strict';\n" REPEAT_127(SPACE,
-                                    " a.name = 1; ") " a.name = 2; }\n"
-                                                     "f({name : \"test\"})\n",
+       " 'use strict';\n"
+       "  a.name = 1;"
+       REPEAT_127(SPACE, " a.name = 1; ")
+       " a.name = 2; }\n"
+       "f({name : \"test\"})\n",
        0,
        2,
-       770,
+       778,
        {
-           REPEAT_127(COMMA,              //
-                      B(LdaSmi8), U8(1),  //
-                      B(StoreICStrict), A(1, 2), U8(0),
-                      U8((wide_idx_2 += 2))),  //
-           B(LdaSmi8),
-           U8(2),                                                 //
-           B(StoreICStrict), A(1, 2), U8(0), U8(wide_idx_2 + 2),  //
-           B(LdaUndefined),                                       //
-           B(Return),                                             //
+           B(LdaSmi8), U8(1),                                           //
+           B(StoreICStrict), A(1, 2), U8(0), U8(wide_idx_2 += 2),       //
+           REPEAT_127(COMMA,                                            //
+                      B(LdaSmi8), U8(1),                                //
+                      B(StoreICStrict), A(1, 2), U8(0),                 //
+                                        U8((wide_idx_2 += 2))),         //
+           B(LdaSmi8), U8(2),                                           //
+           B(StoreICStrictWide), A(1, 2), U16(0), U16(wide_idx_2 + 2),  //
+           B(LdaUndefined),                                             //
+           B(Return),                                                   //
        },
        1,
        {"name"}},
-      {"function f(a, b) {\n" REPEAT_127(
-           SPACE, " a[b] = 1; ") " a[b] = 2; }\n"
-                                 "f({name : \"test\"})\n",
+      {"function f(a, b) {\n"
+       " a[b] = 1;"
+        REPEAT_127(SPACE, " a[b] = 1; ")
+       " a[b] = 2; }\n"
+       "f({name : \"test\"})\n",
        0,
        3,
-       770,
+       777,
        {
-           REPEAT_127(COMMA,                                    //
-                      B(LdaSmi8), U8(1),                        //
-                      B(KeyedStoreICSloppy), A(1, 3), A(2, 3),  //
-                      U8((wide_idx_3 += 2))),                   //
-           B(LdaSmi8),
-           U8(2),                                    //
-           B(KeyedStoreICSloppy), A(1, 3), A(2, 3),  //
-           U8(wide_idx_3 + 2),                       //
-           B(LdaUndefined),                          //
-           B(Return),                                //
+           B(LdaSmi8), U8(1),                                                 //
+           B(KeyedStoreICSloppy), A(1, 3), A(2, 3), U8(wide_idx_3 += 2),      //
+           REPEAT_127(COMMA,                                                  //
+                      B(LdaSmi8), U8(1),                                      //
+                      B(KeyedStoreICSloppy), A(1, 3), A(2, 3),                //
+                      U8((wide_idx_3 += 2))),                                 //
+           B(LdaSmi8), U8(2),                                                 //
+           B(KeyedStoreICSloppyWide), A(1, 3), A(2, 3), U16(wide_idx_3 + 2),  //
+           B(LdaUndefined),                                                   //
+           B(Return),                                                         //
        }},
       {"function f(a, b) {\n"
-       "'use strict';\n" REPEAT_127(SPACE,
-                                    " a[b] = 1; ") " a[b] = 2; }\n"
-                                                   "f({name : \"test\"})\n",
+       " 'use strict';\n"
+       "  a[b] = 1;"
+        REPEAT_127(SPACE, " a[b] = 1; ")
+       " a[b] = 2; }\n"
+       "f({name : \"test\"})\n",
        0,
        3,
-       770,
+       777,
        {
-           REPEAT_127(COMMA,                                    //
-                      B(LdaSmi8), U8(1),                        //
-                      B(KeyedStoreICStrict), A(1, 3), A(2, 3),  //
-                      U8((wide_idx_4 += 2))),                   //
-           B(LdaSmi8),
-           U8(2),                                    //
-           B(KeyedStoreICStrict), A(1, 3), A(2, 3),  //
-           U8(wide_idx_4 + 2),                       //
-           B(LdaUndefined),                          //
-           B(Return),                                //
+           B(LdaSmi8), U8(1),                                                 //
+           B(KeyedStoreICStrict), A(1, 3), A(2, 3), U8(wide_idx_4 += 2),      //
+           REPEAT_127(COMMA,                                                  //
+                      B(LdaSmi8), U8(1),                                      //
+                      B(KeyedStoreICStrict), A(1, 3), A(2, 3),                //
+                                             U8((wide_idx_4 += 2))),          //
+           B(LdaSmi8), U8(2),                                                 //
+           B(KeyedStoreICStrictWide), A(1, 3), A(2, 3), U16(wide_idx_4 + 2),  //
+           B(LdaUndefined),                                                   //
+           B(Return),                                                         //
        }}};
   for (size_t i = 0; i < arraysize(snippets); i++) {
     Handle<BytecodeArray> bytecode_array =
@@ -1269,21 +1301,23 @@ TEST(PropertyCall) {
        },
        1,
        {"func"}},
-      {"function f(a) {\n" REPEAT_127(
-           SPACE, " a.func;\n") " return a.func(); }\nf(" FUNC_ARG ")",
+      {"function f(a) {\n"
+       " a.func;\n"
+       REPEAT_127(SPACE, " a.func;\n")
+       " return a.func(); }\nf(" FUNC_ARG ")",
        2 * kPointerSize,
        2,
-       526,
+       532,
        {
+           B(LoadICSloppy), A(1, 2), U8(0), U8(wide_idx += 2),                //
            REPEAT_127(COMMA,                                                  //
                       B(LoadICSloppy), A(1, 2), U8(0), U8((wide_idx += 2))),  //
-           B(Ldar),
-           A(1, 2),                                               //
-           B(Star), R(1),                                         //
-           B(LoadICSloppyWide), R(1), U16(0), U16(wide_idx + 4),  //
-           B(Star), R(0),                                         //
-           B(Call), R(0), R(1), U8(0), U8(wide_idx + 2),          //
-           B(Return),                                             //
+           B(Ldar), A(1, 2),                                                  //
+           B(Star), R(1),                                                     //
+           B(LoadICSloppyWide), R(1), U16(0), U16(wide_idx + 4),              //
+           B(Star), R(0),                                                     //
+           B(CallWide), R(0), R(1), U16(0), U16(wide_idx + 2),                //
+           B(Return),                                                         //
        },
        1,
        {"func"}},
@@ -1352,32 +1386,40 @@ TEST(LoadGlobal) {
        },
        1,
        {"a"}},
-      {"a = 1; function f(b) {\n" REPEAT_127(
-           SPACE, "b.name; ") " return a; }\nf({name: 1});",
+      {"a = 1;"
+       "function f(b) {\n"
+       "   b.name;\n"
+        REPEAT_127(SPACE, "b.name; ")
+       " return a;"
+       "}\nf({name: 1});",
        0,
        2,
-       512,
+       518,
        {
+           B(LoadICSloppy), A(1, 2), U8(0), U8(wide_idx_1 += 2),              //
            REPEAT_127(COMMA,                                                  //
                       B(LoadICSloppy), A(1, 2), U8(0), U8(wide_idx_1 += 2)),  //
-           B(LdaGlobalSloppy),
-           U8(1), U8(wide_idx_1 + 2),  //
-           B(Return),                  //
+           B(LdaGlobalSloppyWide), U16(1), U16(wide_idx_1 + 2),               //
+           B(Return),                                                         //
        },
        2,
        {"name", "a"}},
-      {"a = 1; function f(b) {\n"
-       " 'use strict';\n" REPEAT_127(SPACE,
-                                     "b.name; ") " return a; }\nf({name: 1});",
+      {"a = 1;"
+       "function f(b) {\n"
+       " 'use strict';\n"
+       "  b.name\n"
+          REPEAT_127(SPACE, "b.name; ")
+       "  return a;"
+       "}\nf({name: 1});",
        0,
        2,
-       512,
+       518,
        {
+           B(LoadICStrict), A(1, 2), U8(0), U8(wide_idx_2 += 2),              //
            REPEAT_127(COMMA,                                                  //
                       B(LoadICStrict), A(1, 2), U8(0), U8(wide_idx_2 += 2)),  //
-           B(LdaGlobalStrict),
-           U8(1), U8(wide_idx_2 + 2),  //
-           B(Return),                  //
+           B(LdaGlobalStrictWide), U16(1), U16(wide_idx_2 + 2),               //
+           B(Return),                                                         //
        },
        2,
        {"name", "a"}},
@@ -1455,36 +1497,44 @@ TEST(StoreGlobal) {
        },
        1,
        {"a"}},
-      {"a = 1; function f(b) {\n" REPEAT_127(
-           SPACE, "b.name; ") " a = 2; }\nf({name: 1});",
+      {"a = 1;"
+       "function f(b) {"
+       " b.name;\n"
+       REPEAT_127(SPACE, "b.name; ")
+       " a = 2; }\n"
+       "f({name: 1});",
        0,
        2,
-       515,
+       521,
        {
+           B(LoadICSloppy), A(1, 2), U8(0), U8(wide_idx_1 += 2),              //
            REPEAT_127(COMMA,                                                  //
                       B(LoadICSloppy), A(1, 2), U8(0), U8(wide_idx_1 += 2)),  //
-           B(LdaSmi8),
-           U8(2),                                          //
-           B(StaGlobalSloppy), U8(1), U8(wide_idx_1 + 2),  //
-           B(LdaUndefined),                                //
-           B(Return),                                      //
+           B(LdaSmi8), U8(2),                                                 //
+           B(StaGlobalSloppyWide), U16(1), U16(wide_idx_1 + 2),               //
+           B(LdaUndefined),                                                   //
+           B(Return),                                                         //
        },
        2,
        {"name", "a"}},
-      {"a = 1; function f(b) {\n"
-       " 'use strict';\n" REPEAT_127(SPACE,
-                                     "b.name; ") " a = 2; }\nf({name: 1});",
+      {"a = 1;"
+       "function f(b) {\n"
+       " 'use strict';\n"
+       "  b.name;\n"
+       REPEAT_127(SPACE, "b.name; ")
+       " a = 2; }\n"
+       "f({name: 1});",
        0,
        2,
-       515,
+       521,
        {
+           B(LoadICStrict), A(1, 2), U8(0), U8(wide_idx_2 += 2),              //
            REPEAT_127(COMMA,                                                  //
                       B(LoadICStrict), A(1, 2), U8(0), U8(wide_idx_2 += 2)),  //
-           B(LdaSmi8),
-           U8(2),                                          //
-           B(StaGlobalStrict), U8(1), U8(wide_idx_2 + 2),  //
-           B(LdaUndefined),                                //
-           B(Return),                                      //
+           B(LdaSmi8), U8(2),                                                 //
+           B(StaGlobalStrictWide), U16(1), U16(wide_idx_2 + 2),               //
+           B(LdaUndefined),                                                   //
+           B(Return),                                                         //
        },
        2,
        {"name", "a"}},
@@ -2578,6 +2628,77 @@ TEST(BasicLoops) {
        },
        0},
   };
+
+  for (size_t i = 0; i < arraysize(snippets); i++) {
+    Handle<BytecodeArray> bytecode_array =
+        helper.MakeBytecodeForFunctionBody(snippets[i].code_snippet);
+    CheckBytecodeArrayEqual(snippets[i], bytecode_array);
+  }
+}
+
+
+TEST(JumpsRequiringConstantWideOperands) {
+  InitializedHandleScope handle_scope;
+  BytecodeGeneratorHelper helper;
+
+  int constant_count = 0;
+  ExpectedSnippet<Handle<Object>, 315> snippets[] = {
+      {
+       REPEAT_256(SPACE, "var x = 0.1;")
+       REPEAT_32(SPACE, "var x = 0.2;")
+       REPEAT_16(SPACE, "var x = 0.3;")
+       REPEAT_8(SPACE, "var x = 0.4;")
+       "for (var i = 0; i < 3; i++) {\n"
+       "  if (i == 1) continue;\n"
+       "  if (i == 2) break;\n"
+       "}\n"
+       "return 3;",
+       kPointerSize * 3,
+       1,
+       1347,
+       {
+#define L(c) B(LdaConstant), U8(c), B(Star), R(0)
+         REPEAT_256(COMMA, L(constant_count++)),
+#undef L
+#define LW(c) B(LdaConstantWide), U16I(c), B(Star), R(0)
+         REPEAT_32(COMMA, LW(constant_count)),
+         REPEAT_16(COMMA, LW(constant_count)),
+         REPEAT_8(COMMA, LW(constant_count)),
+#undef LW
+           B(LdaZero),                            //
+           B(Star), R(1),                         //
+           B(LdaSmi8), U8(3),                     //
+           B(TestLessThan), R(1),                 //
+           B(JumpIfFalseConstantWide), U16(313),  //
+           B(LdaSmi8), U8(1),                     //
+           B(TestEqual), R(1),                    //
+           B(JumpIfFalseConstantWide), U16(312),  //
+           B(JumpConstantWide), U16(314),         //
+           B(LdaSmi8), U8(2),                     //
+           B(TestEqual), R(1),                    //
+           B(JumpIfFalseConstantWide), U16(312),  //
+           B(JumpConstantWide), U16(314),         //
+           B(Ldar), R(1),                         //
+           B(ToNumber),                           //
+           B(Star), R(2),                         //
+           B(Inc),                                //
+           B(Star), R(1),                         //
+           B(Jump), U8(-35),                      //
+           B(LdaSmi8), U8(3),                     //
+           B(Return)                              //
+       },
+       315,
+       {
+#define S(x) CcTest::i_isolate()->factory()->NewNumber(x)
+        REPEAT_256(COMMA, S(0.1)),
+        REPEAT_32(COMMA, S(0.2)),
+        REPEAT_16(COMMA, S(0.3)),
+        REPEAT_8(COMMA, S(0.4)),
+#undef S
+#define N(x) CcTest::i_isolate()->factory()->NewNumberFromInt(x)
+        N(6), N(33), N(13),
+#undef N
+       }}};
 
   for (size_t i = 0; i < arraysize(snippets); i++) {
     Handle<BytecodeArray> bytecode_array =
@@ -5780,6 +5901,103 @@ TEST(LookupSlotInEval) {
        },
        1,
        {"x"}},
+  };
+
+  for (size_t i = 0; i < arraysize(snippets); i++) {
+    std::string script = std::string(function_prologue) +
+                         std::string(snippets[i].code_snippet) +
+                         std::string(function_epilogue);
+    // TODO(mythria): use * as filter when function declarations are supported
+    // inside eval.
+    Handle<BytecodeArray> bytecode_array =
+        helper.MakeBytecode(script.c_str(), "t", "f");
+    CheckBytecodeArrayEqual(snippets[i], bytecode_array);
+  }
+}
+
+
+TEST(LookupSlotWideInEval) {
+  InitializedHandleScope handle_scope;
+  BytecodeGeneratorHelper helper;
+
+  const char* function_prologue =
+      "var f;"
+      "var x = 1;"
+      "function f1() {"
+      "  eval(\"function t() {";
+  const char* function_epilogue =
+      "        }; f = t; f();\");"
+      "}"
+      "f1();";
+
+  int const_count[] = {0, 0, 0, 0};
+  ExpectedSnippet<InstanceType, 257> snippets[] = {
+      {REPEAT_256(SPACE, "var y = 2.3;")
+       "return x;",
+       1 * kPointerSize,
+       1,
+       1028,
+       {
+           REPEAT_256(SPACE,                         //
+             B(LdaConstant), U8(const_count[0]++),   //
+             B(Star), R(0), )                        //
+           B(LdaLookupSlotWide), U16(256),           //
+           B(Return)                                 //
+       },
+       257,
+       {REPEAT_256(COMMA, InstanceType::HEAP_NUMBER_TYPE),
+        InstanceType::ONE_BYTE_INTERNALIZED_STRING_TYPE}},
+      {REPEAT_256(SPACE, "var y = 2.3;")
+       "return typeof x;",
+       1 * kPointerSize,
+       1,
+       1029,
+       {
+           REPEAT_256(SPACE,                            //
+             B(LdaConstant), U8(const_count[1]++),      //
+             B(Star), R(0), )                           //
+           B(LdaLookupSlotInsideTypeofWide), U16(256),  //
+           B(TypeOf),                                   //
+           B(Return)                                    //
+       },
+       257,
+       {REPEAT_256(COMMA, InstanceType::HEAP_NUMBER_TYPE),
+        InstanceType::ONE_BYTE_INTERNALIZED_STRING_TYPE}},
+      {REPEAT_256(SPACE, "var y = 2.3;")
+       "x = 10;",
+       1 * kPointerSize,
+       1,
+       1031,
+       {
+           REPEAT_256(SPACE,                        //
+             B(LdaConstant), U8(const_count[2]++),  //
+             B(Star), R(0), )                       //
+           B(LdaSmi8), U8(10),                      //
+           B(StaLookupSlotSloppyWide), U16(256),    //
+           B(LdaUndefined),                         //
+           B(Return)                                //
+       },
+       257,
+       {REPEAT_256(COMMA, InstanceType::HEAP_NUMBER_TYPE),
+        InstanceType::ONE_BYTE_INTERNALIZED_STRING_TYPE}},
+      {"'use strict';"
+       REPEAT_256(SPACE, "var y = 2.3;")
+       "x = 10;",
+       1 * kPointerSize,
+       1,
+       1031,
+       {
+           REPEAT_256(SPACE,
+             B(LdaConstant), U8(const_count[3]++),  //
+             B(Star), R(0), )                       //
+           B(LdaSmi8), U8(10),                      //
+           B(StaLookupSlotStrictWide), U16(256),    //
+           B(LdaUndefined),                         //
+           B(Return)                                //
+       },
+       257,
+       {REPEAT_256(COMMA, InstanceType::HEAP_NUMBER_TYPE),
+        InstanceType::ONE_BYTE_INTERNALIZED_STRING_TYPE}},
   };
 
   for (size_t i = 0; i < arraysize(snippets); i++) {

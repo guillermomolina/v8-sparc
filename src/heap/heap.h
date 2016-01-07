@@ -212,6 +212,7 @@ namespace internal {
 #define INTERNALIZED_STRING_LIST(V)                              \
   V(anonymous_string, "anonymous")                               \
   V(apply_string, "apply")                                       \
+  V(assign_string, "assign")                                     \
   V(arguments_string, "arguments")                               \
   V(Arguments_string, "Arguments")                               \
   V(Array_string, "Array")                                       \
@@ -237,6 +238,7 @@ namespace internal {
   V(configurable_string, "configurable")                         \
   V(constructor_string, "constructor")                           \
   V(construct_string, "construct")                               \
+  V(create_string, "create")                                     \
   V(Date_string, "Date")                                         \
   V(default_string, "default")                                   \
   V(defineProperty_string, "defineProperty")                     \
@@ -274,6 +276,7 @@ namespace internal {
   V(int8x16_string, "int8x16")                                   \
   V(Int8x16_string, "Int8x16")                                   \
   V(isExtensible_string, "isExtensible")                         \
+  V(isView_string, "isView")                                     \
   V(KeyedLoadMonomorphic_string, "KeyedLoadMonomorphic")         \
   V(KeyedStoreMonomorphic_string, "KeyedStoreMonomorphic")       \
   V(last_index_string, "lastIndex")                              \
@@ -352,6 +355,8 @@ namespace internal {
   V(internal_error_symbol)                  \
   V(intl_impl_object_symbol)                \
   V(intl_initialized_marker_symbol)         \
+  V(intl_pattern_symbol)                    \
+  V(intl_resolved_symbol)                   \
   V(megamorphic_symbol)                     \
   V(native_context_index_symbol)            \
   V(nonexistent_symbol)                     \
@@ -376,14 +381,15 @@ namespace internal {
   V(strong_function_transition_symbol)      \
   V(uninitialized_symbol)
 
-#define PUBLIC_SYMBOL_LIST(V)                 \
-  V(has_instance_symbol, Symbol.hasInstance)  \
-  V(iterator_symbol, Symbol.iterator)         \
-  V(match_symbol, Symbol.match)               \
-  V(replace_symbol, Symbol.replace)           \
-  V(search_symbol, Symbol.search)             \
-  V(split_symbol, Symbol.split)               \
-  V(to_primitive_symbol, Symbol.toPrimitive)  \
+#define PUBLIC_SYMBOL_LIST(V)                \
+  V(has_instance_symbol, Symbol.hasInstance) \
+  V(iterator_symbol, Symbol.iterator)        \
+  V(match_symbol, Symbol.match)              \
+  V(replace_symbol, Symbol.replace)          \
+  V(search_symbol, Symbol.search)            \
+  V(species_symbol, Symbol.species)          \
+  V(split_symbol, Symbol.split)              \
+  V(to_primitive_symbol, Symbol.toPrimitive) \
   V(unscopables_symbol, Symbol.unscopables)
 
 // Well-Known Symbols are "Public" symbols, which have a bit set which causes

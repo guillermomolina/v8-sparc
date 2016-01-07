@@ -521,6 +521,26 @@ Handle<JSObject> NewStrictArguments(Isolate* isolate, Handle<JSFunction> callee,
 }
 
 
+template <typename T>
+Handle<JSObject> NewRestArguments(Isolate* isolate, Handle<JSFunction> callee,
+                                  T parameters, int argument_count,
+                                  int start_index) {
+  int num_elements = std::max(0, argument_count - start_index);
+  Handle<JSObject> result = isolate->factory()->NewJSArray(
+      FAST_ELEMENTS, num_elements, num_elements, Strength::WEAK,
+      DONT_INITIALIZE_ARRAY_ELEMENTS);
+  {
+    DisallowHeapAllocation no_gc;
+    FixedArray* elements = FixedArray::cast(result->elements());
+    WriteBarrierMode mode = result->GetWriteBarrierMode(no_gc);
+    for (int i = 0; i < num_elements; i++) {
+      elements->set(i, parameters[i + start_index], mode);
+    }
+  }
+  return result;
+}
+
+
 class HandleArguments BASE_EMBEDDED {
  public:
   explicit HandleArguments(Handle<Object>* array) : array_(array) {}
@@ -571,6 +591,22 @@ RUNTIME_FUNCTION(Runtime_NewStrictArguments_Generic) {
 }
 
 
+RUNTIME_FUNCTION(Runtime_NewRestArguments_Generic) {
+  HandleScope scope(isolate);
+  DCHECK(args.length() == 2);
+  CONVERT_ARG_HANDLE_CHECKED(JSFunction, callee, 0)
+  CONVERT_SMI_ARG_CHECKED(start_index, 1);
+  // This generic runtime function can also be used when the caller has been
+  // inlined, we use the slow but accurate {Runtime::GetCallerArguments}.
+  int argument_count = 0;
+  base::SmartArrayPointer<Handle<Object>> arguments =
+      Runtime::GetCallerArguments(isolate, 0, &argument_count);
+  HandleArguments argument_getter(arguments.get());
+  return *NewRestArguments(isolate, callee, argument_getter, argument_count,
+                           start_index);
+}
+
+
 RUNTIME_FUNCTION(Runtime_NewSloppyArguments) {
   HandleScope scope(isolate);
   DCHECK(args.length() == 3);
@@ -606,8 +642,7 @@ RUNTIME_FUNCTION(Runtime_NewStrictArguments) {
 
 
 static Handle<JSArray> NewRestParam(Isolate* isolate, Object** parameters,
-                                    int num_params, int rest_index,
-                                    LanguageMode language_mode) {
+                                    int num_params, int rest_index) {
   parameters -= rest_index;
   int num_elements = std::max(0, num_params - rest_index);
   Handle<FixedArray> elements =
@@ -615,29 +650,26 @@ static Handle<JSArray> NewRestParam(Isolate* isolate, Object** parameters,
   for (int i = 0; i < num_elements; ++i) {
     elements->set(i, *--parameters);
   }
-  return isolate->factory()->NewJSArrayWithElements(
-      elements, FAST_ELEMENTS, num_elements, strength(language_mode));
+  return isolate->factory()->NewJSArrayWithElements(elements, FAST_ELEMENTS,
+                                                    num_elements);
 }
 
 
 RUNTIME_FUNCTION(Runtime_NewRestParam) {
   HandleScope scope(isolate);
-  DCHECK(args.length() == 4);
-  Object** parameters = reinterpret_cast<Object**>(args[0]);
-  CONVERT_SMI_ARG_CHECKED(num_params, 1);
+  DCHECK(args.length() == 3);
+  CONVERT_SMI_ARG_CHECKED(num_params, 0);
+  Object** parameters = reinterpret_cast<Object**>(args[1]);
   CONVERT_SMI_ARG_CHECKED(rest_index, 2);
-  CONVERT_SMI_ARG_CHECKED(language_mode, 3);
 
-  return *NewRestParam(isolate, parameters, num_params, rest_index,
-                       static_cast<LanguageMode>(language_mode));
+  return *NewRestParam(isolate, parameters, num_params, rest_index);
 }
 
 
 RUNTIME_FUNCTION(Runtime_NewRestParamSlow) {
   HandleScope scope(isolate);
-  DCHECK(args.length() == 2);
+  DCHECK(args.length() == 1);
   CONVERT_SMI_ARG_CHECKED(rest_index, 0);
-  CONVERT_SMI_ARG_CHECKED(language_mode, 1);
 
   JavaScriptFrameIterator it(isolate);
 
@@ -648,8 +680,7 @@ RUNTIME_FUNCTION(Runtime_NewRestParamSlow) {
   int argument_count = frame->GetArgumentsLength();
   Object** parameters = reinterpret_cast<Object**>(frame->GetParameterSlot(-1));
 
-  return *NewRestParam(isolate, parameters, argument_count, rest_index,
-                       static_cast<LanguageMode>(language_mode));
+  return *NewRestParam(isolate, parameters, argument_count, rest_index);
 }
 
 

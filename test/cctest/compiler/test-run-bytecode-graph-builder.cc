@@ -1016,6 +1016,92 @@ TEST(BytecodeGraphBuilderDeleteLookupSlot) {
 }
 
 
+TEST(BytecodeGraphBuilderLookupSlot) {
+  HandleAndZoneScope scope;
+  Isolate* isolate = scope.main_isolate();
+  Zone* zone = scope.main_zone();
+  Factory* factory = isolate->factory();
+
+  const char* function_prologue = "var f;"
+                                  "var x = 12;"
+                                  "y = 10;"
+                                  "var obj = {val:3.1414};"
+                                  "var z = 30;"
+                                  "function f1() {"
+                                  "  var z = 20;"
+                                  "  eval(\"function t() {";
+  const char* function_epilogue = "        }; f = t; t();\");"
+                                  "}"
+                                  "f1();";
+
+  ExpectedSnippet<0> snippets[] = {
+      {"return x;", {factory->NewNumber(12)}},
+      {"return obj.val;", {factory->NewNumber(3.1414)}},
+      {"return typeof x;", {factory->NewStringFromStaticChars("number")}},
+      {"return typeof dummy;",
+       {factory->NewStringFromStaticChars("undefined")}},
+      {"x = 23; return x;", {factory->NewNumber(23)}},
+      {"'use strict'; obj.val = 23.456; return obj.val;",
+       {factory->NewNumber(23.456)}}};
+
+  size_t num_snippets = sizeof(snippets) / sizeof(snippets[0]);
+  for (size_t i = 0; i < num_snippets; i++) {
+    ScopedVector<char> script(1024);
+    SNPrintF(script, "%s %s %s", function_prologue, snippets[i].code_snippet,
+             function_epilogue);
+
+    BytecodeGraphTester tester(isolate, zone, script.start(), "t");
+    auto callable = tester.GetCallable<>();
+    Handle<Object> return_value = callable().ToHandleChecked();
+    CHECK(return_value->SameValue(*snippets[i].return_value()));
+  }
+}
+
+
+TEST(BytecodeGraphBuilderLookupSlotWide) {
+  HandleAndZoneScope scope;
+  Isolate* isolate = scope.main_isolate();
+  Zone* zone = scope.main_zone();
+  Factory* factory = isolate->factory();
+
+  const char* function_prologue =
+      "var f;"
+      "var x = 12;"
+      "y = 10;"
+      "var obj = {val:3.1414};"
+      "var z = 30;"
+      "function f1() {"
+      "  var z = 20;"
+      "  eval(\"function t() {";
+  const char* function_epilogue =
+      "        }; f = t; t();\");"
+      "}"
+      "f1();";
+
+  ExpectedSnippet<0> snippets[] = {
+      {"var y = 2.3;" REPEAT_256(SPACE, "y = 2.3;") "return x;",
+       {factory->NewNumber(12)}},
+      {"var y = 2.3;" REPEAT_256(SPACE, "y = 2.3;") "return typeof x;",
+       {factory->NewStringFromStaticChars("number")}},
+      {"var y = 2.3;" REPEAT_256(SPACE, "y = 2.3;") "return x = 23;",
+       {factory->NewNumber(23)}},
+      {"'use strict';" REPEAT_256(SPACE, "y = 2.3;") "return obj.val = 23.456;",
+       {factory->NewNumber(23.456)}}};
+
+  size_t num_snippets = sizeof(snippets) / sizeof(snippets[0]);
+  for (size_t i = 0; i < num_snippets; i++) {
+    ScopedVector<char> script(3072);
+    SNPrintF(script, "%s %s %s", function_prologue, snippets[i].code_snippet,
+             function_epilogue);
+
+    BytecodeGraphTester tester(isolate, zone, script.start(), "t");
+    auto callable = tester.GetCallable<>();
+    Handle<Object> return_value = callable().ToHandleChecked();
+    CHECK(return_value->SameValue(*snippets[i].return_value()));
+  }
+}
+
+
 bool get_compare_result(Token::Value opcode, Handle<Object> lhs_value,
                         Handle<Object> rhs_value) {
   switch (opcode) {
@@ -2065,6 +2151,46 @@ TEST(BytecodeGraphBuilderForIn) {
   }
 }
 
+
+TEST(JumpWithConstantsAndWideConstants) {
+  HandleAndZoneScope scope;
+  auto isolate = scope.main_isolate();
+  const int kStep = 19;
+  int start = 7;
+  for (int constants = start; constants < 256 + 3 * kStep; constants += kStep) {
+    std::stringstream filler_os;
+    // Generate a string that consumes constant pool entries and
+    // spread out branch distances in script below.
+    for (int i = 0; i < constants; i++) {
+      filler_os << "var x_ = 'x_" << i << "';\n";
+    }
+    std::string filler(filler_os.str());
+
+    std::stringstream script_os;
+    script_os << "function " << kFunctionName << "(a) {\n";
+    script_os << "  " << filler;
+    script_os << "  for (var i = a; i < 2; i++) {\n";
+    script_os << "  " << filler;
+    script_os << "    if (i == 0) { " << filler << "i = 10; continue; }\n";
+    script_os << "    else if (i == a) { " << filler << "i = 12; break; }\n";
+    script_os << "    else { " << filler << " }\n";
+    script_os << "  }\n";
+    script_os << "  return i;\n";
+    script_os << "}\n";
+    script_os << kFunctionName << "(0);\n";
+    std::string script(script_os.str());
+    auto factory = isolate->factory();
+    auto zone = scope.main_zone();
+    for (int a = 0; a < 3; a++) {
+      BytecodeGraphTester tester(isolate, zone, script.c_str());
+      auto callable = tester.GetCallable<Handle<Object>>();
+      Handle<Object> return_val =
+          callable(factory->NewNumberFromInt(a)).ToHandleChecked();
+      static const int results[] = {11, 12, 2};
+      CHECK_EQ(Handle<Smi>::cast(return_val)->value(), results[a]);
+    }
+  }
+}
 
 }  // namespace compiler
 }  // namespace internal
